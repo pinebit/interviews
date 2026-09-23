@@ -2,234 +2,132 @@
 
 The 20 most frequently asked AI engineering interview topics, with short answers.
 
-## 1. How do LLMs work?
+**Architecture & Orchestration**
 
-An LLM is a **decoder-only transformer** trained to predict the **next token**. Text is split into tokens (subword units, roughly 4 characters of English each). Each token becomes an embedding vector, and stacked layers of **self-attention** plus feed-forward networks turn the sequence into a probability distribution over the next token. Generation is autoregressive: sample one token, append it, and repeat.
+## 1. How do you design an enterprise AI system and workflow?
 
-Attention lets every token weigh every earlier token, so its cost grows **O(n²)** with context length. Inference has two phases. **Prefill** processes the whole prompt in parallel and is compute-bound. **Decode** produces one token at a time and is memory-bandwidth-bound. The **KV cache** keeps the attention keys and values from previous tokens so they aren't recomputed. This is why output tokens cost more and are slower than input tokens.
+Start with the **business outcome** and map inputs, systems, decisions, actions, failure cases, and owners. Put deterministic rules in code, use an LLM for ambiguous language or judgment, and add gates before consequential actions. A typical topology is an API or event trigger → queue → durable workflow → model, retrieval, and connector services → audit log. Keep state outside the model so work can resume after a crash.
 
-## 2. What is RAG?
+A practical flow is intake → classify → retrieve evidence → draft or decide → validate → approve if needed → execute → record the outcome. Define success, escalation, throughput, latency, and cost before choosing an agent framework. Use queues or event streams to decouple slow systems; see [system.md](system.md) for their trade-offs.
 
-**Retrieval-Augmented Generation** fetches relevant documents at query time and puts them in the prompt, so the model answers from your data rather than its weights alone. It keeps knowledge fresh without retraining, lets you cite sources, and reduces hallucination.
+## 2. When should you use a workflow, a single agent, or multiple agents?
 
-The pipeline:
+A **workflow** fixes the steps in code; a **single agent** chooses tools and next steps within a bounded task; a **multi-agent system** delegates distinct work to specialists. Use the least complex design that passes the task's evaluations. Extra agents add handoffs, latency, cost, and more ways to lose context.
 
-- **Indexing:** chunk documents (by structure, a few hundred tokens with overlap), embed the chunks, and store them in a vector index with metadata.
-- **Retrieval:** embed the query and find the top-k chunks. **Hybrid search** combines dense vectors with BM25 keyword search, merged by reciprocal rank fusion.
-- **Reranking:** a cross-encoder rescores the candidates for precision.
-- **Generation:** the prompt includes the chunks and an instruction to answer only from them, with citations.
+Choose multiple agents when roles need different tools or instructions, or independent subtasks can run in parallel. Assign one component responsibility for the final result, define the data each handoff must include, and set budgets and stop conditions.
 
-Most failures come from retrieval, not generation. Common causes are bad chunking, a query that doesn't match the document wording (fix with query rewriting or HyDE), and missing metadata filters. Evaluate retrieval separately (recall@k) from the final answer (faithfulness). **Agentic RAG** exposes search as a tool, so the model can issue several queries, refine them, and decide when it has enough. It replaces the single fixed retrieval step.
+## 3. How does stateful agent orchestration work?
 
-## 3. What is an AI agent?
+A **stateful graph** represents steps as nodes, transitions as edges, and task data as explicit state. It can branch, loop, pause for review, and resume from a checkpoint. LangGraph and LlamaIndex Workflows are examples; CrewAI and AutoGen focus on agent collaboration patterns.
 
-An agent is an LLM that **uses tools in a loop** until the task is done. The model reads the context, decides on an action (a tool call), the harness executes it, the result is appended to the context, and the loop repeats until the model returns a final answer or a limit is hit. This is the **ReAct** pattern (reason + act).
+For long business processes, persist task IDs, inputs, completed steps, approvals, and external side effects. **Durable execution** with Temporal suits processes that wait and retry for days; Airflow suits scheduled data pipelines; n8n and Make speed up connector-driven automation. None makes an external write exactly once: use idempotency keys or deduplication. See [distributed.md](distributed.md) for retry semantics.
 
-The parts of an agent are:
+## 4. How do planning, reflection, and self-correction help agents?
 
-- **Model:** does the reasoning.
-- **Tools:** functions with a name, a description, and a JSON schema.
-- **Instructions:** the system prompt.
-- **Context/memory management:** controls what the model sees on each step.
-- **Harness:** runs the loop and enforces budgets, permissions, and stop conditions.
+**Planning** decomposes an open-ended task into verifiable steps; **reflection** checks an intermediate result against requirements and repairs a concrete error. ReAct alternates tool use with updated decisions, while plan-and-execute separates initial planning from execution. These patterns help when the next action depends on tool results.
 
-Agents fit open-ended tasks where you can't hardcode the steps. The costs are latency, token spend, and compounding errors: 95% per-step reliability over 20 steps gives only about 36% end-to-end. Mitigate with good tool design, verification steps (tests, checks), human approval for risky actions, and step and cost limits.
+Do not add open-ended critique loops by default: they can repeat mistakes and consume budget. Set a maximum number of steps, require evidence such as tests or source records, and escalate when the agent cannot resolve a failure. A model's private reasoning text is not a reliable audit record; store decisions and tool outcomes explicitly.
 
-## 4. Workflows vs agents?
+## 5. How do you redesign a business process around AI?
 
-A **workflow** runs LLM calls through code paths you define in advance. An **agent** lets the model choose its own path. Workflows are predictable, cheaper, and easier to test. Agents handle open-ended problems. Start with the simplest thing that works, often a single call with good retrieval, and add agency only when it clearly helps.
+Map the current **process**, including handoffs, waiting time, exceptions, and reasons for human judgment. Choose a narrow outcome to improve, such as time to resolve a support case, then automate the repetitive steps and preserve human decisions where they add value. Design the exception path before scaling the happy path.
 
-Common workflow patterns (from Anthropic's "Building effective agents"):
+Pilot with real users and measure cycle time, error rate, adoption, cost, and downstream rework. Update roles, training, and operating procedures alongside the software; copying every old manual step into an agent workflow usually preserves the old bottlenecks.
 
-- **Prompt chaining:** fixed sequential steps, with gates between them.
-- **Routing:** classify the input and send it to a specialized prompt or model.
-- **Parallelization:** split into independent subtasks (sectioning), or run the same task several times and vote.
-- **Orchestrator-workers:** a lead LLM breaks the task down on the fly and delegates to workers.
-- **Evaluator-optimizer:** one call generates, another critiques, and the loop repeats until it passes.
+**Data & Knowledge (RAG)**
 
-## 5. Prompt engineering vs context engineering?
+## 6. How do you build a RAG system for enterprise knowledge?
 
-**Prompt engineering** is writing good instructions:
+**Retrieval-augmented generation (RAG)** indexes permitted source material, retrieves relevant passages for a question, and gives those passages to the model with source identifiers. The basic pipeline is ingest → parse → chunk → index → retrieve → rerank → answer with citations. Keep source versions and access metadata so answers can be traced and refreshed.
 
-- Be clear and specific about the task, audience, and output format.
-- Give the model a role and the relevant background.
-- Include a few examples (**few-shot**).
-- Separate sections with delimiters or XML tags.
-- Ask for step-by-step reasoning on hard problems.
-- Explain *why* a rule exists, not only what it is.
+RAG is useful for private or changing knowledge such as policies, contracts, and support records. It does not guarantee truth: the correct answer may be absent, outdated, or missed by retrieval. For questions about relationships between entities, **GraphRAG** can combine graph traversals (for example, in Neo4j) with source documents. Verify extracted relationships against the records and abstain when evidence is insufficient.
 
-**Context engineering** is the broader discipline of deciding everything that goes into the context window on each call: system prompt, tool definitions, retrieved documents, conversation history, memory, and tool results. For agents it is the main lever for quality. Too little context and the model guesses. Too much and quality degrades (**context rot**, "lost in the middle"), cost rises, and latency grows. Techniques include just-in-time retrieval through tools, summarizing or compacting old turns, trimming large tool outputs, and handing isolated subtasks to subagents with clean contexts.
+## 7. Why combine lexical and vector search, and when do you rerank?
 
-## 6. What are embeddings and how does vector search work?
+**Hybrid search** combines lexical search such as BM25, which catches exact names and IDs, with dense vector search, which catches semantic matches. Merge candidate lists with reciprocal rank fusion, then **rerank** a small set with a cross-encoder for precision; compress the final context to passages needed for the answer.
 
-An **embedding** is a dense vector (for example, 768–3072 dimensions) that places semantically similar text close together. Similarity is usually **cosine similarity** or dot product on normalized vectors. Use the same embedding model for indexing and querying. Changing the model means re-embedding everything.
+Choose pgvector when PostgreSQL is already the data platform; Qdrant, Pinecone, and Milvus are dedicated vector-search options. Compare filtering, scale, operations, and cost on real queries. Apply tenant and permission filters before results reach the model, and tune recall at k: reranking cannot recover a passage that was never retrieved.
 
-Exact nearest-neighbor search is O(n), so vector stores use **approximate nearest neighbor (ANN)** indexes:
+## 8. How do you ingest PDFs, scans, and other messy enterprise data?
 
-- **HNSW:** a layered proximity graph. Fast with high recall, but memory-heavy. The most common default.
-- **IVF:** clusters vectors and searches only the nearest clusters.
-- **Product quantization:** compresses vectors to save memory, at some cost to accuracy.
+A robust **ingestion pipeline** extracts text, tables, layout, and metadata; runs OCR on scanned pages; normalizes formats; and records the original page or section for citation. Tools such as Unstructured or LlamaParse can help, but check their output against complex tables and scans. Chunk by document structure; parent-document retrieval can return a matching passage plus its surrounding section.
 
-You tune the trade-off between recall and latency (for example, `ef_search` in HNSW). Metadata filtering combined with ANN is a common source of missed results.
+Handle duplicate files, version changes, failed parses, and deleted or revoked documents. Measure extraction quality on representative invoices, contracts, and scanned forms before indexing them; a good retriever cannot fix missing or misread source text.
 
-## 7. How do you evaluate an LLM application?
+## 9. How do you enforce document permissions in RAG?
 
-Build an **eval set** of realistic inputs with expected outputs or grading criteria, drawn from real usage and known failure cases. Run it on every prompt, model, or pipeline change, as a regression test in CI. Eval-driven development is the LLM counterpart of TDD: without evals, every change is a guess.
+Carry the requester's **identity and entitlements** into retrieval, and filter by tenant, document ACL, and sensitivity before the model sees a passage. Apply the same rule to cached answers, citations, follow-up retrieval, and agent memory. A prompt telling the model to ignore forbidden data is not an access-control mechanism.
 
-Grader types:
+Sync permissions and deletions from source systems such as SharePoint, Salesforce, or Jira. Test with users who have different access to similar documents, and fail closed when permission metadata is missing or stale.
 
-- **Code-based:** exact match, regex, JSON schema validity, unit tests passing. Cheap and deterministic, so prefer them.
-- **LLM-as-judge:** a model scores output against a rubric. Scales well, but has biases: position, verbosity, and preference for its own outputs. Calibrate it against human labels.
-- **Human review:** the ground truth. Slow, so use it to build and calibrate the other graders.
+## 10. When should you use RAG, prompting, or fine-tuning?
 
-Also measure specific dimensions:
+Use **RAG** for private or changing facts and citations. Use prompting and structured-output validation first for instructions or a JSON schema. If repeated evaluations still show a stable behavior gap, **fine-tuning** can teach task-specific style, decisions, or format; it is a poor way to keep facts current.
 
-- **RAG:** retrieval recall, answer faithfulness to the sources, and answer relevance (tools like Ragas).
-- **Agents:** the final outcome (did the task succeed?) rather than an exact trajectory. Consistency matters: **pass@k** (any of k attempts succeeds) vs **pass^k** (all k succeed).
-- **In production:** track user feedback, escalation rates, cost, and latency, and sample traces for review.
+For open-weights models, LoRA trains small adapter weights and QLoRA does so with a quantized base model to reduce memory use. Fine-tuning requires representative examples and a held-out evaluation set; a schema still needs runtime validation. Choose the method by measured quality, cost, and update frequency.
 
-## 8. What are hallucinations and how do you reduce them?
+**Integrations & Tooling**
 
-A **hallucination** is fluent, confident output that is false or not supported by the sources. It happens because the model generates plausible tokens rather than looking up facts, and training rewards answering over admitting uncertainty.
+## 11. How should an agent call tools and enterprise APIs?
 
-Mitigations:
+**Tool calling** lets a model propose a typed operation; application code validates arguments, authorizes the action, executes it, and returns the result. Give tools narrow names and schemas, meaningful errors, and short outputs. Use REST, GraphQL, gRPC, or webhooks according to the enterprise system's actual interface; see [system.md](system.md) for protocol trade-offs.
 
-- Ground answers with **RAG** and require citations.
-- Let the model say "I don't know".
-- Ask it to quote the source before answering.
-- Lower the temperature for factual tasks.
-- Verify claims with a second pass or with tools such as search, code execution, or a database.
-- Constrain outputs with schemas.
+Treat a tool call as a request, not permission. Enforce the user's identity and scopes in the integration layer, add timeouts and idempotency keys for writes, and log what was read or changed. **MCP** can standardize how an AI application discovers tools and resources, but it does not replace authorization or business validation.
 
-Measure the hallucination rate with faithfulness evals. You cannot eliminate it, so design the UX and review process around that.
+## 12. How do you integrate AI with CRM, ERP, and other enterprise systems?
 
-## 9. Prompting vs RAG vs fine-tuning?
+Build **connectors** around supported APIs and events, with clear mappings between business objects such as customers, orders, and tickets. SAP, Salesforce, Dynamics, 1C, Jira, and Microsoft 365 differ in schemas and permissions; some legacy systems still require SOAP. Separate reads from writes, validate records, and respect service-specific rate limits. Webhooks or Kafka/RabbitMQ events can start asynchronous work; polling is a fallback.
 
-- **Prompting:** try it first. It's cheap, fast to iterate, and handles most tasks.
-- **RAG:** for when the model lacks **knowledge**: private, fresh, or large corpora, or when you need citations.
-- **Fine-tuning:** for **behavior**: a consistent format, style, or domain-specific task, or distilling a large model into a smaller, cheaper one. It is poor at adding facts and hard to update.
+Keep credentials in a managed secret store and use delegated user access when an action must reflect the user's permissions. Record the external ID and result so a retry does not duplicate a transaction. For a cross-system workflow, define compensation when an earlier write succeeds and a later one fails; see [distributed.md](distributed.md) for sagas.
 
-**LoRA** freezes the base weights and trains small low-rank adapter matrices, usually well under 1% of the parameters. It is cheap and lets you swap adapters per task. **QLoRA** does the same on a 4-bit quantized base model, so large models fit on a single GPU. Full fine-tuning updates every weight and costs far more. Fine-tuning needs a clean dataset (hundreds to thousands of examples) and evals to prove it beats a well-prompted base model.
+## 13. When is browser automation appropriate for an AI workflow?
 
-## 10. How do tool calling and MCP work?
+Use **browser automation** for systems without a usable API, especially read-only tasks or supervised updates. Playwright, Puppeteer, or Selenium use page structure; **computer-use APIs** such as Anthropic's can also interpret screenshots and request mouse or keyboard actions. Visual control handles interfaces without useful DOM structure, but is slower and still brittle.
 
-With **tool calling**, you pass tool definitions (name, description, JSON Schema for the arguments) to the model. The model returns a structured call instead of text, your code executes it, and you send back the result. The model never executes anything itself. Tool quality drives agent quality: use clear names and descriptions, few overlapping tools, helpful error messages, and concise outputs. Tool definitions also consume context on every call.
+Layouts change, sessions expire, and clicks can have ambiguous effects. Prefer an official API when available, isolate browser credentials, limit reachable sites, and require approval before irreversible submissions or external communications.
 
-The **Model Context Protocol (MCP)** is an open standard, introduced by Anthropic in 2024, for connecting AI apps to tools and data. It reduces the N×M integration problem to N+M.
+**Reliability & LLMOps**
 
-- **Roles:** a **host** (for example, an IDE or chat app) runs **clients** that connect to **servers**, over JSON-RPC 2.0.
-- **What servers expose:** **tools** (actions), **resources** (read-only data), and **prompts** (templates).
-- **Transports:** stdio for local servers and Streamable HTTP for remote ones, with OAuth for authorization.
+## 14. How do you evaluate RAG and agent workflows?
 
-**A2A** (Agent2Agent) is a separate protocol for communication between agents rather than between an agent and its tools.
+Build an **evaluation set** from real business cases, edge cases, and past incidents, with expected outcomes and source records. Measure retrieval separately with recall at k; measure answer **groundedness**, relevance, and citation correctness; measure agents by whether the final business task succeeded without unauthorized actions.
 
-## 11. How are LLMs trained?
+Use deterministic checks for schemas and state changes, human review for high-value cases, and an **LLM judge** for scalable rubric scoring after calibrating it against human labels. Ragas or TruLens can help run RAG evaluations. In **shadow mode**, feed real production inputs to a candidate agent but log proposed outputs and writes without executing them; compare outcomes before a live rollout. Regressions must include failure and abstention cases.
 
-1. **Pretraining:** next-token prediction on trillions of tokens of web, code, and book text. This produces a base model with broad knowledge but no instruction-following.
-2. **Supervised fine-tuning (SFT):** trains on curated prompt-and-response pairs so the model follows instructions.
-3. **Preference tuning:**
-   - **RLHF** trains a reward model on human rankings, then optimizes the policy with RL (PPO).
-   - **DPO** optimizes directly on preference pairs, with no separate reward model.
-   - **RLAIF** and Constitutional AI use AI feedback instead of human labels.
+## 15. What should you trace and monitor in production?
 
-**Reasoning models** add large-scale RL with **verifiable rewards** (RLVR) on math, code, and other checkable tasks, using methods such as GRPO (popularized by DeepSeek-R1). The model learns to produce long chains of thought before answering. Spending more tokens on thinking at inference time improves accuracy: **test-time compute** is a scaling axis alongside model size and data. The trade-off is higher latency and cost, so use reasoning models or thinking budgets for hard problems, not simple lookups.
+Trace each **workflow run** across model calls, retrieval, tool calls, approvals, and external writes, using a correlation ID. Record latency, tokens, cost, errors, retries, retrieved document IDs, and final outcome. LangSmith, Langfuse, and Phoenix are examples of tracing tools. Sample traces for quality review, and redact sensitive content before storage.
 
-## 12. What are tokens and context windows?
+Alert on user-facing failures, stuck workflows, permission violations, and cost spikes. A trace should show which step failed and whether a side effect happened, so an operator can resume or compensate safely. See [system.md](system.md) for general metrics, logs, and traces.
 
-**Tokens** are the units a model reads and writes, produced by a tokenizer such as BPE. APIs price and limit usage by tokens. Tokenization explains some classic quirks: poor letter counting, weak arithmetic on long numbers, and non-English text using more tokens.
+## 16. How do you manage and optimize prompts at scale?
 
-The **context window** is the maximum number of input plus output tokens per call. Current frontier models support hundreds of thousands to over a million tokens. A long window doesn't guarantee good use of it: recall and reasoning degrade as context grows, especially for information in the middle. Put the important instructions at the start or end. In long-running agents, manage context actively through compaction, summaries, and external memory, instead of filling the window.
+Treat **prompts as versioned code**: keep templates, variables, examples, and output contracts in source control, then test changes against a fixed evaluation set. Avoid unreviewed, hand-edited strings scattered across services; trace which prompt version produced each result.
 
-## 13. What do temperature, top-p, and top-k do?
+**DSPy** expresses an LLM pipeline as modules and uses examples plus a metric to optimize instructions or demonstrations programmatically. It can reduce manual prompt tuning, but needs a useful metric and held-out tests so optimization does not overfit the training cases.
 
-- **Temperature** scales the logits before softmax. Low values (0–0.3) make output near-deterministic, which suits extraction, classification, and code. Higher values (0.7–1.0) add diversity for creative text and brainstorming.
-- **Top-k** samples only from the k most likely tokens.
-- **Top-p** (nucleus sampling) samples from the smallest set of tokens whose cumulative probability reaches p.
+## 17. How do you route models, use caching, and control AI costs?
 
-Usually you tune temperature or top-p, not both. Temperature 0 is still not perfectly deterministic in practice: batching and floating-point non-associativity on GPUs can change results. Some reasoning models fix or ignore these parameters.
+Use **model routing** to send simple extraction to a fast model and harder reasoning to a stronger one. Compare hosted and privately served open-weights models on quality, throughput, latency, privacy terms, GPU and operations costs. For private serving, vLLM or TGI targets throughput; Ollama fits local pilots. Set token and step budgets, trim retrieved context, and measure cost per completed workflow.
 
-## 14. What is prompt injection and how do you defend against it?
+**Prompt caching** reuses an identical input prefix, such as tool schemas or standard instructions, to reduce repeated processing; OpenAI and Anthropic support it with different controls. Keep stable content first and check cache-hit metrics. **Semantic caching** reuses a prior answer to a similar query, so its key must include user permissions, source version, and freshness requirements.
 
-**Prompt injection** is when untrusted text (web pages, emails, documents, tool results) contains instructions that the model follows as if they came from the user. Unlike SQL injection, there is no reliable way to separate code from data in a prompt, so filtering helps but cannot fully prevent it. **Jailbreaking** is related: the user tries to get around the model's safety training.
+**Security & Governance**
 
-The dangerous combination is the **"lethal trifecta"**: an agent with access to **private data**, exposure to **untrusted content**, and the ability to **communicate externally**. Together they allow data exfiltration. Defend at the architecture level:
+## 18. How do you defend an agent against prompt injection and data leakage?
 
-- **Least-privilege tools:** give the agent only the tools and data access it needs.
-- **Sandboxing:** isolate network and filesystem access.
-- **Human approval:** require it for sensitive actions.
-- **Separation:** keep the model that reads untrusted content from also holding privileged tools.
-- **Guardrails and filters:** apply input and output classifiers, PII filters, and output validation before acting.
-- **Logging:** record every tool call for audit.
+**Prompt injection** puts instructions inside lower-trust material such as documents, emails, pages, or tool results. Treat that material as data, keep tool permissions narrow, and validate actions in code. Input/output filters and tools such as NeMo Guardrails or Guardrails AI can flag suspicious content or PII, but cannot guarantee that the model will ignore every malicious instruction.
 
-## 15. How do you reduce LLM cost and latency?
+Prevent leakage with retrieval permissions, separate identities for tools, egress controls, output checks for sensitive fields, and approval for external sends. **Red-team** the agent before release with adversarial documents and tool results that try to reveal private records or trigger unauthorized writes, then keep those cases in regression tests. See [devops.md](devops.md) for infrastructure secret handling.
 
-- **Right-size the model:** route easy requests to a small, fast model and hard ones to a frontier model (a model cascade).
-- **Prompt caching:** reuse a stable prompt prefix (system prompt, tools, documents). Cached input tokens are billed at a steep discount and processed faster. Put static content first and variable content last.
-- **Trim tokens:** use shorter prompts, fewer retrieved chunks, compact tool outputs, and capped output length. Output tokens are the expensive ones.
-- **Streaming:** improves perceived latency (time to first token).
-- **Batch APIs:** discounted asynchronous processing for offline jobs.
-- **Parallelize:** run independent calls concurrently.
-- **Semantic caching:** return a stored answer for a near-duplicate query (watch for staleness).
+## 19. Where should human approval enter an automated process?
 
-On the serving side, self-hosted stacks use **continuous batching**, PagedAttention (efficient KV-cache memory), quantization (for example, FP8 or 4-bit), and **speculative decoding** (a small draft model proposes tokens that the large model verifies in parallel).
+Use **human-in-the-loop (HITL)** gates before actions with high financial, legal, privacy, or external impact. Present the proposed action, supporting evidence, affected records, and a clear approve or reject choice. Persist the workflow state while waiting, then verify that the approver has authority and that the data has not changed materially.
 
-## 16. When should you use multiple agents?
+Approval is a control for a specific action, not a blanket authorization for later agent decisions. Provide timeout, cancellation, and escalation paths; record who approved what and when. Low-risk, reversible actions can usually run automatically under policy.
 
-A multi-agent system splits work across agents with separate contexts. The most common and reliable pattern is an **orchestrator with subagents**: a lead agent plans and delegates independent subtasks (research branches, file searches) to workers that run in parallel with clean contexts, and each returns a condensed result.
+## 20. What does AI governance require in an enterprise system?
 
-The benefits are parallelism, specialization, and context isolation: each agent stays focused, and the lead's context isn't flooded. The costs are much higher token use and harder debugging. Coordination also fails when subtasks depend on each other, because agents make conflicting decisions without shared context. Use multiple agents for broad, parallelizable work such as research. Prefer a single agent for tightly coupled tasks like most coding.
+Define **ownership and policy** for each use case: allowed data, permitted actions, retention, audit logs, model and provider inventory, and incident response. Enforce role-based access and tenant isolation across prompts, retrieval, traces, caches, and connectors. Document data flows; verify a vendor's retention, training-use, and deletion terms before claiming a zero-retention design. Review privacy and security requirements such as GDPR and SOC 2 controls with the relevant owners.
 
-## 17. How does agent memory work?
-
-LLMs are stateless, so memory is whatever the harness puts back into context.
-
-- **Short-term:** the conversation or working context, managed by truncation, summarization, or **compaction** when it nears the limit.
-- **Long-term:** facts, preferences, and past learnings stored outside the model and retrieved when relevant. Storage can be files (such as `CLAUDE.md` or notes), a database, or a vector store.
-- **Types** (borrowed from cognitive science): **episodic** (past events), **semantic** (facts), and **procedural** (how to do things, such as skills or instructions).
-
-The hard parts are deciding what to write (not everything), keeping memories current (update or delete stale ones), and retrieving the right ones without polluting context. Structured notes an agent maintains itself, such as a progress file or a todo list, often work better than raw vector recall for long tasks.
-
-## 18. How do you get reliable structured output?
-
-Ask for JSON that matches a schema, and enforce it. **Constrained decoding** (structured outputs or strict mode) masks invalid tokens during generation, so the output always parses and matches the JSON Schema. Tool calling is another way to get structured arguments. Without enforcement, use a validation library (Pydantic, Zod) and retry with the error message on failure.
-
-A schema guarantees the shape, not the correctness of the values, so still validate the semantics. Forcing strict formats can slightly hurt reasoning quality. Let the model reason first (in a separate field or step), then emit the structured result.
-
-## 19. How do you do agentic engineering with AI coding tools?
-
-**Agentic engineering** means directing coding agents (such as Claude Code, Codex, and Cursor) as a disciplined engineer, in contrast to "vibe coding", where you accept output unread. The engineer owns the design, the context, and the verification. The agent does the typing and the exploring.
-
-The workflow:
-
-1. **Explore → plan → implement → verify.** Have the agent read the relevant code and propose a plan. Review the plan before any code is written.
-2. **Give it a feedback loop.** Tests, type checkers, linters, and the ability to run the app let the agent check its own work. This is the biggest quality lever.
-3. **Keep tasks small and scoped.** Commit often so any step is easy to revert.
-4. **Encode project knowledge** in files the agent reads automatically (`AGENTS.md`, `CLAUDE.md`): build commands, conventions, and pitfalls. Add reusable skills or custom commands for repeated procedures.
-5. **Review every diff** as you would a colleague's pull request. You are accountable for what ships.
-
-Advanced setups:
-
-- Run agents in parallel on separate git worktrees.
-- Use subagents to keep the main context clean.
-- Use hooks to enforce formatting or block dangerous commands.
-- Run headless agents in CI to triage issues or fix lint errors.
-
-The risks are subtle bugs, hallucinated APIs, security issues, and bloated code, so verification and human review stay mandatory.
-
-## 20. What tools are common in modern AI pipelines?
-
-- **Agent frameworks and SDKs:**
-    - LangGraph: graph-based, stateful workflows.
-    - OpenAI Agents SDK, Claude Agent SDK, and Google ADK: vendor SDKs.
-    - Pydantic AI: type-safe agents.
-    - CrewAI: multi-agent teams.
-    - DSPy: optimizes prompts programmatically.
-    - LlamaIndex: data connectors and RAG pipelines.
-- **Vector stores:** pgvector (Postgres), Qdrant, Pinecone, Weaviate, Milvus, Chroma. Elasticsearch and OpenSearch also offer hybrid search.
-- **Observability and evals:** Langfuse, LangSmith, Braintrust, Arize Phoenix. They capture traces of every LLM and tool call and run evals on them. The OpenTelemetry GenAI conventions standardize the trace format.
-- **Gateways:** LiteLLM and OpenRouter provide a unified API across providers, with fallbacks, cost tracking, and rate limits.
-- **Serving and local inference:** vLLM and SGLang for high-throughput serving, TensorRT-LLM on NVIDIA hardware, Ollama and llama.cpp for local models.
-- **Fine-tuning:** Hugging Face TRL and PEFT, Unsloth, Axolotl.
-- **Integration standard:** MCP (see #10).
-
-In interviews, show you can justify choices, not just list tools. Frameworks speed up prototypes but add abstraction you may need to debug. Many production teams use thin wrappers over provider SDKs plus a tracing tool.
+Classify risks by use case and test controls before release, then monitor them as models and workflows change. Compliance obligations depend on jurisdiction and contract; involve the organization's legal and security owners when defining them.

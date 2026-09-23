@@ -13,6 +13,7 @@ nav = [
     { "System Design" = "topics/system.md" },
     { "Databases" = "topics/database.md" },
     { "AI Engineering" = "topics/ai.md" },
+    { "DevOps" = "topics/devops.md" },
   ] },
 ]
 

@@ -125,7 +125,7 @@ Define targets first: an **SLI** is what you measure (e.g. % of successful reque
 
 Techniques: **remove single points of failure** with redundancy (N+1 instances), **failover** (active-passive: a standby takes over; active-active: all serve traffic), deploy across **availability zones** and, for stricter targets, **regions**. Math: components in series multiply (99.9% × 99.9% ≈ 99.8%); redundant components in parallel fail only together (1 − 0.001² = 99.9999%).
 
-Also define **RPO** (how much data you can lose) and **RTO** (how long recovery may take), use **graceful degradation** (serve cached or partial results when a dependency fails), deploy gradually with canaries and fast rollbacks, and test failures deliberately (**chaos engineering**).
+Also define **RPO** (how much data you can lose) and **RTO** (how long recovery may take), use **graceful degradation** (serve cached or partial results when a dependency fails), deploy gradually with canaries and fast rollbacks (see [devops.md](devops.md)), and test failures deliberately (**chaos engineering**).
 
 ## 16. Reverse proxy vs API gateway vs service mesh?
 

@@ -13,7 +13,8 @@ Each topic in `docs/topics/` covers its 20 most frequently asked interview quest
 - [Ethereum](docs/topics/ethereum.md) — accounts, gas, EVM, security, PoS, proxies, rollups, MEV, DeFi, bridges, and more
 - [System Design](docs/topics/system.md) — interview framework, caching, scaling, databases, queues, classic designs (URL shortener, feed, chat), and more
 - [Databases](docs/topics/database.md) — ACID, indexes, isolation levels, joins, locking, MVCC, SQL, replication, partitioning, and more
-- [AI Engineering](docs/topics/ai.md) — LLM basics, RAG, agents, workflows, context engineering, evals, fine-tuning, MCP, agentic coding, tooling, and more
+- [AI Engineering](docs/topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
+- [DevOps](docs/topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
 
 ## Quiz
 
