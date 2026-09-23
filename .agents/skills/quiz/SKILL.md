@@ -1,32 +1,32 @@
 ---
 name: quiz
-description: Run an interactive interview quiz from the cheatsheets in topics/. Use when the user asks to be quizzed or tested on a topic, e.g. "/quiz golang", "/quiz ethereum database", "/quiz all 20".
+description: Run an interactive interview quiz from the cheatsheets in docs/topics/. Use when the user asks to be quizzed or tested on a topic, e.g. "/quiz golang", "/quiz ethereum database", "/quiz all 20".
 argument-hint: "<all | topic [topic...]> [count]"
 ---
 
 # Quiz
 
-Quiz the user on one or more cheatsheets in `topics/`, one question at a time, and report the score at the end.
+Quiz the user on one or more cheatsheets in `docs/topics/`, one question at a time, and report the score at the end.
 
 ## Arguments
 
 `<all | topic [topic...]> [count]`
 
-- A topic is a cheatsheet file name without `.md` (e.g. `golang` → `topics/golang.md`). Several topics can be given, separated by spaces or commas.
-- `all` means every file in `topics/`.
+- A topic is a cheatsheet file name without `.md` (e.g. `golang` → `docs/topics/golang.md`). Several topics can be given, separated by spaces or commas.
+- `all` means every file in `docs/topics/`.
 - `count` is the number of questions; default **10**. If it exceeds the number of available entries, use all of them.
-- If no topic is given, or a topic has no matching file, list the available topics (`ls topics/`) and ask the user to choose. Don't guess a close match silently; if a name clearly maps to a file (e.g. `blockchain` → `ethereum`), confirm it with the user first.
+- If no topic is given, or a topic has no matching file, list the available topics (`ls docs/topics/`) and ask the user to choose. Don't guess a close match silently; if a name clearly maps to a file (e.g. `blockchain` → `ethereum`), confirm it with the user first.
 
 ## Setup
 
 1. Pick the entries at random with a shell command, not by choosing yourself:
 
    ```sh
-   grep -H '^## [0-9]' topics/golang.md topics/ethereum.md | sort -R | head -n 10
+   grep -H '^## [0-9]' docs/topics/golang.md docs/topics/ethereum.md | sort -R | head -n 10
    ```
 
-   Use `topics/*.md` for `all`. Each output line is one entry (`file:## N. Question`). When several topics are selected, questions come from the combined pool.
-2. Read the selected topic files so you know each entry's full answer. Grade only against these entries, never the `lectures/` files or outside knowledge that contradicts them.
+   Use `docs/topics/*.md` for `all`. Each output line is one entry (`file:## N. Question`). When several topics are selected, questions come from the combined pool.
+2. Read the selected topic files so you know each entry's full answer. Grade only against these entries, never the `docs/lectures/` files or outside knowledge that contradicts them.
 3. Tell the user the topics and the number of questions, then start. Don't show the list of questions.
 
 ## Each question
@@ -46,4 +46,4 @@ If the user asks to stop early, report the score for the questions answered so f
 After the last question, show:
 
 - The score as `correct/total`, e.g. `**Score: 7/10**`.
-- The questions answered incorrectly, each with its file and heading (e.g. `topics/golang.md — 5. How do maps work?`), so the user knows what to review.
+- The questions answered incorrectly, each with its file and heading (e.g. `docs/topics/golang.md — 5. How do maps work?`), so the user knows what to review.
