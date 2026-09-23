@@ -16,6 +16,9 @@ nav = [
     { "DevOps" = "topics/devops.md" },
     { "Security" = "topics/security.md" },
     { "Rust" = "topics/rust.md" },
+    { "Python" = "topics/python.md" },
+    { "TypeScript" = "topics/typescript.md" },
+    { "JavaScript" = "topics/javascript.md" },
   ] },
 ]
 
