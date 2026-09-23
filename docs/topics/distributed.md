@@ -11,6 +11,7 @@ In the presence of a **network partition (P)**, a distributed system must choose
 ## 2. What consistency models exist?
 
 From strongest to weakest:
+
 - **Linearizability** (strong) — operations appear to happen instantly at a single point between call and return; everyone sees one global order that respects real time.
 - **Sequential** — one global order that respects each client's program order, but not real time.
 - **Causal** — operations that are causally related are seen in the same order by all; concurrent ones may differ.
@@ -57,6 +58,7 @@ A **Saga** breaks the transaction into a sequence of local transactions, each wi
 ## 8. How do you handle partial failures?
 
 In a distributed system, a remote call can succeed, fail, or **time out with an unknown outcome** — you can't tell a slow node from a dead one. Core techniques:
+
 - **Timeouts** on every remote call.
 - **Retries with exponential backoff and jitter** — only for idempotent operations, to avoid duplicating side effects and **retry storms**.
 - **Circuit breaker** — after repeated failures, fail fast for a while instead of hammering a struggling dependency.

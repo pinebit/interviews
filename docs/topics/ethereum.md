@@ -19,6 +19,7 @@ Under **EIP-1559** (2021), the fee is `gasUsed × (baseFee + priorityFee)`. The 
 The **Ethereum Virtual Machine** is a deterministic, **stack-based** VM with 256-bit words. Every node runs it to execute transactions and must reach the same resulting state. Contracts are compiled (Solidity or Vyper) to EVM bytecode. Execution is single-threaded and sandboxed, and code can't access anything outside the chain (that's what **oracles** are for).
 
 Data locations:
+
 - **Storage** — persistent key-value store per contract, 32-byte slots. Very expensive to write (`SSTORE` ~20k gas for zero→non-zero).
 - **Memory** — temporary, erased after each external call. Cost grows quadratically with size.
 - **Calldata** — read-only transaction input. The cheapest place for function arguments.

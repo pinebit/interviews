@@ -13,6 +13,7 @@ Clarify the requirements before drawing anything, and always say which trade-off
 ## 2. What caching strategies exist?
 
 Caching trades freshness for speed. Layers: browser → CDN → application cache (Redis/Memcached) → database buffer pool. Patterns:
+
 - **Cache-aside** (lazy loading) — the app reads the cache; on a miss it reads the DB and fills the cache. The most common pattern. Stale until TTL expires or the entry is invalidated.
 - **Read-through** — the cache itself loads from the DB on a miss.
 - **Write-through** — write to the cache and the DB together. Cache stays consistent, but writes are slower.
@@ -43,6 +44,7 @@ In interviews, default to SQL unless there's a concrete reason (write volume, sc
 ## 6. How do you scale a database?
 
 In order of increasing complexity:
+
 1. **Query optimization and indexes** — check `EXPLAIN`, add missing indexes, fix N+1 queries.
 2. **Caching** — take reads off the database.
 3. **Read replicas** — send reads to followers. Watch out for **replication lag** (read-your-writes issues).
@@ -77,6 +79,7 @@ Common details: **cursor-based pagination** (stable and fast; offset pagination 
 ## 10. How does rate limiting work?
 
 Rate limiting protects services from abuse and overload. It is usually enforced at the **API gateway**, keyed by user, API key, or IP, and returns **HTTP 429** with a `Retry-After` header. Algorithms:
+
 - **Token bucket** — tokens refill at a fixed rate, and each request uses one. Allows **bursts** up to the bucket size. The most common choice.
 - **Leaky bucket** — requests drain from a queue at a constant rate. Output is smooth, with no bursts.
 - **Fixed window counter** — count per time window. Simple, but allows up to 2× the limit at window boundaries.
@@ -87,6 +90,7 @@ In a distributed setup, keep counters in **Redis** (atomic `INCR` + expiry, or L
 ## 11. How would you design a news feed?
 
 A user's feed shows recent posts from people they follow. The central choice is **when to build the feed**:
+
 - **Fan-out on write (push)** — when someone posts, add the post ID to every follower's precomputed feed (a list in Redis). Reads are instant, but a celebrity with 50M followers triggers 50M writes.
 - **Fan-out on read (pull)** — at read time, fetch recent posts from everyone the user follows and merge them. No write amplification, but reads are slow for users following many accounts.
 - **Hybrid** (what large platforms do) — push for normal accounts, pull for celebrities, merged at read time.

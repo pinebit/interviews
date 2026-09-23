@@ -13,6 +13,7 @@ Attention lets every token weigh every earlier token, so its cost grows **O(n²)
 **Retrieval-Augmented Generation** fetches relevant documents at query time and puts them in the prompt, so the model answers from your data rather than its weights alone. It keeps knowledge fresh without retraining, lets you cite sources, and reduces hallucination.
 
 The pipeline:
+
 - **Indexing:** chunk documents (by structure, a few hundred tokens with overlap), embed the chunks, and store them in a vector index with metadata.
 - **Retrieval:** embed the query and find the top-k chunks. **Hybrid search** combines dense vectors with BM25 keyword search, merged by reciprocal rank fusion.
 - **Reranking:** a cross-encoder rescores the candidates for precision.
@@ -25,6 +26,7 @@ Most failures come from retrieval, not generation. Common causes are bad chunkin
 An agent is an LLM that **uses tools in a loop** until the task is done. The model reads the context, decides on an action (a tool call), the harness executes it, the result is appended to the context, and the loop repeats until the model returns a final answer or a limit is hit. This is the **ReAct** pattern (reason + act).
 
 The parts of an agent are:
+
 - **Model:** does the reasoning.
 - **Tools:** functions with a name, a description, and a JSON schema.
 - **Instructions:** the system prompt.
@@ -38,6 +40,7 @@ Agents fit open-ended tasks where you can't hardcode the steps. The costs are la
 A **workflow** runs LLM calls through code paths you define in advance. An **agent** lets the model choose its own path. Workflows are predictable, cheaper, and easier to test. Agents handle open-ended problems. Start with the simplest thing that works, often a single call with good retrieval, and add agency only when it clearly helps.
 
 Common workflow patterns (from Anthropic's "Building effective agents"):
+
 - **Prompt chaining:** fixed sequential steps, with gates between them.
 - **Routing:** classify the input and send it to a specialized prompt or model.
 - **Parallelization:** split into independent subtasks (sectioning), or run the same task several times and vote.
@@ -47,6 +50,7 @@ Common workflow patterns (from Anthropic's "Building effective agents"):
 ## 5. Prompt engineering vs context engineering?
 
 **Prompt engineering** is writing good instructions:
+
 - Be clear and specific about the task, audience, and output format.
 - Give the model a role and the relevant background.
 - Include a few examples (**few-shot**).
@@ -61,6 +65,7 @@ Common workflow patterns (from Anthropic's "Building effective agents"):
 An **embedding** is a dense vector (for example, 768–3072 dimensions) that places semantically similar text close together. Similarity is usually **cosine similarity** or dot product on normalized vectors. Use the same embedding model for indexing and querying. Changing the model means re-embedding everything.
 
 Exact nearest-neighbor search is O(n), so vector stores use **approximate nearest neighbor (ANN)** indexes:
+
 - **HNSW:** a layered proximity graph. Fast with high recall, but memory-heavy. The most common default.
 - **IVF:** clusters vectors and searches only the nearest clusters.
 - **Product quantization:** compresses vectors to save memory, at some cost to accuracy.
@@ -72,11 +77,13 @@ You tune the trade-off between recall and latency (for example, `ef_search` in H
 Build an **eval set** of realistic inputs with expected outputs or grading criteria, drawn from real usage and known failure cases. Run it on every prompt, model, or pipeline change, as a regression test in CI. Eval-driven development is the LLM counterpart of TDD: without evals, every change is a guess.
 
 Grader types:
+
 - **Code-based:** exact match, regex, JSON schema validity, unit tests passing. Cheap and deterministic, so prefer them.
 - **LLM-as-judge:** a model scores output against a rubric. Scales well, but has biases: position, verbosity, and preference for its own outputs. Calibrate it against human labels.
 - **Human review:** the ground truth. Slow, so use it to build and calibrate the other graders.
 
 Also measure specific dimensions:
+
 - **RAG:** retrieval recall, answer faithfulness to the sources, and answer relevance (tools like Ragas).
 - **Agents:** the final outcome (did the task succeed?) rather than an exact trajectory. Consistency matters: **pass@k** (any of k attempts succeeds) vs **pass^k** (all k succeed).
 - **In production:** track user feedback, escalation rates, cost, and latency, and sample traces for review.
@@ -86,6 +93,7 @@ Also measure specific dimensions:
 A **hallucination** is fluent, confident output that is false or not supported by the sources. It happens because the model generates plausible tokens rather than looking up facts, and training rewards answering over admitting uncertainty.
 
 Mitigations:
+
 - Ground answers with **RAG** and require citations.
 - Let the model say "I don't know".
 - Ask it to quote the source before answering.
@@ -108,6 +116,7 @@ Measure the hallucination rate with faithfulness evals. You cannot eliminate it,
 With **tool calling**, you pass tool definitions (name, description, JSON Schema for the arguments) to the model. The model returns a structured call instead of text, your code executes it, and you send back the result. The model never executes anything itself. Tool quality drives agent quality: use clear names and descriptions, few overlapping tools, helpful error messages, and concise outputs. Tool definitions also consume context on every call.
 
 The **Model Context Protocol (MCP)** is an open standard, introduced by Anthropic in 2024, for connecting AI apps to tools and data. It reduces the N×M integration problem to N+M.
+
 - **Roles:** a **host** (for example, an IDE or chat app) runs **clients** that connect to **servers**, over JSON-RPC 2.0.
 - **What servers expose:** **tools** (actions), **resources** (read-only data), and **prompts** (templates).
 - **Transports:** stdio for local servers and Streamable HTTP for remote ones, with OAuth for authorization.
@@ -144,6 +153,7 @@ Usually you tune temperature or top-p, not both. Temperature 0 is still not perf
 **Prompt injection** is when untrusted text (web pages, emails, documents, tool results) contains instructions that the model follows as if they came from the user. Unlike SQL injection, there is no reliable way to separate code from data in a prompt, so filtering helps but cannot fully prevent it. **Jailbreaking** is related: the user tries to get around the model's safety training.
 
 The dangerous combination is the **"lethal trifecta"**: an agent with access to **private data**, exposure to **untrusted content**, and the ability to **communicate externally**. Together they allow data exfiltration. Defend at the architecture level:
+
 - **Least-privilege tools:** give the agent only the tools and data access it needs.
 - **Sandboxing:** isolate network and filesystem access.
 - **Human approval:** require it for sensitive actions.
@@ -172,6 +182,7 @@ The benefits are parallelism, specialization, and context isolation: each agent 
 ## 17. How does agent memory work?
 
 LLMs are stateless, so memory is whatever the harness puts back into context.
+
 - **Short-term:** the conversation or working context, managed by truncation, summarization, or **compaction** when it nears the limit.
 - **Long-term:** facts, preferences, and past learnings stored outside the model and retrieved when relevant. Storage can be files (such as `CLAUDE.md` or notes), a database, or a vector store.
 - **Types** (borrowed from cognitive science): **episodic** (past events), **semantic** (facts), and **procedural** (how to do things, such as skills or instructions).
@@ -189,6 +200,7 @@ A schema guarantees the shape, not the correctness of the values, so still valid
 **Agentic engineering** means directing coding agents (such as Claude Code, Codex, and Cursor) as a disciplined engineer, in contrast to "vibe coding", where you accept output unread. The engineer owns the design, the context, and the verification. The agent does the typing and the exploring.
 
 The workflow:
+
 1. **Explore → plan → implement → verify.** Have the agent read the relevant code and propose a plan. Review the plan before any code is written.
 2. **Give it a feedback loop.** Tests, type checkers, linters, and the ability to run the app let the agent check its own work. This is the biggest quality lever.
 3. **Keep tasks small and scoped.** Commit often so any step is easy to revert.
@@ -196,6 +208,7 @@ The workflow:
 5. **Review every diff** as you would a colleague's pull request. You are accountable for what ships.
 
 Advanced setups:
+
 - Run agents in parallel on separate git worktrees.
 - Use subagents to keep the main context clean.
 - Use hooks to enforce formatting or block dangerous commands.

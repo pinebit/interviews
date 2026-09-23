@@ -16,6 +16,7 @@ Atomicity and durability come from the WAL and rollback, isolation from locking 
 An index is a separate data structure that finds rows without scanning the whole table. It is usually a **B+ tree**: balanced, sorted, O(log n) lookups, and it supports **range queries** and `ORDER BY`. Hash indexes support only equality lookups. Indexes speed up reads but **slow down every write** and use disk and memory, so index for real query patterns only.
 
 Key concepts:
+
 - **Composite index** `(a, b, c)` follows the **leftmost prefix rule**: it helps queries on `a`, `a, b`, and `a, b, c`, but not on `b` alone. Put equality columns first, range columns last.
 - **Covering index** — contains every column the query needs, so the table itself is never read ("index-only scan").
 - **Clustered index** — the table rows are physically stored in index order (InnoDB's primary key). There can be only one. PostgreSQL tables are unordered heaps.
@@ -43,6 +44,7 @@ Defaults: **PostgreSQL = Read Committed**, **MySQL InnoDB = Repeatable Read**. P
 ## 4. What JOIN types exist and how are they executed?
 
 Types:
+
 - **INNER JOIN** — only rows that match on both sides.
 - **LEFT / RIGHT OUTER JOIN** — all rows from one side, with NULLs where the other side has no match.
 - **FULL OUTER JOIN** — all rows from both sides.
@@ -52,6 +54,7 @@ Types:
 Anti-join pattern: `LEFT JOIN ... WHERE b.id IS NULL` or `NOT EXISTS`. Avoid `NOT IN` when the subquery can contain NULLs — then it returns no rows.
 
 The query planner picks the join algorithm:
+
 - **Nested loop** — for each outer row, look up matches, ideally through an index. Best when one side is small.
 - **Hash join** — build a hash table on the smaller side, then probe it with the larger side. Best for large joins on equality with no useful index.
 - **Merge join** — both inputs sorted on the join key, then merged. Good when inputs are already sorted (e.g. from an index).
@@ -59,6 +62,7 @@ The query planner picks the join algorithm:
 ## 5. What are normalization and denormalization?
 
 **Normalization** organizes tables to **remove redundancy** and update anomalies:
+
 - **1NF** — atomic values, no repeating groups.
 - **2NF** — 1NF plus no column depends on only part of a composite key.
 - **3NF** — 2NF plus no column depends on another non-key column ("every column depends on the key, the whole key, and nothing but the key").
