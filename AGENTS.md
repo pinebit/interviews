@@ -1,15 +1,14 @@
 # AGENTS.md
 
-This repo is a set of concise cheatsheets for technical interview prep. The reader skims them repeatedly to memorize key points. Some topics also have a lecture script: the same material as continuous prose for reading aloud or listening.
+This repo is a set of concise cheatsheets for technical interview prep. The reader skims them repeatedly to memorize key points.
 
 ## Structure
 
 - `docs/topics/` — one cheatsheet per topic (e.g. `docs/topics/golang.md`).
-- `docs/lectures/` — optional lecture script for a topic, with the same file name as its cheatsheet (e.g. `docs/lectures/ai.md` for `docs/topics/ai.md`). No `-lecture` suffix.
 - `docs/index.md` — the reading site's homepage.
 - `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on cheatsheet entries. `.claude/skills/quiz` is a symlink to it so Claude Code and Codex share one copy.
 - File names are lowercase, single word or kebab-case.
-- `README.md` and `docs/index.md` list every cheatsheet and lecture with a link and a one-line summary. Update both when adding or renaming a file.
+- `README.md` and `docs/index.md` list every topic with a link and a one-line summary. Update both when adding or renaming a file.
 
 ## Cheatsheet format
 
@@ -21,13 +20,6 @@ This repo is a set of concise cheatsheets for technical interview prep. The read
 - A short bullet list is fine for enumerations (types, levels, patterns, steps) — keep items to one line where possible.
 - A code snippet is fine only when it is shorter and clearer than prose (a few lines at most).
 - Don't repeat topics across cheatsheets; link to the other file instead (e.g. `see [distributed.md](distributed.md)`).
-
-## Lecture format
-
-- Title: `# <Topic>: A Short Interview Lecture`, followed by a short intro that frames the area.
-- A few `##` sections that group related topics into a logical story; the order need not follow the cheatsheet's numbering.
-- Plain spoken prose: no bullets, tables, code, or bold. Introduce acronyms by their full name.
-- Must cover every entry of the matching cheatsheet, including the key named terms, numbers, and gotchas. When the cheatsheet changes, update the lecture.
 
 ## Style
 

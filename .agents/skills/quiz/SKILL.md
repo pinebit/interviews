@@ -26,7 +26,7 @@ Quiz the user on one or more cheatsheets in `docs/topics/`, one question at a ti
    ```
 
    Use `docs/topics/*.md` for `all`. Each output line is one entry (`file:## N. Question`). When several topics are selected, questions come from the combined pool.
-2. Read the selected topic files so you know each entry's full answer. Grade only against these entries, never the `docs/lectures/` files or outside knowledge that contradicts them.
+2. Read the selected topic files so you know each entry's full answer. Grade only against these entries, never outside knowledge that contradicts them.
 3. Tell the user the topics and the number of questions, then start. Don't show the list of questions.
 
 ## Each question

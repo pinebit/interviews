@@ -1,21 +1,18 @@
 [project]
 site_name = "Interview Cheatsheets"
-site_description = "Concise cheatsheets and lectures for technical interview prep."
+site_description = "Concise cheatsheets for technical interview prep."
 site_url = "https://pinebit.github.io/interviews/"
 docs_dir = "docs"
 site_dir = "site"
 nav = [
   { "Home" = "index.md" },
-  { "Cheatsheets" = [
+  { "Topics" = [
     { "Go" = "topics/golang.md" },
     { "Distributed Systems" = "topics/distributed.md" },
     { "Ethereum" = "topics/ethereum.md" },
     { "System Design" = "topics/system.md" },
     { "Databases" = "topics/database.md" },
     { "AI Engineering" = "topics/ai.md" },
-  ] },
-  { "Lectures" = [
-    { "AI Engineering" = "lectures/ai.md" },
   ] },
 ]
 
