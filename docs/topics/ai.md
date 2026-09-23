@@ -219,12 +219,12 @@ The risks are subtle bugs, hallucinated APIs, security issues, and bloated code,
 ## 20. What tools are common in modern AI pipelines?
 
 - **Agent frameworks and SDKs:**
-  - LangGraph: graph-based, stateful workflows.
-  - OpenAI Agents SDK, Claude Agent SDK, and Google ADK: vendor SDKs.
-  - Pydantic AI: type-safe agents.
-  - CrewAI: multi-agent teams.
-  - DSPy: optimizes prompts programmatically.
-  - LlamaIndex: data connectors and RAG pipelines.
+    - LangGraph: graph-based, stateful workflows.
+    - OpenAI Agents SDK, Claude Agent SDK, and Google ADK: vendor SDKs.
+    - Pydantic AI: type-safe agents.
+    - CrewAI: multi-agent teams.
+    - DSPy: optimizes prompts programmatically.
+    - LlamaIndex: data connectors and RAG pipelines.
 - **Vector stores:** pgvector (Postgres), Qdrant, Pinecone, Weaviate, Milvus, Chroma. Elasticsearch and OpenSearch also offer hybrid search.
 - **Observability and evals:** Langfuse, LangSmith, Braintrust, Arize Phoenix. They capture traces of every LLM and tool call and run evals on them. The OpenTelemetry GenAI conventions standardize the trace format.
 - **Gateways:** LiteLLM and OpenRouter provide a unified API across providers, with fallbacks, cost tracking, and rate limits.
