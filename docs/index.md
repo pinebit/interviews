@@ -12,6 +12,7 @@ Short, memorizable material for software engineering interview prep. Each topic 
 - [AI Engineering](topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
 - [DevOps](topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
 - [Security](topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
+- [Rust](topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
 
 ## Quiz
 
