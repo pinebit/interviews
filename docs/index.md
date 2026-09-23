@@ -11,6 +11,7 @@ Short, memorizable material for software engineering interview prep. Each topic 
 - [Databases](topics/database.md) — ACID, indexes, isolation levels, joins, locking, MVCC, SQL, replication, partitioning, and more
 - [AI Engineering](topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
 - [DevOps](topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
+- [Security](topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
 
 ## Quiz
 
