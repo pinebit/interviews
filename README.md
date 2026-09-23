@@ -17,3 +17,13 @@ Short, memorizable material for software engineering interview prep:
 ## Lecture scripts
 
 - [AI Engineering lecture](lectures/ai.md) — a spoken overview of all 20 AI engineering interview topics
+
+## Quiz
+
+The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) quizzes you on the cheatsheets one question at a time and reports your score at the end:
+
+```
+/quiz golang            # 10 random questions from one topic
+/quiz golang ethereum   # questions mixed from several topics
+/quiz all 20            # 20 questions from every topic
+```

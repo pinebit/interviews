@@ -6,6 +6,7 @@ This repo is a set of concise cheatsheets for technical interview prep. The read
 
 - `topics/` — one cheatsheet per topic (e.g. `topics/golang.md`).
 - `lectures/` — optional lecture script for a topic, with the same file name as its cheatsheet (e.g. `lectures/ai.md` for `topics/ai.md`). No `-lecture` suffix.
+- `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on cheatsheet entries. `.claude/skills/quiz` is a symlink to it so Claude Code and Codex share one copy.
 - File names are lowercase, single word or kebab-case.
 - `README.md` lists every cheatsheet and lecture with a link and a one-line summary. Update it when adding or renaming a file.
 
