@@ -11,7 +11,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [Databases](topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
 - [AI Engineering](topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
 - [DevOps](topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
-- [Security](topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
+- [Security](topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
 - [Rust](topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
 - [Python](topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
 - [TypeScript](topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more

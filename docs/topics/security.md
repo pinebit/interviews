@@ -1,123 +1,95 @@
-# Security Cheatsheet
+# Security
 
-The 20 most frequently asked security interview topics, with short answers.
+What experienced security engineers forget before an interview, grouped by subtopic. For AWS IAM and least privilege in practice, see [devops.md](devops.md); for session/identity protocol placement in an architecture, see [system.md](system.md).
 
-## 1. What is the difference between authentication and authorization?
+## Web vulnerabilities
 
-**Authentication** establishes who a user or service is; **authorization** decides what that identity may do. A valid login does not grant access to every resource: check permission on each request and for each target object, including when its ID comes from the client.
+### Injection and XSS
 
-For session and identity protocol choices, see [system.md](system.md).
+- **SQL injection**: untrusted input becomes SQL syntax. Fix with **parameterized queries**, not escaping by hand; allowlist identifiers (e.g. sort columns) that can't be bound as parameters — ORMs don't save you from raw fragments.
+- **XSS**: stored (saved, shown later), reflected (echoed in a response), DOM-based (unsafe client code turns data into executable content). Fix with **context-aware output encoding** and safe DOM APIs (`textContent`); a **CSP with nonces** limits blast radius but isn't the primary fix.
 
-## 2. What is SQL injection, and how do you prevent it?
+### CSRF, SSRF, clickjacking, CORS
 
-**SQL injection** occurs when untrusted input becomes part of SQL syntax, letting an attacker change a query's meaning. Use **parameterized queries** so values are bound separately from SQL code; allowlist any identifiers, such as sort columns, that cannot be parameters.
+- **CSRF**: a browser auto-attaches a session cookie to a forged cross-site request. Fix with framework CSRF tokens and `SameSite=Lax`/`Strict` cookies (**Lax is Chrome's default**) — XSS can bypass many CSRF defenses, so it's not a substitute.
+- **SSRF**: attacker controls a server-made request's destination, potentially reaching the cloud metadata endpoint or internal services. Use a strict destination allowlist, validate resolved IPs (**IMDSv2** on AWS specifically requires a session token, blocking naive SSRF-via-metadata), and watch for **DNS rebinding** between validation and the actual request.
+- **Clickjacking**: framed page tricks a click into hitting the real site. Fix with CSP's **`frame-ancestors`**.
+- **CORS** is a **browser read policy**, not server auth or a firewall — non-browser clients ignore it entirely; a credentialed response can't use `Access-Control-Allow-Origin: *`.
+- **IDOR/BOLA**: authorization checked at the endpoint but not per-object — always check permission against the specific resource ID from the request, not just that the caller is logged in.
 
-Input validation and least-privilege database accounts add protection, but neither replaces parameterization. Stored procedures are safe only when they avoid unsafe dynamic SQL; escaping input by hand is fragile.
+## Authentication and sessions
 
-## 3. What is cross-site scripting (XSS)?
+### Password storage
 
-**XSS** lets attacker-controlled content run as script in another user's browser. It can be **stored** (saved and shown later), **reflected** (returned in a response), or **DOM-based** (unsafe client-side code turns data into executable content).
+- Purpose-built, costly hash: **argon2id / bcrypt / scrypt** — never a fast general hash like SHA-256 alone. Tune the work factor; store algorithm + parameters alongside the hash.
+- A unique random **salt** per password defeats precomputed (rainbow table) attacks; a **pepper** (server-side secret, not stored with the hash) adds defense if the hash database leaks alone.
 
-Prevent it with framework escaping, **context-aware output encoding**, and safe DOM APIs such as `textContent`. Sanitize content only when users must supply HTML. A restrictive Content Security Policy (CSP) limits impact but is an additional layer, not the primary fix.
+### MFA and sessions
 
-## 4. What is cross-site request forgery (CSRF)?
+- MFA phishing resistance ranks: **WebAuthn/passkeys** (phishing-resistant, bound to origin) > TOTP app > SMS (vulnerable to SIM swap).
+- Cookie flags: **`HttpOnly`** (no JS access), **`Secure`** (HTTPS only), **`SameSite`**, and the **`__Host-`** prefix (forces `Secure`, no `Domain` attribute, path `/`) to prevent subdomain cookie injection.
+- **Session fixation**: attacker sets a known session ID before login — always issue a fresh session ID on authentication.
 
-**CSRF** makes a browser send an unwanted state-changing request to a site where the victim is logged in. It matters especially when the browser automatically attaches a session cookie; CORS does not by itself prevent the request.
+## Tokens and federation
 
-Use framework **CSRF tokens** or another server-verified request-origin defense for state-changing actions. Set session cookies to `SameSite=Lax` or `Strict` where feasible, and never change state through a GET request. XSS can bypass many CSRF defenses.
+### JWT validation checklist
 
-## 5. What is the principle of least privilege?
+- Pin the expected **`alg`**; reject **`none`**; guard against **RS/HS confusion** (an attacker resubmits an RS256 token as HS256, using the public key as the HMAC secret).
+- Use **`kid`** to select the right verification key from a set, and validate `exp`/`aud`/`iss` — a valid signature alone is not authorization.
+- JWTs are **stateless**, so **revocation is the hard problem** — short expiry plus a refresh-token rotation scheme is the usual mitigation, not a blocklist that defeats the point of statelessness.
 
-**Least privilege** gives each user, service, and process only the permissions needed for its job, for only as long as needed. For example, an application database account should access its required tables, not administer the database.
+### OAuth and OIDC
 
-Apply it to API scopes, cloud roles, file permissions, and production access. Review permissions as roles change; otherwise old grants accumulate. For AWS IAM specifics, see [devops.md](devops.md).
+- **OAuth 2.0** is delegated *authorization* (an access token scoped to a resource server); **OIDC** adds *authentication* on top via an ID token.
+- Interactive sign-in: **authorization code flow + PKCE**; service-to-service: **client credentials**. The **implicit** and **password** grants are deprecated in **OAuth 2.1**.
+- **Refresh token rotation**: each use issues a new refresh token and invalidates the old one, so a stolen-and-reused old token signals compromise.
 
-## 6. How should passwords be stored, and why use a salt?
+## Access control models
 
-Store a password with a purpose-built, costly **password hashing** function such as Argon2id, scrypt, or bcrypt, never a fast hash such as SHA-256 alone. Tune its work factor to make offline guessing expensive and store the algorithm and parameters with the result.
+### RBAC vs ABAC vs ReBAC
 
-A unique, random **salt** per password prevents precomputed attacks and makes equal passwords produce different hashes. It does not make a weak password unguessable; reputable password-hashing libraries normally generate and store the salt for you.
+- **RBAC** — permissions via roles; simple to audit with few roles, but many exceptions cause role proliferation.
+- **ABAC** — policy evaluated against subject/resource/action/context attributes; expresses fine-grained conditions but needs consistent, trustworthy attributes.
+- **ReBAC** — permissions derived from relationships in a graph (e.g. "owner of," "member of team that owns") — fits deeply nested sharing models (Google Docs-style) that RBAC/ABAC express awkwardly.
+- All three must be enforced **server-side**, denying by default — a client-hidden button is not access control.
 
-## 7. What is a JSON Web Token (JWT), and how do you validate one?
+## Cryptography
 
-A **JWT** is a compact token carrying claims, often protected by a signature. A signed payload is readable, not encrypted, so do not put secrets in it. A signature proves the token was issued by a holder of the signing key; it does not by itself grant permission.
+### Primitives
 
-Verify the signature with a trusted key and a configured **algorithm allowlist**; reject `none` and algorithm confusion. Check `iss`, `aud`, `exp`, and other required claims, then enforce resource authorization separately. Plan for token expiry and revocation.
+| | Reversible? | Needs a key? | Purpose |
+|---|---|---|---|
+| Encoding (Base64) | yes, no secret | no | representation change |
+| Encryption | yes, with the key | yes | confidentiality |
+| Hashing | no (one-way) | no | integrity/fingerprint |
 
-## 8. What is server-side request forgery (SSRF)?
+- **AES-GCM**: nonce reuse with the same key is catastrophic — it can fully break confidentiality and authenticity, so nonces must never repeat per key.
+- **RSA vs ECC**: ECC gives equivalent security at much smaller key sizes (256-bit EC ≈ 3072-bit RSA), cheaper for signatures and handshakes.
+- **ECDHE** provides **forward secrecy** — session keys aren't derivable even if the long-term private key later leaks.
+- **MAC vs signature**: a MAC (HMAC) proves integrity + authenticity to anyone holding the shared secret, so it can't give non-repudiation; a signature (asymmetric) can, since only the private key holder could have produced it.
+- **HMAC vs naive `hash(key ‖ msg)`**: the naive construction is vulnerable to **length-extension attacks** on Merkle-Damgård hashes (MD5, SHA-1, SHA-256); HMAC's nested construction avoids this.
 
-**SSRF** occurs when an attacker controls where a server makes a request, potentially reaching internal services, cloud metadata endpoints, or other destinations the attacker cannot reach directly.
+## TLS
 
-Prefer a strict **destination allowlist** and construct URLs from approved components. Disable automatic redirects or validate every hop; restrict egress and validate resolved IPv4 and IPv6 addresses so DNS changes and alternate IP forms cannot bypass private-network blocks.
+### Handshake and trust
 
-## 9. What is the difference between OAuth 2.0 and OpenID Connect (OIDC)?
+- TLS 1.3 handshake is **1-RTT** (client and server exchange ephemeral key shares in the first round trip); optional **0-RTT** resumption data carries a **replay risk** since it isn't tied to a fresh handshake.
+- The server proves identity via a certificate + signature; the client validates the full **chain to a trusted root** and the hostname.
+- **mTLS** — both sides present certificates, common for service-to-service auth inside a mesh.
+- **HSTS** forces HTTPS on future visits after the first HTTPS response; **certificate pinning** hard-codes a trusted key/cert, trading resilience to CA compromise against ops pain during rotation.
 
-**OAuth 2.0** lets a client obtain limited access to a protected resource using an access token. **OIDC** adds an identity layer: its ID token lets the client verify the user's authentication and obtain identity claims.
+## Threat modeling
 
-An access token is for the resource server, not proof of login to the client. Common interactive sign-in uses the authorization code flow with **PKCE**; validate the ID token's issuer, audience, signature, and expiry. See [system.md](system.md) for the wider authentication design.
+### STRIDE and OWASP
 
-## 10. How does an HTTPS/TLS handshake work at a high level?
+| STRIDE threat | Violates |
+|---|---|
+| Spoofing | Authentication |
+| Tampering | Integrity |
+| Repudiation | Non-repudiation |
+| Information disclosure | Confidentiality |
+| Denial of service | Availability |
+| Elevation of privilege | Authorization |
 
-**HTTPS** is HTTP over **TLS**. In TLS 1.3, client and server negotiate parameters and exchange ephemeral key shares. The server proves its identity with a certificate and a signature; the client validates the certificate chain and hostname.
-
-Both sides derive symmetric **traffic keys** from the shared secret and handshake transcript, then use authenticated encryption for application data. TLS 1.3 does not encrypt a session secret with the server's public key as older RSA key-exchange descriptions suggest; its ephemeral exchange provides forward secrecy.
-
-## 11. What is the difference between hashing, encryption, and encoding?
-
-**Encoding** changes a representation (for example, Base64) and is reversible without a secret. **Encryption** uses a key to keep data confidential and is reversible with the right key. **Cryptographic hashing** produces a fixed-size digest used to detect changes, with practical resistance to reversing or finding collisions.
-
-A hash alone does not prove who produced data; use a MAC or digital signature for authenticity. Passwords need a slow password-hashing scheme, not a general-purpose hash.
-
-## 12. What is the difference between symmetric and asymmetric cryptography?
-
-**Symmetric cryptography** uses a shared secret key, usually for fast bulk encryption; both parties must protect that key. **Asymmetric cryptography** uses a public/private key pair for operations such as key agreement and digital signatures.
-
-In practice, protocols combine them: TLS 1.3 uses asymmetric key exchange and authentication to establish symmetric traffic keys. Do not assume every public-key system supports both encryption and signing.
-
-## 13. What are digital signatures, and what do they prove?
-
-A **digital signature** is created with a private key and verified with the matching public key. It establishes message **integrity** and that the signer controlled the private key, provided the verifier trusts the key's binding to that identity.
-
-Signatures do not provide confidentiality. They can support non-repudiation, but a compromised or shared private key weakens any claim about which person signed.
-
-## 14. What is the difference between role-based and attribute-based access control?
-
-**RBAC** grants permissions through roles such as editor or administrator. **ABAC** evaluates policy against attributes of the subject, resource, action, and context, such as department and document classification.
-
-RBAC is simpler to audit when roles are few; many special cases can cause role proliferation. ABAC expresses finer conditions but needs consistent attributes and carefully tested policies. Both must enforce access on the server for the specific resource.
-
-## 15. What is defense in depth?
-
-**Defense in depth** uses independent controls so one failure does not expose the whole system. For a database-backed application, controls might include input-safe queries, narrow database permissions, network isolation, encryption, and monitoring.
-
-Layers should address distinct failure modes; adding more of the same weak check does not create strong protection. Start with a direct fix for each risk, then add controls that limit impact if it fails.
-
-## 16. What is threat modeling, and what does STRIDE mean?
-
-**Threat modeling** identifies assets, trust boundaries, likely attackers, and abuse paths before choosing mitigations. Review data flows and ask what could go wrong at each boundary, then prioritize by impact and likelihood.
-
-**STRIDE** is a prompt list: spoofing, tampering, repudiation, information disclosure, denial of service, and elevation of privilege. It helps find threats; it does not rank or fix them by itself.
-
-## 17. What is CORS, and why does it exist?
-
-**Cross-Origin Resource Sharing (CORS)** lets a server tell browsers which other origins may read its responses, relaxing the browser's same-origin policy. A server can allow a specific origin with `Access-Control-Allow-Origin`; credentialed responses cannot use `*`.
-
-CORS is a **browser read control**, not API authentication or a general request firewall. Non-browser clients ignore it, and some cross-origin requests can still be sent. Use server-side authorization and CSRF defenses where applicable.
-
-## 18. What is clickjacking, and how is it prevented?
-
-**Clickjacking** tricks a user into clicking controls on a site framed inside an attacker's page, often under misleading visual content. The user's browser sends the click to the real site with their credentials.
-
-Restrict framing with CSP's **`frame-ancestors`** directive. `X-Frame-Options: DENY` or `SAMEORIGIN` is a fallback for older clients; confirm any legitimate embedding still works.
-
-## 19. What is the OWASP Top 10?
-
-The **OWASP Top 10** is an awareness list of major web application security risk categories, not a complete testing checklist. The current released edition is **2025**; categories include broken access control, security misconfiguration, software supply chain failures, cryptographic failures, and injection.
-
-Use it to guide discussion and prioritization, then test the application's actual threats and controls. The categories can change between editions, so name the edition when citing them.
-
-## 20. What is a zero-day vulnerability?
-
-A **zero-day vulnerability** is a flaw for which defenders have no available fix when it becomes known or exploited. A **zero-day exploit** is a method that uses that flaw; the two terms describe different things.
-
-Until a fix is available, reduce exposure with mitigations such as disabling the affected feature, restricting access, or filtering known attack paths. Patch and verify once a vendor fix is released.
+- STRIDE is a prompt list for finding threats at each trust boundary — it doesn't rank or fix them; pair it with impact/likelihood scoring.
+- **OWASP Top 10:2025** current categories (broad awareness list, not a full test checklist — name the edition when citing it): Broken Access Control, Security Misconfiguration, Software Supply Chain Failures, Cryptographic Failures, Injection, Insecure Design, Authentication Failures, Software/Data Integrity Failures, Security Logging and Alerting Failures, Mishandling of Exceptional Conditions.

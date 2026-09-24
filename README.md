@@ -15,7 +15,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
 - [AI Engineering](docs/topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
 - [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
-- [Security](docs/topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
+- [Security](docs/topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
 - [Rust](docs/topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
 - [Python](docs/topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
 - [TypeScript](docs/topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
