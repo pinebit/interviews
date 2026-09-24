@@ -17,7 +17,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [TypeScript](topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation, strictness, declarations, typing patterns
 - [JavaScript](topics/javascript.md) — event loop, scope and closures, `this` and prototypes, async, modules, memory, DOM events, recent additions
 - [Backend](topics/backend.md) — API design, idempotency, resilience, async work, data access, lifecycle, security, testing
-- [Frontend](topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
+- [Frontend](topics/frontend.md) — rendering strategies, browser pipeline, performance, caching, React internals, state management, accessibility, security
 
 ## Quiz
 
