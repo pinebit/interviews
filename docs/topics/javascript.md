@@ -1,123 +1,89 @@
-# JavaScript Cheatsheet
+# JavaScript
 
-The 20 most frequently asked JavaScript interview topics, with short answers.
+What experienced JavaScript engineers forget before an interview, grouped by subtopic.
 
-## 1. How does the event loop work? What's the difference between the microtask and macrotask queue?
+## Event loop
 
-JavaScript is **single-threaded**: one call stack, plus a runtime-managed **event loop** that pulls queued callbacks onto the stack once it's empty. The **microtask queue** (Promise callbacks, `queueMicrotask`, `MutationObserver`) is drained **completely** after each stack-emptying step, before the loop moves on. The **macrotask queue** (`setTimeout`, `setInterval`, I/O, UI events) runs **one task per loop iteration**, with microtasks drained again after it.
+### Microtasks vs macrotasks
 
-This is why `Promise.resolve().then(cb)` always runs before a `setTimeout(cb, 0)`, regardless of order written. A microtask that keeps scheduling more microtasks can **starve** rendering and macrotasks indefinitely.
+- One call stack; the event loop pulls queued callbacks on once the stack is empty. The **microtask queue** (Promise callbacks, `queueMicrotask`, `MutationObserver`) drains **completely** after each stack-emptying step, before the loop continues. The **macrotask queue** (`setTimeout`, I/O, UI events) runs **one task per iteration**, with microtasks drained again right after.
+- This is why `Promise.resolve().then(cb)` always fires before `setTimeout(cb, 0)`, regardless of source order — a microtask that keeps scheduling more microtasks can starve rendering and macrotasks indefinitely.
+- **Rendering** and `requestAnimationFrame` callbacks run after microtasks drain but before the next macrotask/paint — heavy microtask chains can delay a frame even though they "ran first."
+- Node has **more queue phases** than the browser: `process.nextTick` drains before the promise microtask queue on every tick, ahead of timers, I/O callbacks, `setImmediate`, and close callbacks in that phase order.
 
-## 2. What are closures, and what's the classic loop-variable bug?
+## Scope and closures
 
-A **closure** is a function bundled with references to variables from its enclosing scope, which persist even after that outer function has returned. This enables patterns like private state, memoization, and factory functions returning configured functions.
+### Hoisting, TDZ, and closures
 
-The classic bug: `for (var i = 0; i < 3; i++) setTimeout(() => console.log(i))` logs `3, 3, 3` because `var` is function-scoped — all three closures share the same `i`, which finishes the loop before any timeout fires. `let` fixes it by creating a **new binding per iteration** (block-scoped), so each closure captures its own `i`.
+- `var`/`function` declarations are hoisted with their binding created upfront (a `var` reads as `undefined` before its line runs; a `function` declaration is fully callable before its line). `let`/`const` are hoisted too but sit in the **temporal dead zone** — `ReferenceError` on access from scope start until the declaration line executes.
+- Classic loop bug: `for (var i = 0; i < 3; i++) setTimeout(() => console.log(i))` logs `3,3,3` — all closures share the one function-scoped `i`. `let` creates a fresh binding per iteration, fixing it without extra code.
+- A closure keeps its entire enclosing scope's referenced variables alive — a common **memory leak** is a long-lived closure (event listener, timer) retaining a large object it barely uses.
 
-## 3. What is prototypal inheritance? How does `class` relate to it?
+## `this` and prototypes
 
-Every object has an internal **`[[Prototype]]`** link (accessed via `Object.getPrototypeOf` or the non-standard `__proto__`) to another object; property lookup walks this **prototype chain** until found or it reaches `null`. `Object.create(proto)` creates an object with a specific prototype directly.
+### Binding rules
 
-**`class`** syntax (ES6+) is **sugar over prototypes** — methods defined in a class body are added to `ClassName.prototype`, and `extends` sets up the prototype chain between constructor functions. There's no separate "class" mechanism at runtime; it's the same prototype system with cleaner syntax and some added rigor (e.g. must `new`, temporal dead zone before `super()`).
+- `this` is determined by **how** a function is called, resolved in this precedence order: **`new`** (newly created object) > explicit **`call`/`apply`/`bind`** > implicit (`obj.method()` → `obj`) > default (`undefined` in strict mode, global object otherwise).
+- **Arrow functions** have no own `this` — captured lexically at definition time, which is exactly why they're preferred for callbacks needing the outer `this`. Passing a method as a bare reference (`setTimeout(obj.method)`) loses its `this` binding — the call site is no longer `obj.method()`.
+- **Prototype chain**: every object has an internal `[[Prototype]]` link; lookup walks it until found or `null`. `class` is sugar over this — methods land on `ClassName.prototype`, `extends` wires the chain — with real differences from old-style constructor functions: class bodies run in strict mode, class declarations have a **TDZ** (unlike function declarations), and a class is not callable without `new`.
+- **Private `#fields`** are enforced by the engine, not just convention — accessing `obj.#field` from outside the class is a syntax error, not just `undefined`.
 
-## 4. How does `this` get determined? What do `call`, `apply`, `bind`, and arrow functions do?
+## Coercion and equality
 
-`this` is determined by **how a function is called**, not where it's defined: as a method (`obj.method()`) it's `obj`; as a plain function call it's `undefined` in strict mode (the global object otherwise); with `new` it's the newly created object; explicitly with `call`/`apply`/`bind` it's whatever's passed.
+### Equality algorithm and special values
 
-**Arrow functions** have no own `this` — they capture it **lexically** from the enclosing scope at definition time, which is why they're preferred for callbacks that need the outer `this` (e.g. inside a class method's inner callback). `call(thisArg, ...args)` and `apply(thisArg, argsArray)` invoke immediately with a given `this`; `bind(thisArg)` returns a new function permanently bound, callable later.
+- `==` coerces operands to a common type before comparing (`'' == 0` → `true`, `null == undefined` → `true`, but `null == 0` → `false`); `===` never coerces. Prefer `===`.
+- `NaN !== NaN`; use `Number.isNaN` or `Object.is`. `Object.is(a, b)` behaves like `===` except it treats `NaN` as equal to itself and distinguishes `+0` from `-0` (`Object.is(0, -0)` is `false`, `0 === -0` is `true`).
+- `typeof null === 'object'` — a long-standing quirk kept for backward compatibility, not a meaningful type check.
+- Default `Array.sort()` is **lexicographic** (converts elements to strings) — sorting numbers requires an explicit comparator (`(a, b) => a - b`), or `[10, 2, 1].sort()` gives `[1, 10, 2]`.
 
-## 5. What's the difference between `==` and `===`? What is type coercion?
+## Async
 
-**`===`** (strict equality) compares value **and type**, no conversion. **`==`** (loose equality) **coerces** operands to a common type before comparing, following a specific, often surprising algorithm (`'' == 0` is `true`, `null == undefined` is `true` but `null == 0` is `false`). Prefer `===` almost always to avoid coercion surprises.
+### Promise combinators
 
-**Truthy/falsy**: only `false, 0, -0, 0n, '', null, undefined, NaN` are falsy — everything else, including `[]` and `{}`, is truthy. `Object.is(a, b)` is like `===` but treats `NaN` as equal to itself and distinguishes `+0`/`-0`.
+| Combinator | Settles when | Use when |
+|---|---|---|
+| `Promise.all` | any rejects, or all fulfill | need every result, fail fast on error |
+| `Promise.allSettled` | always, tagged fulfilled/rejected | need every outcome regardless of failure |
+| `Promise.race` | first settles (either way) | first result or failure wins |
+| `Promise.any` | first fulfillment, or all reject (`AggregateError`) | first success, ignore individual failures |
 
-## 6. What is hoisting? What is the temporal dead zone?
+- **Unhandled rejections** surface as a process/window-level event; a rejected promise with no `.catch`/`try-catch` doesn't crash synchronously but is a real bug source in long-running processes.
+- Sequential `await` in a loop runs **serially** — start independent operations first, then `await Promise.all([...])`, or their times needlessly sum instead of overlapping.
+- **`AbortController`** cancels a fetch or other abortable operation via a shared `AbortSignal`; **async iterators** (`for await...of`) consume async generators or any object with `Symbol.asyncIterator`.
+- **`Promise.withResolvers()`** (ES2024) returns `{ promise, resolve, reject }` without the old `let resolve; new Promise(r => resolve = r)` workaround; **`Promise.try()`** (ES2025) runs a function and normalizes both its return value and any synchronous throw into a promise.
 
-**Hoisting**: declarations are processed before code executes. `var` declarations and `function` declarations are hoisted with their binding created upfront — a `var` is accessible (as `undefined`) before its line runs; a `function` declaration is fully usable before its line.
+## Modules
 
-`let`/`const` are also hoisted as bindings, but stay in the **temporal dead zone (TDZ)** — inaccessible (`ReferenceError` on access) from the start of their scope until their declaration line actually executes. This is why `let`/`const` catch use-before-declare bugs that `var` silently allows.
+### CJS vs ESM
 
-## 7. How do promises work, and what's the difference between `Promise.all`, `allSettled`, `race`, and `any`?
+- **CommonJS** (`require`/`module.exports`) resolves and executes **synchronously** at runtime, supports requiring conditionally anywhere in code. **ESM** (`import`/`export`) is statically analyzed at parse time — enabling tree-shaking and **live bindings** (an imported name reflects the exporter's current value, not a copied snapshot) — and loads asynchronously, with **top-level `await`** supported directly in a module.
+- **`require(esm)`**: Node can `require()` a synchronous ES module (no top-level await) directly **since Node 22+**, easing the two systems' interop.
+- **Dual-package hazard**: a package shipping both a CJS and an ESM build can end up loaded twice under different identities (two separate module instances, breaking `instanceof` checks and shared singletons) if consumers mix `require` and `import` on it.
 
-A **`Promise`** represents an eventual value with three states: pending, fulfilled, rejected — once settled, it's immutable. `.then`/`.catch`/`.finally` register callbacks; `async`/`await` is syntax sugar that makes promise chains read like synchronous code, with `try`/`catch` catching rejections.
+## Memory and data
 
-**`Promise.all`** rejects as soon as any input rejects (fails fast), resolving with all values only if every promise succeeds. **`allSettled`** always resolves, with each result tagged `fulfilled`/`rejected` — use when you need every outcome regardless of failures. **`race`** settles with whichever input settles first (fulfilled or rejected). **`any`** resolves with the first **fulfillment**, only rejecting if all inputs reject.
+### GC and leaks
 
-## 8. What is the difference between `null` and `undefined`?
+- V8 uses a **generational** collector: young objects are collected frequently and cheaply (most die young — "the generational hypothesis"), promoted to an older generation if they survive, which is collected less often.
+- Common leaks: detached DOM nodes still referenced from JS after removal, forgotten event listeners/timers holding closures alive, and closures capturing more than they need.
+- **`WeakMap`/`WeakSet`** hold keys/values weakly, so entries are collectible once nothing else references them — good for caches/metadata keyed by objects without preventing their collection. **`WeakRef`** holds a weak reference to a single object; **`FinalizationRegistry`** runs a callback after an object is collected (not guaranteed to run promptly, or at all — never rely on it for correctness, only cleanup hints).
+- **`structuredClone(obj)`** deep-clones including cycles and many built-in types (`Map`, `Set`, `Date`, typed arrays); `JSON.parse(JSON.stringify(obj))` drops functions/`undefined`/`Symbol`, turns `Date` into a string, throws on `BigInt`, and can't handle cycles at all.
+- **Typed arrays** (`Uint8Array`, etc.) are fixed-type views over a raw `ArrayBuffer` — fast, homogeneous numeric storage without per-element boxing, unlike a regular `Array`. Multiple views can share one buffer, reading/writing the same memory with different type interpretations.
 
-**`undefined`** means a variable has been declared but not assigned, a function parameter wasn't passed, or a property doesn't exist. **`null`** is an explicit, intentional "no value," assigned deliberately by code. `typeof undefined === 'undefined'`, but `typeof null === 'object'` (a long-standing language quirk kept for backward compatibility).
+## DOM events
 
-`??` (nullish coalescing) treats them the same — falls back only when the left side is `null` or `undefined`, unlike `||` which also falls back on any falsy value (`0`, `''`, etc.).
+### Propagation and performance
 
-## 9. How do `var`, `let`, and `const` differ in scoping?
+- Three phases: **capturing** (root → target) → **target** → **bubbling** (target → root); `addEventListener`'s `{capture: true}` picks the phase, default is bubbling.
+- **Event delegation**: one listener on a common ancestor plus `event.target` identifies the actual child — cheaper than per-child listeners and automatically covers dynamically added children.
+- **`passive: true`** listeners promise not to call `preventDefault()`, letting the browser start scrolling immediately instead of waiting to see if the handler cancels it — meaningful for scroll/touch performance.
+- **Debounce** (wait for a pause, fire once after) vs **throttle** (fire at most once per interval, regardless of call frequency) — debounce for search-as-you-type, throttle for scroll/resize handlers.
 
-**`var`** is **function-scoped** (or global), ignores block boundaries, and allows redeclaration. **`let`** and **`const`** are **block-scoped** — confined to the nearest `{}`, and cannot be redeclared in the same scope. **`const`** additionally forbids reassignment of the **binding** — but if it holds an object/array, the contents remain mutable (`const arr = []; arr.push(1)` is fine).
+## Recent language additions
 
-Modern style defaults to `const`, using `let` only when reassignment is needed, and avoids `var` entirely to sidestep hoisting and scoping surprises.
+### Since ES2023
 
-## 10. What is event delegation, and how does event bubbling/capturing work?
-
-DOM events **propagate** in three phases: **capturing** (root down to target), **target**, then **bubbling** (target back up to root) — `addEventListener`'s third argument (`{capture: true}`) chooses which phase to listen on; the default is bubbling. `stopPropagation()` halts further propagation; `preventDefault()` stops the browser's default action (e.g. a link navigating) without stopping propagation.
-
-**Event delegation** attaches one listener to a common ancestor instead of many listeners on individual children, relying on bubbling and `event.target` to identify which child was actually interacted with — more memory-efficient and automatically covers dynamically added children.
-
-## 11. What are the differences between `map`, `forEach`, `filter`, and `reduce`?
-
-**`forEach`** runs a callback per element for side effects, returns `undefined` — can't be chained or broken out of early (no equivalent to `break`). **`map`** returns a **new array** of the same length with each element transformed. **`filter`** returns a new array containing only elements where the callback returns truthy.
-
-**`reduce(fn, initial)`** folds the array into a single accumulated value, calling `fn(acc, item, index, array)` for each element — the most general of the four; `map` and `filter` can both be implemented in terms of `reduce`. Omitting the initial value uses the first element as the seed and starts from index 1, which throws on an empty array.
-
-## 12. What are `Symbol`, `WeakMap`, and `WeakSet` used for?
-
-**`Symbol()`** creates a guaranteed-unique value, commonly used as an object property key to avoid name collisions (e.g. well-known symbols like `Symbol.iterator` define custom iteration behavior for `for...of`). Symbol-keyed properties are excluded from `JSON.stringify`, `for...in`, and `Object.keys`.
-
-**`WeakMap`**/**`WeakSet`** hold their keys (`WeakMap`) or values (`WeakSet`) **weakly** — objects, or (since ES2023) non-registered `Symbol`s, not garbage-collection roots — so entries can be garbage-collected once no other reference exists, preventing memory leaks in caches/metadata keyed by objects. Unlike `Map`/`Set`, they're not iterable and have no `.size`, since their contents can vanish at any time.
-
-## 13. What is the module system — CommonJS vs ES Modules?
-
-**CommonJS** (`require`/`module.exports`), Node's original system, loads and executes **synchronously**, resolving `require` calls at runtime — supports conditional/dynamic requires anywhere in code. **ES Modules** (`import`/`export`), the language standard, are **statically analyzed** at parse time (enabling tree-shaking and `import`/`export` bindings that stay **live references**, not copied values) and load asynchronously.
-
-Node supports both: `.mjs`/`"type": "module"` in `package.json` for ESM, `.cjs`/default for CommonJS. Dynamic `import('./mod.js')` returns a promise and works in both systems for lazy/conditional loading.
-
-## 14. What is destructuring, and what do the spread and rest operators do?
-
-**Destructuring** unpacks values from arrays/objects into distinct variables: `const {a, b: renamed, ...rest} = obj`, `const [first, , third] = arr`, both supporting default values (`{a = 5} = obj`) for `undefined` fields.
-
-The `...` syntax is **spread** when expanding an iterable/object into individual elements (`[...arr1, ...arr2]`, `{...obj, extra: 1}` — a common shallow-clone/merge idiom) and **rest** when collecting remaining elements into an array/object (`function f(first, ...rest)`, `const [a, ...others] = arr`) — same syntax, opposite direction, determined by context.
-
-## 15. How does `async`/`await` error handling and concurrency work?
-
-`await` pauses the **`async` function** (not the whole program) until the awaited promise settles; a rejection becomes a thrown exception catchable with a normal `try`/`catch`. An `async` function always returns a **promise**, wrapping its return value or thrown error automatically.
-
-Sequential `await`s in a loop run **serially** — each waits for the previous to finish. To run independent async operations concurrently, start them all first (without awaiting) and then `await Promise.all([...])`, or the total time needlessly sums instead of overlapping.
-
-## 16. What's the difference between deep and shallow copying/comparison in JS?
-
-Assignment of objects/arrays copies the **reference**, not the value — both variables point to the same object, so mutating one is visible through the other. A **shallow copy** (`{...obj}`, `Object.assign({}, obj)`, `arr.slice()`) copies top-level properties, but nested objects/arrays are still shared references.
-
-A true **deep copy** needs `structuredClone(obj)` (modern, handles most types including cycles) or a recursive/library solution (`JSON.parse(JSON.stringify(obj))` works for simple JSON-safe data but drops functions, `undefined`, `Date` becomes a string, and can't handle cycles).
-
-## 17. What is debouncing vs throttling?
-
-**Debouncing** delays invoking a function until a burst of calls has **stopped** for a given interval — each new call resets the timer, so only the last call in a rapid sequence actually fires (e.g. search-as-you-type: wait until the user pauses typing).
-
-**Throttling** guarantees a function runs **at most once per interval**, regardless of how many times it's called — extra calls within the window are dropped or deferred, not accumulated (e.g. scroll/resize handlers, rate-limiting a fixed cadence of updates).
-
-## 18. How does `JSON.stringify`/`parse` handle edge cases?
-
-`JSON.stringify` **silently drops** `undefined` values, functions, and `Symbol` properties from objects (converts them to `null` inside arrays instead of dropping, since array positions must be preserved); it throws on circular references and on `BigInt`. `Date` objects serialize via their `toJSON()` (ISO string), so parsing back gives a plain string, not a `Date`, unless you supply a custom **reviver** function.
-
-A **replacer** function/array (2nd argument to `stringify`) filters or transforms values during serialization; a **reviver** function (2nd argument to `parse`) transforms values during deserialization — both useful for handling types JSON doesn't natively support.
-
-## 19. What are typed arrays and `ArrayBuffer` used for?
-
-An **`ArrayBuffer`** is a raw binary buffer, fixed-length by default (or growable up to a max size if created as `resizable`); a **typed array** (`Uint8Array`, `Float64Array`, etc.) is a view over that buffer interpreting its bytes as a specific numeric type, giving fast, fixed-size, homogeneous numeric storage — unlike a regular `Array`, which is a flexible, sparse, object-like structure with per-element boxing overhead.
-
-Used for binary data: file/network I/O, WebGL, audio/image processing, and `Buffer` in Node (which extends `Uint8Array`). Multiple typed array **views** can share one `ArrayBuffer`, reading/writing the same underlying memory with different type interpretations.
-
-## 20. How do you test and profile JavaScript code?
-
-Common test runners (Jest, Vitest, Mocha) provide `describe`/`it`/`test` blocks, assertions, mocking (`jest.fn()`, `vi.fn()`), and snapshot testing. **Unit tests** isolate a function/module (mocking dependencies); **integration tests** exercise several modules together; end-to-end tools (Playwright, Cypress) drive a real browser.
-
-For performance: browser DevTools' **Performance** panel records a CPU/paint timeline; `console.time`/`timeEnd` gives quick manual timing; Node's `--prof` and `node --inspect` support CPU profiling via Chrome DevTools. Always measure before optimizing — intuition about JS hot paths is often wrong due to JIT behavior.
+- Non-mutating array methods **`toSorted`, `toReversed`, `toSpliced`, `with`** (ES2023) return a new array instead of mutating in place, mirroring the mutating originals (`sort`, `reverse`, `splice`) without the shared-reference footguns.
+- **`Object.groupBy`** (ES2024) groups an iterable's items into a plain object keyed by a callback's return value, replacing a common manual `reduce` pattern.
+- **Set methods** (`union`, `intersection`, `difference`, `symmetricDifference`, `isSubsetOf`, `isSupersetOf`, `isDisjointFrom`) and **iterator helpers** (`.map`, `.filter`, `.take`, `.drop` directly on iterators) shipped as part of the **ES2025** set of additions, closing long-standing gaps versus array methods.
