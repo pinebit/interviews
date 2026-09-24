@@ -20,6 +20,8 @@ Each topic in `docs/topics/` covers its 20 most frequently asked interview quest
 - [Python](docs/topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
 - [TypeScript](docs/topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
 - [JavaScript](docs/topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
+- [Backend](docs/topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
+- [Frontend](docs/topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
 
 ## Quiz
 

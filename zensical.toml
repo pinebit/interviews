@@ -19,6 +19,8 @@ nav = [
     { "Python" = "topics/python.md" },
     { "TypeScript" = "topics/typescript.md" },
     { "JavaScript" = "topics/javascript.md" },
+    { "Backend" = "topics/backend.md" },
+    { "Frontend" = "topics/frontend.md" },
   ] },
 ]
 

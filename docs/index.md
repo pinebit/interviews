@@ -16,6 +16,8 @@ Short, memorizable material for software engineering interview prep. Each topic 
 - [Python](topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
 - [TypeScript](topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
 - [JavaScript](topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
+- [Backend](topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
+- [Frontend](topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
 
 ## Quiz
 
