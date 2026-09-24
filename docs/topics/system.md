@@ -37,7 +37,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 |---|---|---|---|
 | Cache-aside | app writes DB, invalidates cache | miss → read DB, fill cache | most common; stale until TTL/invalidation |
 | Read-through | — | cache loads from DB on miss | cache owns the loading logic |
-| Write-through | write cache + DB together | cache always warm | slower writes, always consistent |
+| Write-through | write cache + DB together | cache always warm | slower writes; the two writes aren't atomic, so a crash or race can still diverge them |
 | Write-behind | write cache, flush DB async | fast writes | risk of data loss before flush |
 
 ### Eviction and stampedes
@@ -56,7 +56,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Scaling ladder
 
-In order of increasing complexity: query/index optimization → caching → read replicas (watch replication lag) → vertical scaling → federation by domain → sharding (high-cardinality, evenly-distributed key; cross-shard joins/transactions get hard). Denormalization trades write complexity for read speed; **CQRS** (see [distributed.md](distributed.md)) separates write and read models.
+- In order of increasing complexity: query/index optimization → caching → read replicas (watch replication lag) → vertical scaling → federation by domain → **sharding** (needs a high-cardinality, evenly-distributed key; cross-shard joins/transactions get hard).
+- **Denormalization** trades write complexity for read speed; **CQRS** (see [distributed.md](distributed.md)) separates write and read models entirely.
 
 ## Asynchronous processing
 

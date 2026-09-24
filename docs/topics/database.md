@@ -59,7 +59,9 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### WAL and backups
 
-- Changes are appended to a sequential **write-ahead log** and `fsync`'d at commit before data pages are touched; crash recovery replays it (ARIES-style redo/undo). Pages are written lazily at **checkpoints**. **Group commit** batches concurrent fsyncs for throughput.
+- Changes are appended to a sequential **write-ahead log** and `fsync`'d at commit before data pages are touched.
+- Crash recovery replays the log (ARIES-style redo/undo); data pages themselves are written lazily at **checkpoints**, not on every commit.
+- **Group commit** batches concurrent transactions' fsyncs into one disk flush for throughput.
 - **Logical backups** (`pg_dump`) — portable, slow to restore at scale. **Physical backups** (`pg_basebackup`, snapshots) — fast restore, same major version required.
 - **PITR** = physical base backup + replayed WAL up to a chosen moment. Define **RPO**/**RTO**; replicas are not backups — they replicate mistakes too.
 
@@ -70,7 +72,7 @@ What experienced database engineers forget before an interview, grouped by subto
 - Logical evaluation order: **`FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT`** — explains why a `SELECT` alias can't be used in `WHERE` but can in `ORDER BY`.
 - Read `EXPLAIN ANALYZE`: sequential scans on large tables, large gaps between estimated and actual row counts (stale statistics — run `ANALYZE`), sorts/hashes spilling to disk.
 - Join algorithms: **nested loop** (best when one side is small, ideally index-backed), **hash join** (build on the smaller side, probe with the larger — best for large equality joins without a useful index), **merge join** (both inputs pre-sorted, e.g. from an index).
-- **Keyset pagination** (`WHERE id > last_id LIMIT n`) stays fast at any depth; **OFFSET** pagination still reads and discards every skipped row, getting slower with depth.
+- **Keyset pagination** stays fast at any depth; **OFFSET** pagination still reads and discards every skipped row, getting slower with depth — see [backend.md](backend.md) for the API-level trade-off.
 
 ## SQL gotchas
 
@@ -85,7 +87,7 @@ What experienced database engineers forget before an interview, grouped by subto
 - `fn() OVER (PARTITION BY ... ORDER BY ...)` computes per-row without collapsing rows, unlike `GROUP BY`.
 - **`ROW_NUMBER`** (1,2,3 no ties), **`RANK`** (1,1,3 — gaps after ties), **`DENSE_RANK`** (1,1,2 — no gaps).
 - Default frame is **`RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`** — surprises people expecting `ROWS`, since `RANGE` groups peer rows with equal `ORDER BY` values together.
-- CTEs are **inlined** (not materialized as an optimization fence) **since PostgreSQL 12**, unless marked `MATERIALIZED`.
+- **Since PostgreSQL 12**, a non-recursive CTE referenced **once** and free of side effects is folded into the outer query by default rather than materialized as an optimization fence; a CTE referenced multiple times is still normally materialized. `MATERIALIZED`/`NOT MATERIALIZED` override the default explicitly either way.
 - **`INSERT ... ON CONFLICT (...) DO UPDATE`** (upsert) avoids a separate check-then-write round trip.
 
 ## Schema design

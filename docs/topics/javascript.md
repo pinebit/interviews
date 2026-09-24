@@ -82,7 +82,7 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 ## Recent language additions
 
-### Since ES2023
+### Recent built-ins
 
 - Non-mutating array methods **`toSorted`, `toReversed`, `toSpliced`, `with`** (ES2023) return a new array instead of mutating in place, mirroring the mutating originals (`sort`, `reverse`, `splice`) without the shared-reference footguns.
 - **`Object.groupBy`** (ES2024) groups an iterable's items into a plain object keyed by a callback's return value, replacing a common manual `reduce` pattern.

@@ -20,12 +20,12 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Consistency hierarchy
 
-Strongest to weakest: **strict serializable** > **linearizable** > **sequential** > **causal** > **eventual**.
+Roughly strongest to weakest, though they apply to different scopes: **strict serializable**/**linearizable** (single-object/transaction recency) > **sequential** > **causal** > **eventual** (multi-replica ordering).
 
 - **Linearizability** — a recency guarantee for a single object: once a write completes, every later real-time read sees it.
-- **Serializability** — an isolation guarantee for transactions: the result equals *some* serial order, not necessarily matching real time.
-- **Strict serializability** combines both (Spanner, CockroachDB aim for it; FoundationDB provides it).
-- Session guarantees on top of weak models: **read-your-writes**, **monotonic reads**, **monotonic writes**, **writes-follow-reads**.
+- **Serializability** — an isolation guarantee for transactions (potentially many objects): the result equals *some* serial order, not necessarily matching real time.
+- **Strict serializability** combines both: transactions appear in a serial order that also respects real time (Spanner, CockroachDB aim for it; FoundationDB provides it) — it's what you get when linearizability is applied at the transaction level instead of the single-object level.
+- **Sequential/causal/eventual** describe how far apart replicas' views of the world can drift, not transaction isolation — session guarantees on top of them: **read-your-writes**, **monotonic reads**, **monotonic writes**, **writes-follow-reads**.
 
 ## Replication
 

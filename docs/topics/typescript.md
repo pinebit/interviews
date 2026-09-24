@@ -13,7 +13,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### interface vs type, bivariance
 
 - `interface` supports **declaration merging** (reopening the name adds members); `type` can alias unions, tuples, and mapped/conditional types that `interface` can't express.
-- **Method parameters are bivariant** by default (unsound but pragmatic for override compatibility) while **standalone function-typed properties are checked contravariantly** — `strictFunctionTypes` makes both strict, but method shorthand syntax (`foo(x: T): void` vs `foo: (x: T) => void`) is deliberately exempted for compatibility with common override patterns.
+- **Method parameters are bivariant** (unsound but pragmatic for override compatibility) while **standalone function-typed properties are checked contravariantly**; `strictFunctionTypes` makes function-typed properties strict, but method shorthand syntax (`foo(x: T): void` vs `foo: (x: T) => void`) is deliberately exempted and stays bivariant, for compatibility with common override patterns.
 
 ## Narrowing
 
@@ -29,12 +29,15 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Conditional and mapped types
 
-- **Conditional types** (`T extends U ? X : Y`) are **distributive over naked type parameters** — `Cond<A | B>` becomes `Cond<A> | Cond<B>`; wrapping in `[T]` (`[T] extends [U] ? X : Y`) disables distribution when you need the union treated as one unit.
-- **`infer`** inside a conditional extracts a sub-type, powering `ReturnType<T>`/`Parameters<T>`.
-- **Mapped types** transform each property (`{ [K in keyof T]: T[K] }`); the **`as`** clause remaps keys (`{ [K in keyof T as NewKey]: T[K] }`); `+`/`-` modifiers add or strip `readonly`/`?` per property.
-- **Template literal types** build string-literal unions structurally (`` `on${Capitalize<Event>}` ``).
-- **`satisfies`** (**4.9**) checks a value against a type without widening the value's own inferred type — you keep the literal type while still getting the constraint check.
-- **`const` type parameters** (`<const T>`, **5.0**) infer the most specific literal type for a generic argument without the caller writing `as const`.
+- Conditional types (`T extends U ? X : Y`) are distributive over naked type parameters — `Cond<A | B>` becomes `Cond<A> | Cond<B>`; wrapping in `[T]` (`[T] extends [U] ? X : Y`) disables distribution when the union should be treated as one unit.
+- `infer` inside a conditional extracts a sub-type, powering `ReturnType<T>`/`Parameters<T>`.
+- Mapped types transform each property (`{ [K in keyof T]: T[K] }`); the `as` clause remaps keys, and `+`/`-` modifiers add or strip `readonly`/`?` per property.
+- Template literal types build string-literal unions structurally (`` `on${Capitalize<Event>}` ``).
+
+### Recent inference features
+
+- **`satisfies`** (**4.9**) checks a value against a type without widening the value's own inferred type.
+- **`const` type parameters** (**5.0**) infer the most specific literal type for a generic argument without the caller writing `as const`.
 - **`NoInfer<T>`** (**5.4**) blocks a type parameter position from participating in inference, useful to stop a default value from widening the inferred type.
 
 ## Compilation and tooling

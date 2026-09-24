@@ -31,7 +31,7 @@ What experienced backend engineers forget before an interview, grouped by subtop
 ### Defense per call
 
 - **Timeout on every outbound call** — never wait forever on a dependency.
-- Retry **only idempotent operations**, with exponential backoff **and jitter** — see [distributed.md](distributed.md) for why blind retries amplify outages.
+- Retry **only idempotent operations** — see [distributed.md](distributed.md) for backoff, jitter, and why blind retries amplify outages.
 - **Deadline propagation**: pass the remaining time budget down the call chain so a downstream service doesn't keep working after the original caller has already given up — without it, a slow leaf call can burn resources for a result nobody will use.
 
 ## Async work

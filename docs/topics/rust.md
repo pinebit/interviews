@@ -49,7 +49,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - **`Box<T>`** — single owner, heap allocation. **`Rc<T>`** — shared ownership, non-atomic refcount, single-threaded; pair with **`Weak<T>`** to break reference cycles (a cycle of only `Rc` leaks memory, since counts never reach zero). **`Arc<T>`** — same as `Rc` but atomic, for cross-thread sharing. **`Cow<T>`** — clone-on-write, avoids copying until mutation is actually needed.
 - Drop order: **reverse declaration order** for local variables; struct fields drop in **declaration order** (the opposite of locals).
 - **`mem::forget`** is safe in the type-safety sense — it leaks the value instead of running its destructor, but leaking memory is not undefined behavior in Rust.
-- **`Pin<P>`** prevents a value from being moved in memory after being pinned — required for self-referential structures, which is exactly what async generator state machines are.
+- **`Pin<P>`** prevents a pinned value from being moved **only when its type is `!Unpin`**; most types implement `Unpin` and can still be moved freely through a `Pin`. The guarantee matters for self-referential structures, which is exactly what async generator state machines are — they're `!Unpin` for this reason.
 
 ## Error handling
 

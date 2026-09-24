@@ -41,6 +41,11 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - **Mutating a collection while iterating it** (e.g. removing items from a list/dict in a `for` loop) skips elements or raises `RuntimeError: dictionary changed size during iteration` — iterate over a copy instead.
 - **Dict insertion order** is guaranteed **since 3.7** (an implementation detail in 3.6) — safe to rely on now.
 
+### Import mechanics
+
+- `import` searches `sys.path` and caches every loaded module in **`sys.modules`**, so a module's top-level code runs only once per process even if imported from many places.
+- **Circular imports** fail when two modules each need a name from the other before either has finished executing its top-level code — the importing module gets a partially-initialized module object missing the name it wants. Fix by importing inside a function (deferring the lookup until call time), restructuring to remove the cycle, or guarding a type-only circular import with `TYPE_CHECKING`.
+
 ## Object model
 
 ### MRO and descriptors

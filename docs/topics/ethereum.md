@@ -8,7 +8,7 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - **EOA** (controlled by a secp256k1 key) vs **contract account** (controlled by its code); only EOAs originate transactions.
 - **Nonce** counts sent transactions per EOA — prevents replay and orders transactions; a stuck transaction blocks all later ones until replaced by the same nonce with a higher fee.
-- Address derivation: EOA = last 20 bytes of `keccak256(pubkey)`; `CREATE` = `keccak256(sender, nonce)`; `CREATE2` = deterministic from a salt and init code, so a not-yet-deployed address is predictable.
+- Address derivation: EOA = last 20 bytes of `keccak256(pubkey)`; `CREATE` = last 20 bytes of `keccak256(rlp([sender, nonce]))`; `CREATE2` = deterministic from a salt and init code, so a not-yet-deployed address is predictable.
 
 ### Transaction types and lifecycle
 
@@ -27,7 +27,7 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 ### Gas costs and refunds
 
 - Base transaction cost **21,000** gas; calldata costs **16 gas/non-zero byte, 4 gas/zero byte**.
-- **Cold/warm access** (EIP-2929): first `SLOAD`/`CALL` to an address or slot in a transaction costs **2,100**, subsequent (warm) access costs **100**.
+- **Cold/warm access** (EIP-2929): first touch of a storage slot in a transaction (cold `SLOAD`) costs **2,100**; first touch of an address (cold `CALL`/`BALANCE`/`EXT*`) costs **2,600**; any warm (already-touched) access costs **100**.
 - Clearing a storage slot to zero gives a partial gas refund, capped at **1/5** of the transaction's total gas (EIP-3529, down from the pre-London 1/2).
 - The per-block gas limit is not fixed by protocol — it moves by validator vote, roughly ±1/1024 per block — so treat any specific number as a snapshot, not a constant.
 
@@ -44,6 +44,11 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 - **Transient storage** (`TSTORE`/`TLOAD`, EIP-1153, Cancun) is cleared after each transaction — cheap reentrancy locks without permanent storage cost.
 - **Logs** (events) live in the receipt, not storage: up to **3 indexed** parameters become searchable topics (plus the event signature hash as topic 0); contracts cannot read their own logs.
 - `CREATE`/`CREATE2` addresses as above; **`SELFDESTRUCT`** no longer deletes code/storage or refunds gas except when called in the same transaction as creation (EIP-6780, neutered post-Cancun).
+
+### World state and light clients
+
+- World state (address → account) is a **Merkle Patricia Trie**; each contract's storage is its own trie. A block header commits to three roots: **state root**, **transactions root**, **receipts root**.
+- A single root hash lets a **light client** verify a balance, transaction, or receipt with a compact **Merkle proof**, without downloading the full state — the mechanism behind "trust-minimized" wallets and cross-chain bridges that verify L1 state.
 
 ## Calls and ABI
 
@@ -63,6 +68,9 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 - **Access control** — missing `onlyOwner`, unprotected initializers, using `tx.origin` instead of `msg.sender` for auth.
 - **Oracle/price manipulation** — spot DEX prices moved within one transaction via flash loan; use TWAPs or a push oracle like Chainlink instead.
 - **Signature replay/malleability** — missing nonce/chainId/deadline in signed messages; `s` can be flipped (`n - s`) unless the verifier enforces low-`s`.
+
+### More vulnerability classes
+
 - **Unchecked calls** — ignoring a low-level `call`'s return, or `transfer`/`transferFrom` on non-standard ERC-20s (use SafeERC20).
 - **Delegatecall storage collisions**, **uninitialized proxies**, **fee-on-transfer/rebasing tokens** breaking balance assumptions, **unbounded-loop DoS**.
 - Integer over/underflow is checked by default **since Solidity 0.8** — still possible inside `unchecked` blocks.

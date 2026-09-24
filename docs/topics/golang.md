@@ -7,7 +7,7 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 ### Scheduler (GMP)
 
 - Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps, defaults to CPU count.
-- `GOMAXPROCS` follows container CPU-limit changes automatically **since Go 1.25** (`GODEBUG=updatemaxprocs`); before that it only read the limit at startup.
+- **Since Go 1.25**, the default `GOMAXPROCS` considers cgroup CPU limits (`GODEBUG=containermaxprocs`) and updates periodically as they change (`GODEBUG=updatemaxprocs`); before 1.25, Go ignored cgroup limits entirely, which is why third-party libraries like `automaxprocs` existed.
 - Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the **netpoller** and doesn't hold a thread.
 - Preemption is asynchronous (signal-based) **since Go 1.14**, so tight loops no longer starve the scheduler.
 - Goroutines start with a **2 KB** stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
@@ -26,7 +26,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - Picks **randomly** among ready cases (avoids starvation); `default` makes it non-blocking.
 - Setting a channel variable to `nil` disables its case — used to merge channels until all are closed.
-- `time.Timer`/`time.Ticker` channels are **unbuffered since Go 1.23**, fixing stale-value races with `Stop`/`Reset`; they are still not garbage-collected until `Stop` is called or the timer fires.
+- `time.Timer`/`time.Ticker` channels are **unbuffered since Go 1.23**, fixing stale-value races with `Stop`/`Reset`; **since Go 1.23** an unreferenced timer is also collectible even without calling `Stop`.
 
 ### Sync primitives
 
@@ -34,6 +34,9 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 - `sync.RWMutex` blocks new readers once a writer is waiting, to avoid writer starvation.
 - `sync.Once` plus `OnceFunc`/`OnceValue`/`OnceValues` (**1.21**) for once-only initialization.
 - `WaitGroup.Go(f)` (**1.25**) starts a goroutine and handles `Add`/`Done` for you.
+
+### More sync primitives
+
 - Typed atomics (`atomic.Int64`, etc., **1.19**) replace the old `atomic.AddInt64(&x, ...)` style.
 - `sync.Map` is optimized only for keys written once and read many times, or disjoint key sets per goroutine — a plain map + mutex is usually faster otherwise.
 - `sync.Pool` contents can be dropped on **any** GC cycle, not just after two, and are cleared entirely under memory pressure.
@@ -41,7 +44,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 ### Memory model and races
 
 - Happens-before is established by channel send/receive, mutex lock/unlock, `sync.Once`, and atomics — not by program order across goroutines.
-- A data race is **undefined behavior** in Go, not merely "unpredictable output." Detect with `go test -race` / `go run -race`; it only catches races that actually execute during the run.
+- A data race is a bug the Go memory model does not fully define the outcome of — not as unconstrained as C/C++ UB, but a multiword value (an interface, a slice header) can still tear and corrupt. Detect with `go test -race` / `go run -race`; it only catches races that actually execute during the run.
 - Rule of thumb: channels to hand off ownership or coordinate, a mutex to protect shared state in place.
 
 ### context.Context
@@ -69,7 +72,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - Concurrent, tri-color mark-sweep; **non-generational** and **non-compacting**; a write barrier keeps marking correct while the program runs.
 - **`GOGC`** (default 100) controls heap growth before the next cycle; **`GOMEMLIMIT`** (**1.19**) sets a soft memory cap, useful in containers.
-- **Green Tea GC** is an experimental collector (`GOEXPERIMENT=greenteagc`, introduced **1.25**) that improves memory locality by scanning objects in larger, contiguous spans.
+- **Green Tea GC** improves memory locality by scanning objects in larger, contiguous spans; introduced experimental (`GOEXPERIMENT=greenteagc`) in **1.25**, it became the default collector in **1.26**.
 
 ### Reducing allocations
 

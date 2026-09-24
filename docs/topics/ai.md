@@ -80,6 +80,11 @@ What experienced AI engineers forget before an interview, grouped by subtopic. T
 - Trace each workflow run across model calls, retrieval, tool calls, approvals, and external writes under one correlation ID; record latency, tokens, cost, errors, retries, and the final outcome.
 - Alert on user-facing failures, stuck workflows, permission violations, and cost spikes — a trace must show which step failed and whether a side effect already happened, so an operator can resume or compensate safely. See [system.md](system.md) for general logs/metrics/traces.
 
+### Prompt management
+
+- Treat prompts as **versioned code**: templates, variables, examples, and output contracts live in source control and are tested against a fixed evaluation set before merging — not hand-edited strings scattered across services.
+- Trace which prompt **version** produced each result, so a regression can be tied back to the change that caused it instead of just "the model got worse."
+
 ## Cost and latency
 
 ### Routing and caching

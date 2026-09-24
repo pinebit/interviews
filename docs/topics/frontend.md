@@ -27,11 +27,21 @@ What experienced frontend engineers forget before an interview, grouped by subto
 - Layout-triggering properties (`width`, `top`) cost layout + paint + composite; **`transform`/`opacity`** can skip straight to composite (GPU-accelerated) — but only if the element is already promoted to its own compositor layer.
 - **Layout thrashing**: interleaved reads (`el.offsetHeight`) and writes (`el.style.width = ...`) in a loop force synchronous reflow on every iteration — batch reads, then writes.
 
+### CSS layout
+
+- **Flexbox** lays out items along one axis (row or column) — ideal for a toolbar or centering content. **Grid** lays out items on two axes at once — ideal for overall page layout or a card grid. Rule of thumb: flexbox for a single row/column, grid for two-dimensional layout.
+- **Specificity** resolves conflicting rules of equal cascade origin: inline style > ID > class/attribute/pseudo-class > element; `!important` jumps ahead of normal specificity but is still resolved by specificity between two competing `!important` rules, and cascade layers/origin can still outrank it.
+
+### Client-side routing
+
+- The router intercepts navigation and updates the URL via the **History API** (`pushState`/`replaceState`) without a full page reload, then renders the matching component.
+- A direct hit or refresh on a client-only route goes straight to the **server**, which must be configured to serve the SPA's `index.html` for unknown paths — otherwise refreshing `/profile` 404s, since the router only takes over once the JS has loaded.
+
 ## Performance
 
 ### Core Web Vitals
 
-- **LCP ≤ 2.5s** (largest visible element render time), **INP ≤ 200ms** (worst-case interaction responsiveness across the visit, at the 75th percentile of real users — **replaced FID in March 2024**), **CLS ≤ 0.1** (unexpected visible content shift).
+- **LCP ≤ 2.5s** (largest visible element render time), **INP ≤ 200ms** (a high-percentile interaction latency across the visit — one worst outlier is dropped for every ~50 interactions on interaction-heavy pages — reported at the 75th percentile of real users, **replaced FID in March 2024**), **CLS ≤ 0.1** (unexpected visible content shift).
 - Fixes: explicit `width`/`height` or `aspect-ratio` on images (CLS), preloading the LCP image/font, avoiding render-blocking resources, breaking up long JS tasks (INP).
 
 ### Bundle and loading
@@ -55,12 +65,18 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - **Keys** tell the diff algorithm which list items are the same across renders (matched by key, not position); using array index as a key breaks this under reordering/filtering, silently attaching the wrong state to an item.
 - What triggers a re-render: state change, parent re-render (propagates to children regardless of their own props unless memoized), or context value change.
+- **React Compiler** (stable **1.0**, released **October 2025**) automatically memoizes components and values at build time, reducing the need for manual `useMemo`/`useCallback`/`React.memo` in code it can fully analyze.
+
+### Hooks and effects pitfalls
+
 - **Stale closures**: an effect/callback captures a variable's value at creation time; a variable that changes later but isn't in the dependency array keeps the old value — the fix is usually restructuring (a ref, or deriving the value inside the effect), not silencing the lint rule.
 - Effect **dependencies and cleanup**: computing a value from props/state inside an effect + `setState` causes an extra render and a stale-UI flash — compute it directly during render instead. Cleanup functions matter for anything outliving one render (subscriptions, timers, listeners).
 - **Strict Mode double invocation**: in development, Strict Mode intentionally mounts, unmounts, and remounts components (and re-runs some functions twice) to surface effects that aren't idempotent or cleanup that's missing — it's a diagnostic, not a production behavior.
 - **Memoization** (`useMemo`, `React.memo`) avoids recomputation/re-render only when it actually skips more work than the memoization itself costs; a common miss is a new object/array/function literal passed as a prop every render, defeating `React.memo` on the child.
-- **React Compiler** (stable **1.0**, released **October 2025**) automatically memoizes components and values at build time, reducing the need for manual `useMemo`/`useCallback`/`React.memo` in code it can fully analyze.
-- **Controlled vs uncontrolled**: controlled inputs (`value` + `onChange`) make the framework the source of truth, needed when the value drives other UI; uncontrolled inputs (read via ref) mean less code and fewer re-renders — file inputs can't be controlled at all, since the browser owns the file value.
+
+### Controlled vs uncontrolled inputs
+
+- Controlled inputs (`value` + `onChange`) make the framework the source of truth, needed when the value drives other UI; uncontrolled inputs (read via ref) mean less code and fewer re-renders — file inputs can't be controlled at all, since the browser owns the file value.
 
 ## State management
 
