@@ -1,6 +1,6 @@
 # Security
 
-What experienced security engineers forget before an interview, grouped by subtopic. For AWS IAM and least privilege in practice, see [devops.md](devops.md); for session/identity protocol placement in an architecture, see [system.md](system.md).
+What experienced security engineers forget before an interview, grouped by subtopic. For AWS IAM and workload credentials, see [aws.md](aws.md); for session/identity protocol placement in an architecture, see [system.md](system.md).
 
 ## Web vulnerabilities
 

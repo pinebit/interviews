@@ -1,6 +1,6 @@
 # DevOps
 
-What experienced DevOps engineers forget before an interview, grouped by subtopic.
+What experienced DevOps engineers forget before an interview, grouped by subtopic. For AWS service behavior, see [aws.md](aws.md).
 
 ## Deployment and release
 
@@ -68,19 +68,6 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 - **ConfigMaps** for non-sensitive settings, **Secrets** for sensitive ones — Secret values are only **base64-encoded, not encrypted**, by default; enable encryption at rest and restrict access via **RBAC**.
 - Debugging states: **`Pending`** (scheduling/quota/storage), **`ImagePullBackOff`** (image or registry credential), **`CrashLoopBackOff`** (repeatedly failing process or probe) — use `kubectl describe pod` for events and `logs --previous` for a restarting container's last output before fixing the cause or `kubectl rollout undo`.
-
-## AWS
-
-### Compute and networking
-
-- **EC2** (full VM control) → **ECS** (AWS-native container orchestration) → **EKS** (managed Kubernetes) → **Lambda** (event-driven functions, no servers, but execution-time and payload limits must fit the workload). **Fargate** runs ECS/EKS containers without managing worker nodes.
-- **VPC**: a subnet is **public** only if its route table sends internet-bound traffic to an internet gateway; a public subnet alone doesn't make an instance reachable without a public address and permissive rules.
-- **Security groups** are stateful, attached to resources; **NACLs** are stateless, attached to the subnet boundary. A **NAT gateway** gives private-subnet resources outbound-only internet access.
-
-### IAM and storage
-
-- IAM policy evaluation: an **explicit deny always wins**, even over an explicit allow. Attach narrow policies to **roles** assumed via temporary credentials, not long-lived access keys; use **OIDC federation** for CI instead of storing AWS keys.
-- **S3** (objects), **EBS** (block storage for one instance), **EFS** (shared file storage), **RDS/Aurora** (managed relational), **DynamoDB** (managed key-value/document, designed around access patterns) — match to data model and access pattern, and know your **RPO/RTO** for each. See [database.md](database.md) for the database internals and [system.md](system.md) for availability design.
 
 ## Terraform
 

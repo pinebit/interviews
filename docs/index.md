@@ -10,7 +10,8 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [System Design](topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
 - [Databases](topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
 - [AI Engineering](topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
-- [DevOps](topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
+- [DevOps](topics/devops.md) — deployment strategies, containers, Kubernetes, Terraform, GitOps
+- [AWS](topics/aws.md) — IAM, VPC networking, compute, storage, databases, events, operations
 - [Security](topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
 - [Rust](topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
 - [Python](topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling

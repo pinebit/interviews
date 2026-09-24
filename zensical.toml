@@ -14,6 +14,7 @@ nav = [
     { "Databases" = "topics/database.md" },
     { "AI Engineering" = "topics/ai.md" },
     { "DevOps" = "topics/devops.md" },
+    { "AWS" = "topics/aws.md" },
     { "Security" = "topics/security.md" },
     { "Rust" = "topics/rust.md" },
     { "Python" = "topics/python.md" },
