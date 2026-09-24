@@ -5,6 +5,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 ## Topics
 
 - [Go](topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
+- [Algorithms](topics/algorithms.md) — complexity, array patterns, sorting, data structures, graphs, dynamic programming, greedy methods
 - [Distributed Systems](topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, stream processing
 - [Ethereum](topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
 - [System Design](topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs

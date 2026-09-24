@@ -8,6 +8,7 @@ nav = [
   { "Home" = "index.md" },
   { "Topics" = [
     { "Go" = "topics/golang.md" },
+    { "Algorithms" = "topics/algorithms.md" },
     { "Distributed Systems" = "topics/distributed.md" },
     { "Ethereum" = "topics/ethereum.md" },
     { "System Design" = "topics/system.md" },
