@@ -9,7 +9,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 ## Topics
 
 - [Go](docs/topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
-- [Distributed Systems](docs/topics/distributed.md) — CAP, consistency, replication, consensus, transactions, clocks, CRDTs, stream processing, and more
+- [Distributed Systems](docs/topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, stream processing
 - [Ethereum](docs/topics/ethereum.md) — accounts, gas, EVM, security, PoS, proxies, rollups, MEV, DeFi, bridges, and more
 - [System Design](docs/topics/system.md) — interview framework, caching, scaling, databases, queues, classic designs (URL shortener, feed, chat), and more
 - [Databases](docs/topics/database.md) — ACID, indexes, isolation levels, joins, locking, MVCC, SQL, replication, partitioning, and more
