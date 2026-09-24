@@ -1,10 +1,10 @@
-# Interview Cheatsheets
+# Interview Refresher
 
-Short, memorizable material for software engineering interview prep:
+Topic briefs on what engineers forget before technical interviews:
 
-[Read the cheatsheets online](https://pinebit.github.io/interviews/).
+[Read the briefs online](https://pinebit.github.io/interviews/).
 
-Each topic in `docs/topics/` covers its 20 most frequently asked interview questions with brief answers, ordered from most to least common. Skim them to memorize.
+Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an experienced engineer tends to forget before an interview. Skim them to memorize.
 
 ## Topics
 
@@ -25,7 +25,7 @@ Each topic in `docs/topics/` covers its 20 most frequently asked interview quest
 
 ## Quiz
 
-The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) quizzes you on the cheatsheets one question at a time and reports your score at the end:
+The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) quizzes you on the briefs one question at a time and reports your score at the end:
 
 ```
 /quiz golang            # 10 random questions from one topic

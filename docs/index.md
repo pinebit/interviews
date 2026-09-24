@@ -1,6 +1,6 @@
-# Interview Cheatsheets
+# Interview Refresher
 
-Short, memorizable material for software engineering interview prep. Each topic has 20 frequently asked questions with brief answers.
+Topic briefs on what engineers forget before technical interviews, grouped by subtopic.
 
 ## Topics
 
