@@ -1,121 +1,86 @@
-# Python Cheatsheet
+# Python
 
-The 20 most frequently asked Python interview topics, with short answers.
+What experienced Python engineers forget before an interview, grouped by subtopic.
 
-## 1. What is the GIL, and how does it affect concurrency?
+## Runtime and the GIL
 
-The **Global Interpreter Lock** allows only one thread to execute Python bytecode at a time in CPython, even on multi-core machines. It exists to keep reference counting (CPython's memory management) thread-safe without fine-grained locking.
+### Bytecode and the GIL
 
-`threading` still helps for **I/O-bound** work, because the GIL is released during blocking I/O and some C-extension calls. For **CPU-bound** work, use `multiprocessing` (separate processes, separate GILs) or a C extension that releases the GIL. Python 3.13 introduced an experimental **free-threaded build** (`--disable-gil`) that removes it entirely.
+- CPython compiles to bytecode run by a stack-based VM; the **GIL** lets only one thread execute Python bytecode at a time, keeping refcounting thread-safe without per-object locking.
+- The GIL is released during blocking I/O and by some C extensions, so `threading` still helps **I/O-bound** work; for **CPU-bound** work use `multiprocessing` (separate processes, separate GILs) or a GIL-releasing C extension.
+- The **free-threaded build** (no GIL) was experimental in **3.13** and became **officially supported (PEP 779)** in **3.14** — third-party C-extension packages may still be incompatible and force the GIL back on.
+- **`concurrent.interpreters`** (**3.14**, PEP 734) runs multiple interpreters in one process, each with its own GIL, communicating over cross-interpreter queues — true parallelism without separate OS processes.
 
-## 2. How does Python's memory management work?
+## Memory management
 
-CPython uses **reference counting** as the primary mechanism: each object tracks how many references point to it, and it's freed immediately when the count hits zero. A **cyclic garbage collector** runs periodically to catch reference cycles (e.g. two objects referencing each other) that counting alone can't free.
+### Refcounting and GC
 
-`gc` module controls this collector (`gc.disable()`, `gc.collect()`). `sys.getrefcount(obj)` inspects the count. Small integers and interned strings are cached and reused. `__slots__` on a class avoids the per-instance `__dict__`, cutting memory for classes with many instances.
+- **Reference counting** is the primary mechanism — an object is freed the instant its count hits zero; a **generational cyclic GC** runs periodically to catch reference cycles counting alone can't free.
+- CPython caches small ints (**-5 to 256**) and some string literals (**interning**) — this is why `is` can accidentally return `True` for equal small values; never rely on it for general values.
+- **`__slots__`** replaces the per-instance `__dict__` with fixed storage, cutting memory for classes with many instances (and disabling arbitrary new attributes).
+- **`weakref`** holds a reference that doesn't keep the object alive, used for caches and observer patterns; **`__del__`** runs at collection time (not deterministically, and never for objects the GC can't reach due to a cycle involving `__del__` in old Python — though the cyclic GC handles finalizers correctly since 3.4).
 
-## 3. What are generators, and how do they differ from lists?
+## Concurrency
 
-A **generator** produces values lazily, one at a time, via `yield`, instead of building a full list in memory. Each call to `next()` resumes the function where it left off, retaining local state. This makes them ideal for large or infinite sequences.
+### Threads, processes, asyncio
 
-`(x**2 for x in range(n))` is a generator expression, versus `[x**2 for x in range(n)]` which is a list comprehension built eagerly. Generators are **exhausted after one pass**; you can't restart them. `yield from` delegates to a sub-generator, useful for composing pipelines.
+- Choose by workload: threads for I/O-bound (limited by the GIL for CPU work), processes for CPU-bound (real parallelism, higher memory/IPC cost), asyncio for high-concurrency I/O with low overhead per task.
+- **`multiprocessing` start methods**: `fork` (copies the parent process, fast but can inherit inconsistent state — e.g. locks held mid-acquire), `spawn` (fresh interpreter, slower, safest), `forkserver` (a forked-once server process forks children on demand, avoiding fork's thread-safety pitfalls). **`forkserver` became the default on Linux in Python 3.14** (previously `fork`).
+- **asyncio**: `async def` defines a coroutine; `await` suspends it, yielding control to the event loop. **`asyncio.gather()`** runs several concurrently; **`TaskGroup`** (**3.11**) is the structured-concurrency alternative — it cancels siblings on any unhandled exception and waits for cleanup, which `gather` doesn't do by default.
+- A blocking call inside a coroutine (`time.sleep`, sync file I/O) **stalls the whole event loop** — use `asyncio.sleep`, async libraries, or **`asyncio.to_thread`**.
+- Task cancellation raises `CancelledError` inside the coroutine at its next suspension point — code doing cleanup in `finally` must not swallow it silently.
 
-## 4. What is the difference between `is` and `==`?
+## Gotchas
 
-**`==`** compares values via `__eq__`; **`is`** compares identity — whether two names point to the **same object** in memory (`id(a) == id(b)`). Use `is` for `None`, `True`, `False`, and sentinel comparisons; use `==` for value equality.
+### Classic traps
 
-Gotcha: CPython caches small integers (-5 to 256) and some string literals, so `a is b` can be `True` for equal small ints by implementation accident — never rely on that for general values.
+- **Mutable default arguments** are evaluated **once at definition time** — `def f(x, cache=[])` shares one list across all calls; use `None` as sentinel and create the mutable object inside the body.
+- **Late-binding closures in loops**: a closure captures the *variable*, not its value at definition time — `[lambda: i for i in range(3)]` all return `2`. Fix by defaulting the parameter (`lambda i=i: i`).
+- **`LEGB`** scope resolution (Local, Enclosing, Global, Built-in); assigning to a name inside a function makes it local for the *whole* function body, even before the assignment line — reading it earlier raises `UnboundLocalError`. Use `nonlocal`/`global` to bind outward explicitly.
+- **Shallow vs deep copy**: `copy.copy()` copies the outer object only — `[[0]*3]*3` builds three references to the *same* inner list, so mutating one row mutates all three; `copy.deepcopy()` recurses (and handles cycles via a memo dict).
+- **Mutating a collection while iterating it** (e.g. removing items from a list/dict in a `for` loop) skips elements or raises `RuntimeError: dictionary changed size during iteration` — iterate over a copy instead.
+- **Dict insertion order** is guaranteed **since 3.7** (an implementation detail in 3.6) — safe to rely on now.
 
-## 5. How do mutable default arguments cause bugs?
+### Import mechanics
 
-A default argument value is evaluated **once**, at function definition time, not on each call. If the default is mutable (`def f(x, cache=[])`), every call without an explicit argument shares and mutates the **same object**, causing state to leak across calls.
+- `import` searches `sys.path` and caches every loaded module in **`sys.modules`**, so a module's top-level code runs only once per process even if imported from many places.
+- **Circular imports** fail when two modules each need a name from the other before either has finished executing its top-level code — the importing module gets a partially-initialized module object missing the name it wants. Fix by importing inside a function (deferring the lookup until call time), restructuring to remove the cycle, or guarding a type-only circular import with `TYPE_CHECKING`.
 
-Fix: use `None` as the sentinel default and create the mutable object inside the function body: `def f(x, cache=None): cache = [] if cache is None else cache`.
+## Object model
 
-## 6. What are decorators, and how do you write one that preserves metadata?
+### MRO and descriptors
 
-A **decorator** is a function that wraps another function or class to add behavior without modifying its source: `@decorator` above a `def` is sugar for `func = decorator(func)`. Common uses: logging, timing, caching (`functools.lru_cache`), access control, registration.
+- Multiple inheritance resolves via **C3 linearization** (the **MRO**); `super()` follows the *computed* MRO, not just the immediate parent, which is what makes cooperative multiple inheritance (mixins) work — every class in the chain should call `super().__init__(...)`.
+- **Descriptors** (`__get__`/`__set__`/`__delete__` on a class attribute) implement `property`, bound methods, `classmethod`, and `staticmethod` under the hood — understanding them explains why methods "just work" as callables on an instance.
+- **`__new__`** creates the instance (called before `__init__`, which only initializes it) — override `__new__` for immutable types or singleton/caching patterns.
+- **Metaclasses** (`type` subclasses) customize class *creation*; **`__init_subclass__`** is the lighter-weight hook for most "do something when a subclass is defined" needs, without a full metaclass.
+- Defining **`__eq__`** without `__hash__` sets `__hash__` to `None`, making instances unhashable — Python does this because mutable equality and hashing by identity would otherwise silently violate the hash contract.
+- **`dataclasses`**: `@dataclass(frozen=True)` makes instances immutable (raises on attribute assignment); `slots=True` (**3.10**) combines dataclasses with `__slots__` for memory savings.
 
-A decorator that wraps with an inner function should use **`functools.wraps(func)`** on the wrapper, or the wrapped function loses its `__name__`, `__doc__`, and signature for introspection and debugging tools.
+## Functions and iteration
 
-## 7. What is the difference between `*args` and `**kwargs`?
+### Generators and decorators
 
-**`*args`** collects extra positional arguments into a tuple; **`**kwargs`** collects extra keyword arguments into a dict. They let a function accept a variable number of arguments and are commonly used to forward calls in wrappers/decorators (`func(*args, **kwargs)`).
+- Generators (`yield`) produce values lazily and are **exhausted after one pass**; `yield from` delegates to a sub-generator. `gen.send(value)` resumes a generator and injects a value as the result of the paused `yield` expression — the basis of old-style coroutines.
+- A decorator wrapping with an inner function should use **`functools.wraps(func)`**, or the wrapper loses `__name__`/`__doc__`/signature for introspection.
+- Decorators taking their own arguments need an extra call layer: `@decorator(arg)` requires `decorator(arg)` to return the actual decorator function.
+- **Context managers**: `__exit__` receives exception info and **returning `True` suppresses** the exception — a common source of silently swallowed errors when copy-pasted without checking the return value. `contextlib.contextmanager` wraps a generator with exactly one `yield` into a context manager.
+- **Exceptions**: `else` on `try` runs only if no exception was raised (separates "might fail" from "runs after success"); exception groups and `except*` (**3.11**) let one `try` handle multiple concurrent exceptions raised together (e.g. from a `TaskGroup`).
 
-Since PEP 570 (3.8), `/` in a signature marks preceding parameters as **positional-only**, and `*` marks following ones as **keyword-only** — useful for stable public APIs.
+## Typing
 
-## 8. How does Python's scoping and closures work (`LEGB`)?
+### Static typing in a dynamic language
 
-Name resolution follows **LEGB**: Local, Enclosing, Global, Built-in — the interpreter searches each scope in that order. A function reading an outer variable creates a **closure**; the variable is looked up by reference, not copied at definition time (the same loop-variable-capture gotcha as other languages).
+- Type hints are **not enforced at runtime** — they're metadata for `mypy`/`pyright`; this is **gradual typing**, adoptable incrementally.
+- **`typing.Protocol`** (3.8+) gives **structural** typing — a class satisfies it by having matching methods, no inheritance required, unlike ABCs which need explicit subclassing or registration.
+- **`TypeVar`** vs **PEP 695 generic syntax** (`class Box[T]: ...`, **3.12**) — the new syntax is scoped to the class/function automatically, replacing manual `TypeVar` declarations.
+- **`TypedDict`** types a dict's known keys/value-types without making it a real class.
+- Annotation evaluation is **deferred by default since Python 3.14** (**PEP 649**) — annotations are computed lazily on demand instead of eagerly at definition time, making `from __future__ import annotations` largely unnecessary going forward.
 
-Assigning to a name inside a function makes it **local** by default, even if a global of the same name exists — this raises `UnboundLocalError` if read before assignment. Use `global` or `nonlocal` to explicitly bind to an outer scope for assignment.
+## Tooling
 
-## 9. What are context managers, and how does `with` work?
+### Environment and profiling
 
-A **context manager** implements `__enter__`/`__exit__` (or is built via `@contextlib.contextmanager` around a generator with one `yield`). `with obj:` calls `__enter__` on entry and guarantees `__exit__` runs on exit, even if an exception occurs — used for files, locks, DB transactions, and temporary state changes.
-
-`__exit__` receives exception info and can suppress the exception by returning `True`. Multiple managers can be combined: `with open(a) as f1, open(b) as f2:`.
-
-## 10. What's the difference between deep copy and shallow copy?
-
-**`copy.copy()`** (shallow) creates a new outer object but keeps references to the same nested/child objects. **`copy.deepcopy()`** recursively copies every nested object, producing a fully independent structure. Mutating a nested list after a shallow copy affects both copies.
-
-Simple immutable containers (tuples of ints, etc.) don't need deep copying. Deep copy can be slow and must handle cycles (it does, via a memo dict) — prefer shallow copy or restructuring data when performance matters.
-
-## 11. How does exception handling work, and what's the `else`/`finally` for?
-
-`try`/`except` catches exceptions; catch the **most specific type first** since Python checks `except` clauses in order. `else` runs only if the `try` block **didn't** raise, useful to separate "code that might fail" from "code that runs after success." `finally` always runs, for cleanup regardless of outcome.
-
-Use `raise NewError(...) from original_err` to chain exceptions and preserve the original traceback context. Avoid bare `except:` — it also catches `KeyboardInterrupt`/`SystemExit`; use `except Exception:` instead.
-
-## 12. What is duck typing, and how do Protocols relate to it?
-
-**Duck typing**: an object's suitability is determined by whether it has the needed methods/attributes at runtime, not by its declared type ("if it walks like a duck..."). This underlies Python's dynamic typing and things like iterables, context managers, and callables.
-
-`typing.Protocol` (3.8+) formalizes this for static type checkers: a class satisfies a Protocol by having matching methods, with **no explicit inheritance required** (structural typing), unlike ABCs which require explicit subclassing or registration.
-
-## 13. How do `async`/`await` and the event loop work?
-
-**`async def`** defines a coroutine; `await` suspends it until the awaited coroutine/future completes, yielding control back to the **event loop** (`asyncio`), which runs other ready coroutines in the meantime — single-threaded concurrency via cooperative multitasking, good for I/O-bound work.
-
-`asyncio.gather()` runs coroutines concurrently and collects results. A blocking call (e.g. `time.sleep`, sync file I/O) inside a coroutine **blocks the whole event loop** — use `asyncio.sleep`, async libraries, or `run_in_executor` for blocking work.
-
-## 14. What's the difference between `@staticmethod`, `@classmethod`, and instance methods?
-
-An **instance method** takes `self`, operates on an instance. A **`@classmethod`** takes `cls` instead, operates on the class itself — commonly used for alternative constructors (`Point.from_tuple(...)`) and is inherited correctly by subclasses (unlike hardcoding the class name). A **`@staticmethod`** takes neither — it's just a regular function namespaced inside the class for organization.
-
-## 15. How does Python resolve method calls with multiple inheritance (MRO)?
-
-Python uses the **C3 linearization algorithm** to compute the **Method Resolution Order** — a deterministic, consistent ordering of a class and its ancestors. `ClassName.__mro__` or `.mro()` shows the order; `super()` follows this order, not just the immediate parent, which lets **cooperative multiple inheritance** (mixins) work correctly.
-
-This matters for mixin-based design: each class's `__init__` should call `super().__init__(...)` so the whole chain initializes properly.
-
-## 16. What is the difference between a module and a package? How does `import` work?
-
-A **module** is a single `.py` file. A **package** is a directory containing an `__init__.py` (or, since 3.3, a namespace package without one) plus modules/subpackages. `import` searches `sys.path`, caches loaded modules in `sys.modules` (so a module's top-level code runs only once), and circular imports fail when two modules need each other's names before either finishes loading.
-
-Use `from __future__ import annotations` or `TYPE_CHECKING` guards to break circular imports needed only for type hints.
-
-## 17. What are Python's built-in data structures, and when do you use each?
-
-**`list`** — ordered, mutable, O(1) append/index, O(n) search/insert-at-front. **`tuple`** — ordered, immutable, hashable if elements are, usable as dict keys. **`dict`** — hash map, insertion-ordered since 3.7, O(1) average lookup. **`set`**/`frozenset` — unordered unique elements, O(1) average membership test, set algebra (`|`, `&`, `-`).
-
-`collections` module extras: `defaultdict` (auto-initializing values), `Counter` (frequency counting), `deque` (O(1) append/pop from both ends, unlike `list`'s O(n) from the front), `OrderedDict` (rarely needed now that dicts preserve order).
-
-## 18. How do type hints work, and are they enforced at runtime?
-
-Type hints (`def f(x: int) -> str:`) are **not enforced at runtime** by the interpreter — they're metadata checked by static tools like `mypy` or `pyright`. This is **gradual typing**: you can annotate incrementally, and unannotated code is still valid.
-
-`typing` provides generics (`list[int]`, `dict[str, int]` natively since 3.9), `Optional[T]`/`T | None`, `Union`, `Callable`, and `TypeVar` for generic functions/classes. `dataclasses` (`@dataclass`) auto-generates `__init__`, `__repr__`, `__eq__` from annotated fields.
-
-## 19. What is the difference between a virtual environment and a package manager?
-
-A **virtual environment** (`venv`, `virtualenv`) isolates a project's installed packages and interpreter from the system Python, avoiding version conflicts between projects. A **package manager** (`pip`, or higher-level tools like `poetry`/`uv`) installs, resolves, and locks dependency versions, typically into an active virtual environment.
-
-`requirements.txt` lists dependencies (often unpinned or loosely pinned); a **lock file** (`poetry.lock`, `uv.lock`) pins exact resolved versions for reproducible installs. `pip freeze` captures the current environment's exact versions.
-
-## 20. How do you profile and test Python code?
-
-The standard `unittest` module or (far more common in practice) **`pytest`** covers testing: fixtures, parametrization (`@pytest.mark.parametrize`), and plugins for coverage (`pytest-cov`) and mocking (`unittest.mock`/`pytest-mock`). `mock.patch` replaces objects/functions for the duration of a test.
-
-For performance: **`cProfile`** gives function-level call counts and cumulative time (`python -m cProfile -s cumtime script.py`); `timeit` benchmarks small snippets accurately by controlling for setup overhead; `line_profiler` shows per-line timing for a chosen function. Always profile before optimizing.
+- `pyproject.toml` is the standard project/dependency manifest; **`uv`** resolves and installs dependencies (and manages Python versions) much faster than pip-based workflows, with a lock file for reproducible installs.
+- **`pytest`** fixtures have **scope** (`function`, `class`, `module`, `session`) controlling how often they're re-created — a common bug is a `session`-scoped fixture holding mutable state that leaks between tests.
+- Profiling: **`cProfile`** for function-level call counts/cumulative time; **`py-spy`** attaches to a running process without code changes (useful in production); always profile before optimizing.

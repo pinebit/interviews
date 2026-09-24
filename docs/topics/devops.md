@@ -1,125 +1,100 @@
-# DevOps Cheatsheet
+# DevOps
 
-The 20 most frequently asked DevOps interview topics, with short answers.
+What experienced DevOps engineers forget before an interview, grouped by subtopic.
 
-## 1. What is CI/CD, and what belongs in a deployment pipeline?
+## Deployment and release
 
-**Continuous integration (CI)** merges small changes often and checks each commit with a build, tests, and static or security checks. **Continuous delivery** keeps a tested artifact ready to release; **continuous deployment** automatically releases every change that passes the pipeline.
+### Deployment strategies
 
-Build the artifact once, give it an immutable version or image digest, then promote that same artifact through environments. Keep credentials out of source control, make pipeline failures visible, and separate a successful build from proof that the production rollout is healthy.
+| Strategy | Mechanism | Trade-off |
+|---|---|---|
+| Rolling | replace instances gradually | little spare capacity; old and new coexist during rollout |
+| Blue-green | two full environments, switch traffic at once | fast rollback; doubles capacity cost |
+| Canary | small traffic share to new version, expand or revert | safest exposure; needs good metrics to judge |
 
-## 2. How do rolling, blue-green, and canary deployments differ?
+- **Feature flags** decouple deploy from release when code must ship before a feature becomes visible.
+- All three strategies need health checks and an automatic stop condition — a rollout without one is just a slow, unmonitored release.
 
-- **Rolling** replaces instances gradually; it uses little spare capacity, but old and new versions coexist during the rollout.
-- **Blue-green** runs two full environments and switches traffic at once; rollback is quick, but capacity costs more.
-- **Canary** sends a small share of traffic to the new version, checks metrics, then increases the share or rolls back.
+### Rollback and migrations
 
-All three need health checks and a way to stop the rollout. Use **feature flags** when code must deploy before a feature becomes visible. See [system.md](system.md) for availability targets and observability.
+- Roll back by reverting traffic or redeploying the previous **immutable artifact** — rolling back code does not undo data changes already made.
+- **Expand-and-contract migrations**: add a backward-compatible schema change → deploy code handling both old and new forms → migrate data → remove the old schema in a later release. Destructive migrations (dropping a column the old code still reads) can make a code rollback impossible.
 
-## 3. How do you roll back a release safely, including database changes?
+## Containers
 
-Revert traffic or redeploy the **previous immutable artifact** when the new release fails. Watch error rate, latency, and business metrics during the rollout; preserve logs and the failed version for diagnosis. Rolling back code does not automatically undo data changes.
+### Images and Dockerfiles
 
-Use **expand-and-contract migrations**: first add a backward-compatible schema, deploy code that can handle both forms, migrate data, then remove the old schema in a later release. Back up data and test recovery; destructive migrations can make a code rollback impossible.
+- An **image** is immutable, built in layers from a Dockerfile; a **container** is a running instance with its own writable layer. Containers share the host kernel, unlike VMs.
+- **Multi-stage builds** keep compilers/build tools out of the final image; pin base image versions/digests; copy dependency manifests before source to reuse cached layers.
+- Run as **non-root**; never put secrets in `ARG`/`ENV`/copied files — image layers and build history can leak them even if a later layer deletes them.
+- PID 1 doesn't get default signal handling — a process not designed to be PID 1 can ignore `SIGTERM` and hang on shutdown; use `tini` or the exec form of `CMD` (`CMD ["app"]`, not `CMD app`) so signals reach the process directly.
 
-## 4. What is the difference between a Docker image and a container?
+### Networking and storage
 
-An **image** is an immutable package of application files and runtime dependencies, built in layers from a Dockerfile. A **container** is a running instance of an image with its own writable layer, process tree, and isolation through OS namespaces and resource controls.
+- Containers on a user-defined bridge network reach each other by name; `EXPOSE` only documents a port, publishing (`-p`) actually maps it to the host.
+- **Volumes** — durable, Docker-managed. **Bind mounts** — a specific host path. A container's writable layer disappears when the container is removed; a single local volume is not a backup or an HA design.
 
-Containers share the host kernel, unlike virtual machines with their own guest kernel. Treat containers as disposable: put persistent data in a **volume** or external store, and use an image digest when a deployment must pull exactly the artifact you tested.
+## Kubernetes architecture
 
-## 5. How do you write a small, secure Dockerfile?
+### Control plane and node
 
-Use a **multi-stage build** so compilers and build tools stay out of the final image. Choose a trusted, maintained base image; pin versions or digests for repeatability; copy dependency manifests before source to reuse cached layers; and keep build context small with `.dockerignore`.
+- **API server** accepts desired state; **etcd** stores it; the **scheduler** assigns unscheduled Pods to nodes; **controllers** reconcile actual state toward desired state.
+- Node-side: **kubelet** runs assigned Pods through the container runtime; **kube-proxy** (or eBPF equivalent) implements Service connectivity.
+- Kubernetes is declarative and level-triggered: a successful `kubectl apply` means the API accepted the object, not that the application is healthy — the reconciliation loop keeps nudging reality toward the spec indefinitely.
 
-Run as a **non-root user** where possible, include only runtime files, and scan the final image. Do not put secrets in `ARG`, `ENV`, or copied files: image layers and build history can expose them. Supply runtime secrets through the deployment platform.
+## Kubernetes workloads and networking
 
-## 6. How do Docker networking and storage work?
+### Workload types
 
-Containers on the same **user-defined bridge network** can reach each other by container name; publishing a port maps a host port to a container port. `EXPOSE` documents an intended port but does not publish it. A container's writable layer is ephemeral when the container is removed.
+- **Pod** — smallest deployable unit, can hold tightly coupled containers. **Deployment** — interchangeable stateless Pods via ReplicaSets, rolling updates. **StatefulSet** — stable identity + storage per Pod, for stateful workloads.
+- **DaemonSet** — one Pod per eligible node. **Job** — runs to completion. **CronJob** — creates Jobs on a schedule.
+- Use a controller, not a bare Pod, whenever the workload should be replaced after failure.
 
-Use **volumes** for durable container data, **bind mounts** when the container needs a specific host path, and external storage when data must survive host loss or move between hosts. Persisting a database in one local volume is not a backup or a high-availability design.
+### Services and routing
 
-## 7. What are the main Kubernetes control-plane and node components?
+- **Service** gives Pods' changing IPs a stable DNS name via label selectors. **ClusterIP** (internal), **NodePort** (opens a node port), **LoadBalancer** (provisions an external LB via cloud integration).
+- **Ingress** (with a controller) or **Gateway API** route HTTP by host/path — the resource alone forwards nothing without a controller implementing it.
+- A Service with no backends usually means a selector/label mismatch or no ready endpoints — check `kubectl get endpoints` before anything else. See [distributed.md](distributed.md) for the general service-discovery model this builds on.
 
-The **API server** accepts desired state, **etcd** stores cluster state, the **scheduler** assigns unscheduled Pods to nodes, and **controllers** reconcile actual state toward desired state. On each node, the **kubelet** runs assigned Pods through a container runtime, while networking components implement service connectivity.
+## Kubernetes operations
 
-Kubernetes is **declarative**: you submit objects describing what should exist, and controllers keep trying to make reality match. A successful `kubectl apply` means the API accepted the object; it does not prove the application is healthy.
+### Probes and resources
 
-## 8. When do you use a Pod, Deployment, StatefulSet, DaemonSet, Job, or CronJob?
+- **Readiness** gates Service traffic; **liveness** restarts a stuck container; **startup** delays both while the app initializes — a liveness probe that's too aggressive under load causes a restart loop that makes the outage worse.
+- **Requests** guide scheduling; **limits** cap usage — CPU is throttled past its limit, memory past its limit gets the container **OOMKilled**. Requests vs limits set the Pod's **QoS class** (Guaranteed/Burstable/BestEffort), which drives eviction order under node pressure.
+- **HPA** scales replica count from metrics; **VPA** resizes requests/limits; **Cluster Autoscaler**/**Karpenter** add node capacity when Pods can't be scheduled. Scaling replicas doesn't fix a saturated downstream database.
 
-A **Pod** is the smallest deployable unit and may contain tightly coupled containers. A **Deployment** manages interchangeable, usually stateless Pods through ReplicaSets and supports rolling updates. A **StatefulSet** gives Pods stable identities and storage claims for stateful workloads.
+### Config, secrets, and debugging
 
-A **DaemonSet** runs a Pod on each eligible node, a **Job** runs work to completion, and a **CronJob** creates Jobs on a schedule. Create a workload controller rather than a bare Pod when you need replacement after failure.
+- **ConfigMaps** for non-sensitive settings, **Secrets** for sensitive ones — Secret values are only **base64-encoded, not encrypted**, by default; enable encryption at rest and restrict access via **RBAC**.
+- Debugging states: **`Pending`** (scheduling/quota/storage), **`ImagePullBackOff`** (image or registry credential), **`CrashLoopBackOff`** (repeatedly failing process or probe) — use `kubectl describe pod` for events and `logs --previous` for a restarting container's last output before fixing the cause or `kubectl rollout undo`.
 
-## 9. How do Kubernetes Services expose Pods?
+## AWS
 
-A **Service** selects Pods and gives their changing IPs a stable DNS name and endpoint. **ClusterIP** is internal, **NodePort** opens a port on nodes, and **LoadBalancer** asks an integration to provision an external load balancer.
+### Compute and networking
 
-For HTTP routing by host or path, use **Ingress** with an Ingress controller, or **Gateway API** with a compatible controller. Neither routing resource forwards traffic by itself. Check selectors and ready endpoints first when a Service has no backends; see [distributed.md](distributed.md) for service discovery.
+- **EC2** (full VM control) → **ECS** (AWS-native container orchestration) → **EKS** (managed Kubernetes) → **Lambda** (event-driven functions, no servers, but execution-time and payload limits must fit the workload). **Fargate** runs ECS/EKS containers without managing worker nodes.
+- **VPC**: a subnet is **public** only if its route table sends internet-bound traffic to an internet gateway; a public subnet alone doesn't make an instance reachable without a public address and permissive rules.
+- **Security groups** are stateful, attached to resources; **NACLs** are stateless, attached to the subnet boundary. A **NAT gateway** gives private-subnet resources outbound-only internet access.
 
-## 10. What do Kubernetes probes, resource requests, and autoscaling do?
+### IAM and storage
 
-**Readiness** controls whether a Pod receives Service traffic; **liveness** restarts a stuck container; **startup** delays the other probes while an application initializes. A bad liveness check can cause a restart loop under load.
+- IAM policy evaluation: an **explicit deny always wins**, even over an explicit allow. Attach narrow policies to **roles** assumed via temporary credentials, not long-lived access keys; use **OIDC federation** for CI instead of storing AWS keys.
+- **S3** (objects), **EBS** (block storage for one instance), **EFS** (shared file storage), **RDS/Aurora** (managed relational), **DynamoDB** (managed key-value/document, designed around access patterns) — match to data model and access pattern, and know your **RPO/RTO** for each. See [database.md](database.md) for the database internals and [system.md](system.md) for availability design.
 
-CPU and memory **requests** guide scheduling; **limits** cap usage (CPU throttles, while exceeding a memory limit can cause an OOM kill). A **HorizontalPodAutoscaler (HPA)** changes replica count from metrics; node autoscaling adds capacity if Pods cannot be scheduled. Scaling replicas will not fix a saturated database.
+## Terraform
 
-## 11. How do you manage configuration, secrets, and access in Kubernetes?
+### Core workflow
 
-Use **ConfigMaps** for non-sensitive settings and **Secrets** for sensitive values. Kubernetes Secret values are base64 encoded, which is not encryption; enable encryption at rest, restrict access with **RBAC**, and use an external secret manager where appropriate. Give workloads dedicated service accounts with the permissions they need.
+- `terraform init` (providers, backend) → `terraform plan` (preview) → `terraform apply` (execute); always review a plan for unexpected replacements/deletions before applying — a resource replacement often means data loss for stateful resources.
+- **State** maps resource addresses to real infrastructure and can contain sensitive values — keep it in a protected **remote backend** with locking so concurrent runs can't corrupt it; never commit `terraform.tfstate`.
+- **Drift**: real infrastructure diverges from state, often via manual changes outside Terraform — a plan refreshes state and shows what's needed to reconcile it.
+- **`import`** brings an existing resource under Terraform management; **`moved`** blocks record a resource's renamed/refactored address so a plan doesn't propose destroy-and-recreate.
+- **Modules** package reusable resources behind inputs/outputs. **Workspaces** give one configuration multiple states but are **not an access-control boundary** — use separate backends/root modules, not workspace names alone, to isolate environments with different permissions.
 
-Use **NetworkPolicies** to restrict Pod traffic when the network plugin supports them, and avoid privileged containers. Rotate credentials and avoid putting secrets in image layers or Git.
+## GitOps
 
-## 12. How do you debug a failing Kubernetes rollout?
+### Pull-based reconciliation
 
-Start with `kubectl rollout status`, `get pods`, and `describe pod`: events reveal scheduling failures, image pull errors, probe failures, and OOM kills. Then inspect `logs --previous` for a restarting container and verify environment settings, Service selectors, endpoints, and dependencies.
-
-**Pending** usually points to scheduling, quotas, or storage; **ImagePullBackOff** to an image or registry credential; **CrashLoopBackOff** to a repeatedly failing process or probe. Fix the cause or roll back with `kubectl rollout undo`; do not just raise replica count.
-
-## 13. When would you choose EC2, ECS, EKS, or Lambda on AWS?
-
-**EC2** gives control of virtual machines and their operating systems. **ECS** orchestrates containers with AWS-native APIs; **EKS** runs managed Kubernetes for teams that need its API and ecosystem. **Lambda** runs event-driven functions without managing servers, but its execution model and limits must fit the workload.
-
-With ECS or EKS, **Fargate** can run supported containers without managing worker servers. Choose the simplest option that meets runtime, scaling, networking, and operational requirements; Kubernetes adds control and operational complexity.
-
-## 14. What are a VPC, public and private subnets, security groups, and NAT?
-
-A **VPC** is an isolated AWS network. A subnet is **public** when its route table points internet-bound traffic to an internet gateway; a **private** subnet lacks that route. A public subnet alone does not make an instance reachable: it also needs a public address and permissive security rules.
-
-**Security groups** are stateful rules attached to resources; **network ACLs** are stateless rules at the subnet boundary. A **NAT gateway** can give private-subnet resources outbound IPv4 internet access without allowing unsolicited inbound connections. Spread critical resources across availability zones.
-
-## 15. How does AWS IAM implement least privilege?
-
-**IAM policies** grant or deny actions on resources, with optional conditions. Attach narrowly scoped policies to **roles** assumed by workloads and people, using temporary credentials instead of long-lived access keys. An explicit deny overrides an allow.
-
-Separate deployment roles from runtime roles; restrict who can assume each role, and grant only the actions and resources needed. For CI, use **OIDC federation** to obtain short-lived credentials rather than storing AWS keys in the pipeline.
-
-## 16. How do you choose AWS storage and database services?
-
-**S3** stores objects such as uploads, backups, and static assets; **EBS** is block storage attached to compute; **EFS** is shared file storage. **RDS/Aurora** are managed relational databases; **DynamoDB** is a managed key-value/document database designed around access patterns.
-
-Match the data model, access pattern, latency, and durability needs. Multi-AZ database failover, read replicas, and backups solve different problems; test restores and know your **RPO/RTO**. See [database.md](database.md) for database internals and [system.md](system.md) for availability design.
-
-## 17. What is Terraform's core workflow?
-
-Terraform is **infrastructure as code**: declare resources in HCL, then run `terraform init` to install providers and configure the backend, `terraform plan` to inspect proposed changes, and `terraform apply` to make them. Providers call cloud APIs; Terraform builds a dependency graph to order operations.
-
-Review the plan for replacements and deletions before applying it. Pin provider and module versions, keep configuration in version control, and run plans in CI. A plan is a preview; external changes between planning and applying still need attention.
-
-## 18. What is Terraform state, and why use a remote backend?
-
-**State** maps Terraform resource addresses to real infrastructure and may contain sensitive values. Keep it in a protected **remote backend** with access controls, backups, and state locking so two runs cannot write it concurrently. Never commit `terraform.tfstate`.
-
-**Drift** is a difference between configuration, state, and the real infrastructure, often caused by manual changes. A normal plan refreshes managed objects and shows changes needed to reconcile them; investigate drift before applying, especially if the plan would replace data-bearing resources.
-
-## 19. How do Terraform modules and environments work?
-
-A **module** packages reusable resources behind inputs and outputs; the root module calls child modules. Keep modules small, version them, and expose only the values callers need. Separate production and non-production state and credentials so an apply cannot accidentally cross environments.
-
-**Workspaces** provide multiple states for one configuration, but they are not an access-control boundary. For environments with different permissions or lifecycle, use separate backend configurations or root modules instead of relying on workspace names alone.
-
-## 20. What are GitOps and the core DevOps feedback loops?
-
-**GitOps** stores desired deployment configuration in Git; a controller such as Argo CD or Flux detects changes and reconciles the cluster. Pull-based reconciliation makes drift visible and provides an audit trail, but secret handling and emergency changes still need a defined process.
-
-**DevOps** joins development and operations around small changes, automation, and fast feedback from production. Track delivery with deployment frequency, lead time for changes, change failure rate, and failed deployment recovery time; track reliability with user-facing SLOs. See [system.md](system.md) for observability and SLOs.
+- A controller (**Argo CD**, **Flux**) watches a Git repo holding desired deployment config and reconciles the cluster to match — pull-based, so the cluster never needs inbound CI credentials.
+- Drift from manual `kubectl` changes becomes visible on the next reconciliation and is usually auto-corrected — emergency out-of-band changes still need a defined process so they aren't silently reverted.

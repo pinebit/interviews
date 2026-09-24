@@ -1,31 +1,31 @@
-# Interview Cheatsheets
+# Interview Refresher
 
-Short, memorizable material for software engineering interview prep:
+Topic briefs on what engineers forget before technical interviews:
 
-[Read the cheatsheets online](https://pinebit.github.io/interviews/).
+[Read the briefs online](https://pinebit.github.io/interviews/).
 
-Each topic in `docs/topics/` covers its 20 most frequently asked interview questions with brief answers, ordered from most to least common. Skim them to memorize.
+Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an experienced engineer tends to forget before an interview. Skim them to memorize.
 
 ## Topics
 
-- [Go](docs/topics/golang.md) — goroutines, channels, interfaces, slices, maps, context, GC, generics, and more
-- [Distributed Systems](docs/topics/distributed.md) — CAP, consistency, replication, consensus, transactions, clocks, CRDTs, stream processing, and more
-- [Ethereum](docs/topics/ethereum.md) — accounts, gas, EVM, security, PoS, proxies, rollups, MEV, DeFi, bridges, and more
-- [System Design](docs/topics/system.md) — interview framework, caching, scaling, databases, queues, classic designs (URL shortener, feed, chat), and more
-- [Databases](docs/topics/database.md) — ACID, indexes, isolation levels, joins, locking, MVCC, SQL, replication, partitioning, and more
-- [AI Engineering](docs/topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
-- [DevOps](docs/topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
-- [Security](docs/topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
-- [Rust](docs/topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
-- [Python](docs/topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
-- [TypeScript](docs/topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
-- [JavaScript](docs/topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
-- [Backend](docs/topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
-- [Frontend](docs/topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
+- [Go](docs/topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
+- [Distributed Systems](docs/topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, stream processing
+- [Ethereum](docs/topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
+- [System Design](docs/topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
+- [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
+- [AI Engineering](docs/topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
+- [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
+- [Security](docs/topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
+- [Rust](docs/topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
+- [Python](docs/topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling
+- [TypeScript](docs/topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation, strictness, declarations, typing patterns
+- [JavaScript](docs/topics/javascript.md) — event loop, scope and closures, `this` and prototypes, async, modules, memory, DOM events, recent additions
+- [Backend](docs/topics/backend.md) — API design, idempotency, resilience, async work, data access, lifecycle, security, testing
+- [Frontend](docs/topics/frontend.md) — rendering strategies, browser pipeline, performance, caching, React internals, state management, accessibility, security
 
 ## Quiz
 
-The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) quizzes you on the cheatsheets one question at a time and reports your score at the end:
+The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) quizzes you on the briefs one question at a time and reports your score at the end:
 
 ```
 /quiz golang            # 10 random questions from one topic

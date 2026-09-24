@@ -1,23 +1,23 @@
-# Interview Cheatsheets
+# Interview Refresher
 
-Short, memorizable material for software engineering interview prep. Each topic has 20 frequently asked questions with brief answers.
+Topic briefs on what engineers forget before technical interviews, grouped by subtopic.
 
 ## Topics
 
-- [Go](topics/golang.md) — goroutines, channels, interfaces, slices, maps, context, GC, generics, and more
-- [Distributed Systems](topics/distributed.md) — CAP, consistency, replication, consensus, transactions, clocks, CRDTs, stream processing, and more
-- [Ethereum](topics/ethereum.md) — accounts, gas, EVM, security, PoS, proxies, rollups, MEV, DeFi, bridges, and more
-- [System Design](topics/system.md) — interview framework, caching, scaling, databases, queues, classic designs, and more
-- [Databases](topics/database.md) — ACID, indexes, isolation levels, joins, locking, MVCC, SQL, replication, partitioning, and more
-- [AI Engineering](topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
-- [DevOps](topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
-- [Security](topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
-- [Rust](topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
-- [Python](topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
-- [TypeScript](topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
-- [JavaScript](topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
-- [Backend](topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
-- [Frontend](topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
+- [Go](topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
+- [Distributed Systems](topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, stream processing
+- [Ethereum](topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
+- [System Design](topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
+- [Databases](topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
+- [AI Engineering](topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
+- [DevOps](topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
+- [Security](topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
+- [Rust](topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
+- [Python](topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling
+- [TypeScript](topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation, strictness, declarations, typing patterns
+- [JavaScript](topics/javascript.md) — event loop, scope and closures, `this` and prototypes, async, modules, memory, DOM events, recent additions
+- [Backend](topics/backend.md) — API design, idempotency, resilience, async work, data access, lifecycle, security, testing
+- [Frontend](topics/frontend.md) — rendering strategies, browser pipeline, performance, caching, React internals, state management, accessibility, security
 
 ## Quiz
 
