@@ -14,7 +14,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [System Design](docs/topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
 - [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
 - [AI Engineering](docs/topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
-- [DevOps](docs/topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
+- [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
 - [Security](docs/topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
 - [Rust](docs/topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
 - [Python](docs/topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
