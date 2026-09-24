@@ -1,123 +1,103 @@
-# Rust Cheatsheet
+# Rust
 
-The 20 most frequently asked Rust interview topics, with short answers.
+What experienced Rust engineers forget before an interview, grouped by subtopic.
 
-## 1. What is ownership in Rust?
+## Ownership and borrowing
 
-**Ownership** determines who is responsible for a value. A value has one owner at a time; assigning or passing a non-`Copy` value moves ownership, so the old binding cannot use it. When the owner goes out of scope, Rust drops the value and its owned resources.
+### Move semantics
 
-Borrowing lets code use a value without moving it. Types such as integers are **`Copy`**, so assigning them duplicates the value instead. Ownership and borrowing make memory safety possible without a tracing garbage collector.
+- A non-`Copy` value has one owner; assignment or passing **moves** it, invalidating the old binding. `Copy` types (integers, etc.) duplicate instead.
+- `Clone` is an explicit, possibly expensive deep copy; `Copy` is an implicit, cheap bitwise one — a type can only be `Copy` if all its fields are.
+- Interior mutability breaks the "one mutable borrow" rule safely: **`Cell<T>`** (copy in/out, no references handed out), **`RefCell<T>`** (runtime-checked borrows, **panics** on a second conflicting borrow instead of failing at compile time), **`OnceCell`/`OnceLock`** (write-once, then freely shared), **`Mutex`** (thread-safe interior mutability).
 
-## 2. How do borrowing and references work?
+### Borrow rules
 
-A reference **borrows** a value without owning it: `&T` permits shared reads, while `&mut T` permits exclusive mutation. While a mutable borrow is active, no other borrow may access that value; multiple shared borrows are allowed when there is no active mutable borrow.
+- `&T` (shared, many allowed) vs `&mut T` (exclusive, one at a time) — never both live for overlapping uses.
+- **Non-lexical lifetimes (NLL)**: a borrow's scope ends at its last use, not at the end of the block, so a shared borrow can finish before a later mutable borrow in the same function.
+- **Reborrowing**: passing `&mut *r` (or just `r` where a `&mut` is expected) creates a shorter-lived borrow from an existing mutable reference without moving it — this is why you can call multiple `&mut self` methods in sequence without "using up" the original reference.
 
-The borrow checker also ensures a reference never outlives its referent. Borrow scopes usually end at their last use, so a shared borrow can finish before a later mutable borrow in the same block.
+## Lifetimes
 
-## 3. What are lifetimes, and when do you write them?
+### Elision and `'static`
 
-A **lifetime** is the region where a reference is valid. Rust usually infers it, but a function returning a reference may need an annotation such as `'a` to express how the output relates to its input references.
+- Three elision rules: **(1)** each elided input lifetime gets its own parameter, **(2)** if there's exactly one input lifetime it's assigned to all elided output lifetimes, **(3)** for a method, `&self`'s lifetime is assigned to all elided outputs.
+- **`'static`** as a *bound* (`T: 'static`) means "contains no non-static references," which **owned data satisfies** — it doesn't mean "lives forever." `&'static T` is the actual "lives for the whole program" reference.
+- **HRTB** (`for<'a> Fn(&'a T)`) expresses "works for any lifetime," needed when a closure/trait must accept a reference whose lifetime isn't known until it's called.
+- "Borrowed value does not live long enough" almost always means a temporary was dropped while still borrowed, or a struct is trying to outlive a reference it holds — check where the referent is actually owned.
 
-Annotations **describe relationships**; they do not extend how long a value lives. If an output could refer to either of two inputs, its validity cannot exceed the shorter relevant input lifetime.
+## Traits and generics
 
-## 4. What are traits, and how do generics use them?
+### Dispatch
 
-A **trait** defines shared behavior through methods and associated items. A type implements a trait explicitly; a generic bound such as `T: Display` lets a function accept any implementing type and call that behavior.
+- **Static dispatch** (generics, monomorphization) — one specialized copy per concrete type, zero runtime cost, larger binary. **Dynamic dispatch** (`dyn Trait`) — a fat pointer (data + vtable), runtime cost, works with heterogeneous collections.
+- **Dyn compatibility** (formerly called "object safety"): a trait can back a `dyn Trait` only if its methods don't return `Self` by value or take generic type parameters, roughly.
+- The **orphan rule**: you can implement a trait for a type only if you own the trait or the type — prevents conflicting impls from different crates.
+- **Blanket impls** (`impl<T: Display> MyTrait for T`) implement a trait for every type satisfying a bound.
 
-Generics normally use **static dispatch** through monomorphization. A trait object such as `&dyn Display` uses **dynamic dispatch** through a vtable when runtime polymorphism is needed; it must satisfy object-safety rules.
+### Associated types and newer generics
 
-## 5. How do `Option` and `Result` represent absence and errors?
+- **Associated types** (`Iterator::Item`) fix one type per implementation; **generic type parameters** allow many implementations for the same type (`From<A>`, `From<B>`) — pick associated types when there's exactly one sensible type per impl.
+- `Sized` is an implicit bound on every type parameter; `?Sized` opts out, needed to accept unsized types like `str` or `dyn Trait` behind a reference.
+- `impl Trait` in argument position is sugar for an anonymous generic; in return position it hides the concrete type while still being static dispatch (unlike `dyn Trait`).
+- **GATs** (generic associated types, stable since 1.65) let an associated type itself be generic, e.g. over a lifetime — needed for a `LendingIterator`-style trait.
+- **Async fn in traits** (stabilized for the basic case in 1.75) desugars to a method returning `impl Future`; dynamic dispatch over async trait methods still generally needs `async-trait` or manual boxing.
 
-**`Option<T>`** is `Some(T)` or `None` and makes an absent value explicit. **`Result<T, E>`** is `Ok(T)` or `Err(E)` and carries a recoverable error. Handle variants with `match`, `if let`, or combinators rather than assuming success.
+## Smart pointers and memory
 
-Use `Option` when absence is expected and needs no explanation; use `Result` when callers need a reason for failure. Rust has no general null reference for ordinary references, but raw pointers can be null.
+### Ownership pointers
 
-## 6. How does Rust handle recoverable errors versus panics?
+- **`Box<T>`** — single owner, heap allocation. **`Rc<T>`** — shared ownership, non-atomic refcount, single-threaded; pair with **`Weak<T>`** to break reference cycles (a cycle of only `Rc` leaks memory, since counts never reach zero). **`Arc<T>`** — same as `Rc` but atomic, for cross-thread sharing. **`Cow<T>`** — clone-on-write, avoids copying until mutation is actually needed.
+- Drop order: **reverse declaration order** for local variables; struct fields drop in **declaration order** (the opposite of locals).
+- **`mem::forget`** is safe in the type-safety sense — it leaks the value instead of running its destructor, but leaking memory is not undefined behavior in Rust.
+- **`Pin<P>`** prevents a value from being moved in memory after being pinned — required for self-referential structures, which is exactly what async generator state machines are.
 
-Return **`Result<T, E>`** for failures a caller can handle, adding context or converting error types at API boundaries. **`panic!`** signals an unrecoverable condition or violated invariant and is not a substitute for routine error handling.
+## Error handling
 
-A panic normally unwinds the current thread's stack and runs destructors, but builds configured with **`panic = "abort"`** terminate without unwinding. Code should not rely on panics for ordinary control flow.
+### `?` and error crates
 
-## 7. What does the `?` operator do?
+- `?` on `Result` extracts `Ok` or returns early with `Err`, converting via `From` when the error types differ; `?` on `Option` extracts `Some` or returns `None`.
+- **`thiserror`** — for libraries: derives `Error` on your own enum, preserving distinct variants for callers to match on. **`anyhow`** — for applications: one dynamic `anyhow::Error` type when callers just need to log/propagate, not match.
+- `panic!` normally **unwinds** (runs destructors up the stack); building with `panic = "abort"` terminates immediately without unwinding — smaller binaries, faster panics, no `catch_unwind` recovery.
+- **`catch_unwind`** can catch an unwinding panic at a boundary (e.g. FFI, a thread pool worker) but must not be used for routine control flow, and can't catch anything under `panic = "abort"`.
 
-For a **`Result`**, `?` extracts `Ok(value)` or returns early with `Err(error)`, converting the error with `From` when required. For an **`Option`**, it extracts `Some(value)` or returns `None`.
+## Concurrency
 
-The enclosing function or block must have a compatible return type. `?` propagates failure; it does not log it or add context by itself.
+### Send/Sync and primitives
 
-## 8. What is the difference between `String` and `&str`?
+- **`Send`**: ownership can move to another thread. **`Sync`**: `&T` can be shared across threads (equivalent to `&T: Send`). `Rc<T>` is neither; `RefCell<T>` is `Send` but not `Sync` (its runtime borrow-check isn't atomic); a `MutexGuard` is not `Send` (it must be dropped on the thread that acquired it, since the OS lock is thread-owned on some platforms).
+- **Mutex poisoning**: if a thread panics while holding the lock, the `Mutex` is marked poisoned and later `.lock()` calls return an `Err` by default, surfacing that shared state may be inconsistent.
+- **Scoped threads** (`std::thread::scope`, stable since **1.63**) let spawned threads borrow local data without `'static` + `Arc`, since the scope guarantees they finish before it exits.
+- Channels: `std::sync::mpsc` (multi-producer, single-consumer, `channel()` unbounded vs `sync_channel(n)` bounded) or **crossbeam** for multi-producer multi-consumer and more channel types.
+- Atomics and memory orderings: **Relaxed** (no ordering guarantee, just atomicity), **Acquire/Release** (pairs to establish happens-before between a release-store and an acquire-load), **SeqCst** (a single global total order, strongest and most expensive).
 
-**`String`** owns growable UTF-8 text, usually stored on the heap. **`&str`** is a borrowed view of UTF-8 bytes; a string literal has type `&'static str`, while a slice can also refer into a `String`.
+## Async
 
-Accept `&str` when a function only reads text so callers can pass either form without transferring ownership. String lengths and slice offsets count **bytes**, not characters; direct integer indexing is disallowed because UTF-8 characters have variable length.
+### Futures and executors
 
-## 9. How do `struct` and `enum` differ?
+- Futures are **lazy** — nothing happens until polled; an executor (e.g. **Tokio**) drives polling to completion.
+- Holding a non-`Send` guard (like a `MutexGuard` or `RefCell` borrow) across an `.await` point makes the enclosing future non-`Send`, which breaks spawning it onto a multithreaded executor — drop the guard before awaiting.
+- **Blocking** inside an async function (a synchronous, CPU- or I/O-blocking call) stalls the executor thread and every task scheduled on it — move blocking work to `spawn_blocking`.
+- **Cancellation is drop**: dropping a future stops it wherever it's currently suspended, with no explicit cancellation signal — "cancel safety" in `select!` means a branch must leave state consistent even if dropped mid-await.
 
-A **`struct`** groups fields that exist together, such as a user's name and email. An **`enum`** represents one of several variants, each of which may carry different data; `Option` and `Result` are standard examples.
+## Unsafe and FFI
 
-Use `match` to handle variants. Exhaustive matching makes the compiler flag code that misses a case when an enum changes.
+### The unsafe superpowers
 
-## 10. How does Rust provide memory management without garbage collection?
+- Five things `unsafe` unlocks: dereference a raw pointer, call an unsafe function, implement an unsafe trait, access/modify a mutable static, access a union field.
+- `unsafe` does **not** disable the borrow checker — ordinary safety rules for references still apply inside the block; it only allows the five operations above.
+- Common UB sources: aliasing `&mut` references (two live mutable references to the same data), constructing an invalid value (e.g. a `bool` that isn't 0 or 1), and data races on non-atomic memory.
+- **Miri** interprets Rust MIR and detects many forms of UB (invalid memory access, some aliasing violations) that compile and "work" under a normal build.
 
-Rust uses **ownership and scope** to release resources when their owner is dropped; it does not run a tracing garbage collector. Stack values and owned heap allocations are cleaned up through the same ownership rules, with no required GC pause.
+## Macros and Cargo
 
-This does not guarantee every allocation is reclaimed: `Rc` or `Arc` reference cycles can leak memory. Use **`Weak`** for links that should not keep an object alive.
+### Macro kinds
 
-## 11. What is `Drop`, and when does it run?
+- **Declarative macros** (`macro_rules!`) pattern-match on token trees; **procedural macros** (derive, attribute, function-like) run arbitrary code on a `TokenStream` at compile time, powering `#[derive(...)]`.
+- **Hygiene**: identifiers introduced by a macro don't accidentally capture or collide with identifiers at the call site, unlike naive C-style textual macros.
 
-The **`Drop`** trait customizes cleanup when an owned value leaves scope, such as releasing a lock guard or file-backed resource. Fields are dropped automatically after the type's `drop` method runs; most types need no manual `Drop` implementation.
+### Cargo workflow
 
-Use `std::mem::drop(value)` to release something early by moving it into `drop`. A value's destructor may not run if the process aborts, the value is deliberately forgotten, or a reference cycle keeps it alive.
-
-## 12. What do `Send` and `Sync` mean?
-
-**`Send`** means ownership of a value can safely move to another thread. **`Sync`** means `&T` can safely be shared across threads; equivalently, `&T` is `Send`. The compiler derives these marker traits for many types from their fields.
-
-`Rc<T>` is neither `Send` nor `Sync`. Manually implementing either trait is **unsafe** because the implementer must uphold its concurrency guarantees.
-
-## 13. How do threads safely share mutable state?
-
-**`Mutex<T>`** gives one thread at a time mutable access through a lock guard. Wrap it in **`Arc<Mutex<T>>`** when multiple threads need shared ownership of the same mutex; each thread gets an `Arc` clone, not a copy of `T`.
-
-The guard unlocks when dropped. Keep critical sections short, handle lock poisoning where relevant, and choose message passing instead when transferring ownership better fits the work.
-
-## 14. What is the difference between `Rc` and `Arc`?
-
-Both provide **shared ownership** through reference counts. **`Rc<T>`** uses non-atomic counts for one thread; **`Arc<T>`** uses atomic counts so owners can be shared across threads when `T` has the required thread-safety traits.
-
-`Arc` makes reference-count updates thread-safe; it does **not** make mutation of `T` safe. Use `Arc<Mutex<T>>`, another synchronization type, or immutable data when threads must access the same contents.
-
-## 15. What does “fearless concurrency” mean in Rust?
-
-Rust's **ownership rules** and `Send`/`Sync` bounds reject many data races at compile time. Threads can own separate values, transfer values through channels, or share state behind synchronization primitives.
-
-These guarantees do not prevent deadlocks, logic races, or every bug in unsafe code. The phrase describes the confidence gained from compiler-checked memory and thread safety, not freedom from all concurrency errors.
-
-## 16. What are channels in Rust?
-
-A **channel** transfers values from senders to a receiver, often moving ownership instead of sharing mutable state. The standard library's `std::sync::mpsc` supports multiple producers and one consumer; cloning a sender lets several threads send.
-
-`channel()` is unbounded, while `sync_channel(n)` adds a capacity limit and blocks senders when full. Receiving reports disconnection after all senders are dropped, which gives the consumer a natural exit signal.
-
-## 17. What is a closure, and how does it capture variables?
-
-A **closure** is an anonymous function that can use variables from its surrounding scope. It captures each value by shared borrow, mutable borrow, or ownership according to how the closure uses it; its capabilities are described by `Fn`, `FnMut`, and `FnOnce`.
-
-`move` makes captures occur by value, useful when sending a closure to a thread. It may **copy** a `Copy` value rather than moving it, so `move` does not always consume the original binding.
-
-## 18. What is `unsafe` Rust, and when is it needed?
-
-An **`unsafe` block** permits operations the compiler cannot prove safe, such as dereferencing raw pointers, calling unsafe functions, accessing mutable statics, or using foreign interfaces. It is common at FFI and low-level abstraction boundaries.
-
-`unsafe` does **not** turn off the borrow checker. The programmer must uphold the operation's documented invariants; keep unsafe blocks small and expose a safe API only when those invariants are enforced.
-
-## 19. What is Cargo?
-
-**Cargo** is Rust's package manager and build tool. `Cargo.toml` declares a package and its dependencies; `Cargo.lock` records resolved versions for reproducible builds.
-
-Common commands are `cargo build`, `cargo run`, `cargo test`, and `cargo doc`. A **crate** is a compilation unit, while a package can contain a library crate, binary crates, or both.
-
-## 20. How do macros differ from functions?
-
-A **function** receives typed values at runtime and has a fixed signature. A **macro** operates on Rust syntax during compilation, allowing forms such as `println!` with variable arguments or `vec!` with repeated elements.
-
-**Declarative macros** match syntax patterns; **procedural macros** transform token streams, powering derives and attributes. Prefer functions for ordinary behavior and macros when syntax-level generation is needed.
+- **Features** are additive (unioned across the dependency graph) — a feature should never remove functionality, or different crates enabling different feature sets would produce different builds from the same `Cargo.lock`.
+- **Workspaces** share one `Cargo.lock` and target directory across multiple crates.
+- **`Cargo.lock`**: committed for binaries (reproducible builds), typically not committed for libraries (so downstream crates resolve versions themselves).
+- **Editions**: opt-in, per-crate language changes without breaking existing code; **edition 2024** is available **since Rust 1.85**.

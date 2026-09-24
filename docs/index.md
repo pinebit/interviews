@@ -12,7 +12,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [AI Engineering](topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
 - [DevOps](topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
 - [Security](topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
-- [Rust](topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
+- [Rust](topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
 - [Python](topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
 - [TypeScript](topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
 - [JavaScript](topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
