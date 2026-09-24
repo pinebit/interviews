@@ -17,7 +17,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes, AWS, Terraform, GitOps
 - [Security](docs/topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
 - [Rust](docs/topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
-- [Python](docs/topics/python.md) — GIL, memory management, generators, decorators, async/await, typing, and more
+- [Python](docs/topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling
 - [TypeScript](docs/topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
 - [JavaScript](docs/topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
 - [Backend](docs/topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
