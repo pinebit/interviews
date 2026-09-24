@@ -8,7 +8,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 
 ## Topics
 
-- [Go](docs/topics/golang.md) — goroutines, channels, interfaces, slices, maps, context, GC, generics, and more
+- [Go](docs/topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
 - [Distributed Systems](docs/topics/distributed.md) — CAP, consistency, replication, consensus, transactions, clocks, CRDTs, stream processing, and more
 - [Ethereum](docs/topics/ethereum.md) — accounts, gas, EVM, security, PoS, proxies, rollups, MEV, DeFi, bridges, and more
 - [System Design](docs/topics/system.md) — interview framework, caching, scaling, databases, queues, classic designs (URL shortener, feed, chat), and more

@@ -4,7 +4,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 
 ## Topics
 
-- [Go](topics/golang.md) — goroutines, channels, interfaces, slices, maps, context, GC, generics, and more
+- [Go](topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
 - [Distributed Systems](topics/distributed.md) — CAP, consistency, replication, consensus, transactions, clocks, CRDTs, stream processing, and more
 - [Ethereum](topics/ethereum.md) — accounts, gas, EVM, security, PoS, proxies, rollups, MEV, DeFi, bridges, and more
 - [System Design](topics/system.md) — interview framework, caching, scaling, databases, queues, classic designs, and more
