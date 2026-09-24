@@ -20,7 +20,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [Python](docs/topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling
 - [TypeScript](docs/topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation, strictness, declarations, typing patterns
 - [JavaScript](docs/topics/javascript.md) — event loop, scope and closures, `this` and prototypes, async, modules, memory, DOM events, recent additions
-- [Backend](docs/topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
+- [Backend](docs/topics/backend.md) — API design, idempotency, resilience, async work, data access, lifecycle, security, testing
 - [Frontend](docs/topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
 
 ## Quiz
