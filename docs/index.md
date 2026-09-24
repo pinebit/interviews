@@ -9,7 +9,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [Ethereum](topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
 - [System Design](topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
 - [Databases](topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
-- [AI Engineering](topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
+- [AI Engineering](topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
 - [DevOps](topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
 - [Security](topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
 - [Rust](topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo

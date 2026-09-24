@@ -13,7 +13,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [Ethereum](docs/topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
 - [System Design](docs/topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
 - [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
-- [AI Engineering](docs/topics/ai.md) — enterprise agents, workflow orchestration, RAG, system integration, evaluations, security, governance, and more
+- [AI Engineering](docs/topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
 - [DevOps](docs/topics/devops.md) — deployments, CI/CD, Docker, Kubernetes, AWS, Terraform, GitOps, and more
 - [Security](docs/topics/security.md) — web vulnerabilities, access control, authentication, cryptography, TLS, and threat modeling
 - [Rust](docs/topics/rust.md) — ownership, borrowing, lifetimes, traits, error handling, concurrency, and Cargo
