@@ -14,7 +14,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [Security](topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
 - [Rust](topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
 - [Python](topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling
-- [TypeScript](topics/typescript.md) — structural typing, generics, unions, narrowing, utility types, and more
+- [TypeScript](topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation, strictness, declarations, typing patterns
 - [JavaScript](topics/javascript.md) — event loop, closures, prototypes, `this`, promises, modules, and more
 - [Backend](topics/backend.md) — REST/RPC/GraphQL, auth, idempotency, queues, caching, and more
 - [Frontend](topics/frontend.md) — rendering strategies, state management, performance, accessibility, and more
