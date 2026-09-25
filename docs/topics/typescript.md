@@ -127,10 +127,6 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 - **`.d.ts`** files hold only types, describing JS libraries or shipping types beside compiled output.
 - **`declare global`** and **module augmentation** (`declare module 'express' { interface Request { user?: User } }`) extend third-party types.
 
-### Explicit resource management
-
-- **`using`** / **`await using`** (TS **5.2**, standardized in **ES2026**) call `[Symbol.dispose]()` / `[Symbol.asyncDispose]()` when the block exits, even on throw — scoped cleanup without `try/finally`.
-
 ### Decorators
 
 - **Standard decorators** (TC39, **5.0**) have no parameter decorators and no metadata by default.

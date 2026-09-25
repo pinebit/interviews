@@ -173,7 +173,7 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 ### Explicit resource management
 
-- **`using`** / **`await using`** (**ES2026**) dispose a resource via `Symbol.dispose` when the block exits — no `try/finally`.
+- **`using`** / **`await using`** (**ES2026**; TypeScript since **5.2**) call `[Symbol.dispose]()` / `[Symbol.asyncDispose]()` when the block exits, even on throw — no `try/finally`.
 
 ### Sets and iterators
 
