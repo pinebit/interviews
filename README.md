@@ -14,6 +14,8 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [Ethereum](docs/topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
 - [System Design](docs/topics/system.md) — interview framework, traffic and edge, real-time delivery, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
 - [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, Redis and NoSQL, schema design, scaling
+- [Networking](docs/topics/networking.md) — TCP, HTTP/1.1 vs 2 vs 3, QUIC, DNS, IP addressing, NAT, MTU, BGP and anycast
+- [Operating Systems](docs/topics/os.md) — processes and signals, scheduling and cgroup throttling, virtual memory and OOM, file descriptors, epoll and io_uring, fsync, synchronization, perf tools
 - [AI Engineering](docs/topics/ai.md) — LLM fundamentals, inference and serving, RAG, fine-tuning, agents, tools and MCP, evaluation, cost, security
 - [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes workloads/networking/operations, Terraform, GitOps
 - [AWS](docs/topics/aws.md) — IAM and KMS, VPC networking, compute, storage and databases, events, operations

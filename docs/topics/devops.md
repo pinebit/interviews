@@ -1,6 +1,6 @@
 # DevOps
 
-What experienced DevOps engineers forget before an interview, grouped by subtopic. For AWS service behavior see [aws.md](aws.md).
+What experienced DevOps engineers forget before an interview, grouped by subtopic. For AWS service behavior see [aws.md](aws.md); for Linux internals see [os.md](os.md).
 
 ## Deployment and release
 
