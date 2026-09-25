@@ -6,25 +6,33 @@ docs_dir = "docs"
 site_dir = "site"
 nav = [
   { "Home" = "index.md" },
-  { "Topics" = [
-    { "Go" = "topics/golang.md" },
+  { "Fundamentals" = [
     { "Algorithms" = "topics/algorithms.md" },
-    { "Distributed Systems" = "topics/distributed.md" },
-    { "Ethereum" = "topics/ethereum.md" },
-    { "System Design" = "topics/system.md" },
     { "Databases" = "topics/database.md" },
+    { "Distributed Systems" = "topics/distributed.md" },
     { "Networking" = "topics/networking.md" },
     { "Operating Systems" = "topics/os.md" },
-    { "AI Engineering" = "topics/ai.md" },
-    { "DevOps" = "topics/devops.md" },
-    { "AWS" = "topics/aws.md" },
-    { "Security" = "topics/security.md" },
-    { "Rust" = "topics/rust.md" },
-    { "Python" = "topics/python.md" },
-    { "TypeScript" = "topics/typescript.md" },
+    { "System Design" = "topics/system.md" },
+  ] },
+  { "Languages" = [
+    { "Go" = "topics/golang.md" },
     { "JavaScript" = "topics/javascript.md" },
+    { "Python" = "topics/python.md" },
+    { "Rust" = "topics/rust.md" },
+    { "TypeScript" = "topics/typescript.md" },
+  ] },
+  { "Web" = [
     { "Backend" = "topics/backend.md" },
     { "Frontend" = "topics/frontend.md" },
+    { "Security" = "topics/security.md" },
+  ] },
+  { "Infrastructure" = [
+    { "AWS" = "topics/aws.md" },
+    { "DevOps" = "topics/devops.md" },
+  ] },
+  { "Domains" = [
+    { "AI Engineering" = "topics/ai.md" },
+    { "Ethereum" = "topics/ethereum.md" },
   ] },
 ]
 
