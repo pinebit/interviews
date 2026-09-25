@@ -54,17 +54,13 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 - **EIP-7825** (Fusaka, December 2025) caps one transaction at **2²⁴ ≈ 16.7M gas**, whatever the block limit.
 - The block gas limit isn't fixed by protocol: validators move it by up to ~1/1024 per block, so any number is a snapshot.
 
-## EVM and storage
+## EVM
 
 ### Execution model
 
 - Stack-based, **256-bit words**, stack depth 1024 — only the top **16** items are reachable, the source of "stack too deep".
 - Memory expansion cost is **quadratic** in size; storage is the most expensive resource, priced per 32-byte slot.
-
-### Storage layout
-
-- Variables under 32 bytes **pack** into shared slots in declaration order.
-- A `mapping` value lives at **`keccak256(key . slot)`**; a dynamic array stores its length at the slot and elements from `keccak256(slot)`.
+- `DELEGATECALL` runs another contract's code on the caller's storage; any call forwards at most 63/64 of the remaining gas (EIP-150) — see [solidity.md](solidity.md).
 
 ### Transient storage and SELFDESTRUCT
 
@@ -80,89 +76,6 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - World state (address → account) is a **Merkle Patricia Trie**; each contract's storage is its own trie.
 - A block header commits to the state, transactions, and receipts roots, so a **light client** verifies a balance or receipt with a Merkle proof instead of the full state.
-
-## Solidity
-
-### Data locations
-
-- **`storage`** is persistent state; `memory` is per call; **`calldata`** is read-only input — the cheapest location for external array and struct parameters.
-- Storage → memory assignment **copies**; memory → memory copies only the reference; a local `storage` variable is a pointer into state.
-
-### Checked arithmetic
-
-- Overflow and underflow **revert since 0.8** (`Panic(0x11)`); `unchecked { }` opts out for proven-safe math.
-- Division **truncates**, so multiply before dividing to keep precision.
-
-### Gas optimization patterns
-
-- **Pack** small variables that are read and written together into one slot.
-- **`constant`/`immutable`** values are embedded in bytecode — no `SLOAD`.
-- Cache storage reads in local variables inside loops; use `calldata` parameters.
-- **Custom errors** (0.8.4) are cheaper than revert strings; 0.8.22 made simple loop-counter increments unchecked automatically.
-
-## Calls and ABI
-
-### Function selectors and fallback
-
-- Calldata starts with a 4-byte **selector** (first 4 bytes of `keccak256("fn(types)")`) followed by ABI-encoded arguments; selectors can collide, a risk in proxy dispatchers.
-- No matching selector → **`fallback()`**; plain ETH with empty calldata → **`receive()`** (or a payable fallback); a contract with neither rejects plain ETH.
-
-### call, delegatecall, staticcall
-
-- `call` runs in the callee's context; **`delegatecall`** runs the callee's code on the **caller's** storage, `msg.sender`, and `msg.value`; `staticcall` forbids state changes.
-- The **63/64 rule**: a call forwards at most 63/64 of remaining gas, keeping 1/64 for the caller.
-
-### ABI encoding pitfalls
-
-- Low-level `call` returns a **`bool`** instead of reverting — always check it.
-- **`abi.encodePacked`** of several dynamic values can collide (`("a","bc")` vs `("ab","c")`) — hash `abi.encode` output for signatures.
-
-## Smart contract security
-
-### Reentrancy
-
-- An external call re-enters before state updates: **single-function**, cross-function, or **read-only** (a view function returns pre-update state to another protocol).
-- Fix with **Checks-Effects-Interactions** plus a reentrancy guard.
-
-### Access control
-
-- Missing modifiers and **unprotected initializers** let anyone call admin functions.
-- Authenticate with `msg.sender`, never **`tx.origin`** — a malicious contract the owner calls can pass a `tx.origin` check.
-
-### Oracle manipulation
-
-- A DEX **spot price** can be moved within one transaction using a flash loan, then read by a victim protocol.
-- Use **TWAPs** or a push oracle such as Chainlink, and check staleness.
-
-### Signature replay and malleability
-
-- Signed messages without a **nonce, chainId, and deadline** can be replayed on another chain or later.
-- ECDSA `s` can be flipped (`n − s`) into a second valid signature — enforce **low-`s`** and never use a signature as a unique ID.
-
-### Token integration quirks
-
-- Non-standard ERC-20s return nothing or `false` from `transfer` — use **SafeERC20**.
-- **Fee-on-transfer** and rebasing tokens break "amount sent = amount received" assumptions — measure balance deltas.
-- Unbounded loops over user-growable arrays become a gas **denial of service**.
-
-## Upgradeability
-
-### Proxy patterns
-
-| Pattern | Upgrade logic lives in | Note |
-|---|---|---|
-| **Transparent** | proxy (admin-only path) | admin can't call the implementation |
-| **UUPS** (ERC-1822) | implementation | cheaper proxy; an implementation without upgrade code bricks it |
-| **Beacon** | shared beacon contract | upgrades many proxies at once |
-| **Diamond** (EIP-2535) | proxy routing to many facets | per-selector implementations |
-
-- Every pattern keeps **storage in the proxy** and `delegatecall`s the implementation.
-
-### Proxy storage and initializers
-
-- The implementation address sits at the pseudo-random **EIP-1967** slot, away from the implementation's own variables.
-- New versions only append storage variables, never reorder — or use **ERC-7201** namespaced storage.
-- Constructors don't run through a proxy: use **initializers**, and call `_disableInitializers()` in the implementation's constructor.
 
 ## Signatures and standards
 
@@ -235,6 +148,11 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - Lending (Aave, Compound) is over-collateralized; a **health factor** below 1 allows liquidation at a discount.
 - **Flash loans** are uncollateralized but must be repaid in the same transaction or everything reverts — turning manipulable prices into large exploits.
+
+### Oracle manipulation
+
+- A DEX **spot price** can be moved within one transaction using a flash loan, then read by a victim protocol.
+- Use **TWAPs** or a push oracle such as Chainlink, and check staleness.
 
 ### MEV
 

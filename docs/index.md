@@ -19,6 +19,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 - [JavaScript](topics/javascript.md) — event loop, scope and closures, `this` and prototypes, numbers, async, modules, memory, metaprogramming, Node.js runtime, DOM events, recent additions
 - [Python](topics/python.md) — runtime and the GIL, memory management, data structures, concurrency, gotchas, object model, functions, recent features, typing, tooling
 - [Rust](topics/rust.md) — ownership and borrowing, lifetimes, traits, closures and iterators, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
+- [Solidity](topics/solidity.md) — language semantics, storage layout, calls and ABI, contract security, gas optimization, upgradeability, errors, compiler and Foundry testing, inline assembly
 - [TypeScript](topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation and TypeScript 6/7, strictness, declarations, typing patterns
 
 ### Web
@@ -35,7 +36,7 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 ### Domains
 
 - [AI Engineering](topics/ai.md) — LLM fundamentals, attention and MoE, reasoning models, inference and serving, RAG, fine-tuning, agents, tools and MCP, evaluation, cost, security
-- [Ethereum](topics/ethereum.md) — accounts and transactions, gas, EVM, Solidity, calls and ABI, security, upgradeability, signatures and standards, PoS consensus, scaling, DeFi and MEV
+- [Ethereum](topics/ethereum.md) — accounts and transactions, gas, EVM, signatures and standards, PoS consensus, scaling, DeFi and MEV
 
 ## Quiz
 
