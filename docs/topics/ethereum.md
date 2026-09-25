@@ -64,14 +64,14 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 ## Smart contract security
 
-### Common vulnerability classes
+### Reentrancy, access control, oracles
 
 - **Reentrancy** (single-function, cross-function, and **read-only** reentrancy via view functions reading pre-update state) — fix with **Checks-Effects-Interactions** plus a guard.
 - **Access control** — missing `onlyOwner`, unprotected initializers, using `tx.origin` instead of `msg.sender` for auth.
 - **Oracle/price manipulation** — spot DEX prices moved within one transaction via flash loan; use TWAPs or a push oracle like Chainlink instead.
 - **Signature replay/malleability** — missing nonce/chainId/deadline in signed messages; `s` can be flipped (`n - s`) unless the verifier enforces low-`s`.
 
-### More vulnerability classes
+### Unchecked calls, proxies, token quirks
 
 - **Unchecked calls** — ignoring a low-level `call`'s return, or `transfer`/`transferFrom` on non-standard ERC-20s (use SafeERC20).
 - **Delegatecall storage collisions**, **uninitialized proxies**, **fee-on-transfer/rebasing tokens** breaking balance assumptions, **unbounded-loop DoS**.
@@ -82,7 +82,14 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 ### Proxy patterns
 
 - All upgrade patterns route calls through a proxy that holds **storage** and `delegatecall`s to an **implementation**.
-- **Transparent proxy** — admin calls go to upgrade logic, everyone else to the implementation. **UUPS** (ERC-1822) — upgrade logic lives in the implementation itself (cheaper proxy, but a broken implementation can brick upgrades). **Beacon** — many proxies read one shared beacon for their implementation address. **Diamond** (EIP-2535) — many implementation "facets" behind one proxy.
+
+| Pattern | Upgrade logic lives in | Note |
+|---|---|---|
+| **Transparent** | proxy (admin-only path) | admin can't call the implementation |
+| **UUPS** (ERC-1822) | implementation | cheaper proxy; an implementation without upgrade code bricks it |
+| **Beacon** | shared beacon contract | upgrades many proxies at once |
+| **Diamond** (EIP-2535) | proxy routing to many facets | per-selector implementations |
+
 - Implementation address stored at the pseudo-random **EIP-1967** slot to avoid collision with the implementation's own variables; new versions must only **append** storage, never reorder — or use **ERC-7201 namespaced storage**.
 - Constructors don't run through a proxy — use **initializer** functions, and call `_disableInitializers()` in the implementation's own constructor so it can't be initialized directly.
 

@@ -18,7 +18,8 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### Rollback and migrations
 
 - Roll back by reverting traffic or redeploying the previous **immutable artifact** — rolling back code does not undo data changes already made.
-- **Expand-and-contract migrations**: add a backward-compatible schema change → deploy code handling both old and new forms → migrate data → remove the old schema in a later release. Destructive migrations (dropping a column the old code still reads) can make a code rollback impossible.
+- **Expand-and-contract**: add the new schema (backward compatible) → deploy code that handles both → backfill data → remove the old schema in a later release.
+- A destructive migration (dropping a column old code still reads) makes a code rollback impossible.
 
 ## Containers
 
@@ -61,13 +62,15 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### Probes and resources
 
 - **Readiness** gates Service traffic; **liveness** restarts a stuck container; **startup** delays both while the app initializes — a liveness probe that's too aggressive under load causes a restart loop that makes the outage worse.
-- **Requests** guide scheduling; **limits** cap usage — CPU is throttled past its limit, memory past its limit gets the container **OOMKilled**. Requests vs limits set the Pod's **QoS class** (Guaranteed/Burstable/BestEffort), which drives eviction order under node pressure.
+- **Requests** drive scheduling; **limits** cap usage — over the CPU limit the container is **throttled**, over the memory limit it's **OOMKilled**.
+- Requests vs limits set the **QoS class** (Guaranteed / Burstable / BestEffort), which decides eviction order under node pressure.
 - **HPA** scales replica count from metrics; **VPA** resizes requests/limits; **Cluster Autoscaler**/**Karpenter** add node capacity when Pods can't be scheduled. Scaling replicas doesn't fix a saturated downstream database.
 
 ### Config, secrets, and debugging
 
 - **ConfigMaps** for non-sensitive settings, **Secrets** for sensitive ones — Secret values are only **base64-encoded, not encrypted**, by default; enable encryption at rest and restrict access via **RBAC**.
-- Debugging states: **`Pending`** (scheduling/quota/storage), **`ImagePullBackOff`** (image or registry credential), **`CrashLoopBackOff`** (repeatedly failing process or probe) — use `kubectl describe pod` for events and `logs --previous` for a restarting container's last output before fixing the cause or `kubectl rollout undo`.
+- **`Pending`**: can't schedule (resources, quota, affinity, unbound volume). **`ImagePullBackOff`**: wrong image or registry credentials. **`CrashLoopBackOff`**: the process or its liveness probe keeps failing.
+- `kubectl describe pod` shows events; `kubectl logs --previous` shows the crashed container's last output; `kubectl rollout undo` reverts a Deployment.
 
 ## Terraform
 
@@ -77,7 +80,8 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - **State** maps resource addresses to real infrastructure and can contain sensitive values — keep it in a protected **remote backend** with locking so concurrent runs can't corrupt it; never commit `terraform.tfstate`.
 - **Drift**: real infrastructure diverges from state, often via manual changes outside Terraform — a plan refreshes state and shows what's needed to reconcile it.
 - **`import`** brings an existing resource under Terraform management; **`moved`** blocks record a resource's renamed/refactored address so a plan doesn't propose destroy-and-recreate.
-- **Modules** package reusable resources behind inputs/outputs. **Workspaces** give one configuration multiple states but are **not an access-control boundary** — use separate backends/root modules, not workspace names alone, to isolate environments with different permissions.
+- **Modules** package resources behind inputs and outputs.
+- **Workspaces** give one configuration several states but are **not an access-control boundary** — isolate environments with separate backends or root modules.
 
 ## GitOps
 

@@ -6,7 +6,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Structure and estimates
 
-- Fixed order: **(1)** requirements (functional + non-functional: scale, latency, availability, consistency), **(2)** estimates (users, QPS, storage), **(3)** API, **(4)** data model, **(5)** high-level design, **(6)** deep dive on the hardest 1–2 components, **(7)** bottlenecks and trade-offs.
+- Order: **requirements** (functional + scale, latency, availability, consistency) → **estimates** → API → data model → high-level design → **deep dive** on the hardest 1–2 parts → bottlenecks and trade-offs.
 - Numbers to know: 1 day ≈ **86,400 s ≈ 10⁵ s**; RAM read ~100 ns, SSD random read ~100 µs, same-DC round trip ~0.5 ms, cross-continent ~150 ms.
 - Availability nines: **99.9% ≈ 8.8 h/year** downtime, **99.99% ≈ 53 min/year**, **99.999% ≈ 5 min/year**.
 
@@ -20,7 +20,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Proxies and gateways
 
-- **Reverse proxy** (Nginx, Envoy) sits in front of servers: TLS termination, load balancing, caching. An **API gateway** adds edge concerns (authn, rate limiting, routing, aggregation) for north–south traffic; a **BFF** gives each client type its own gateway.
+- **Reverse proxy** (Nginx, Envoy): TLS termination, load balancing, caching in front of servers.
+- **API gateway**: adds auth, rate limiting, routing, and aggregation for north–south traffic; a **BFF** is one gateway per client type.
 - **Service mesh** (Istio, Linkerd) handles east–west service-to-service traffic via **sidecar proxies**: mTLS, retries, circuit breaking, telemetry, without app code changes.
 - **Service discovery**: instances register with a registry (Consul, etcd, Eureka) and are removed on failed health checks; Kubernetes does this natively via stable Service DNS names — see [devops.md](devops.md).
 
@@ -56,7 +57,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Scaling ladder
 
-- In order of increasing complexity: query/index optimization → caching → read replicas (watch replication lag) → vertical scaling → federation by domain → **sharding** (needs a high-cardinality, evenly-distributed key; cross-shard joins/transactions get hard).
+- Cheapest first: query/index tuning → caching → read replicas → vertical scaling → split databases by domain → **sharding**.
+- Sharding needs a high-cardinality, evenly spread key; cross-shard joins and transactions become the app's problem.
 - **Denormalization** trades write complexity for read speed; **CQRS** (see [distributed.md](distributed.md)) separates write and read models entirely.
 
 ## Asynchronous processing
@@ -64,7 +66,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### Queues vs logs
 
 - Queues **decouple** producers from consumers, absorb spikes, move slow work off the request path. Deliveries are at-least-once, so consumers must be **idempotent**; route repeated failures to a **dead-letter queue**.
-- **RabbitMQ/SQS**: message removed once acknowledged, good for distributing discrete tasks. **Kafka**: durable append-only log, consumers track their own offsets so many consumer groups can replay the same data; order is guaranteed only **within a partition** — partition by entity ID when order matters.
+- **RabbitMQ/SQS** (queue): a message is removed once acknowledged — distributes discrete tasks among workers.
+- **Kafka** (log): durable append-only log; each consumer group tracks its own offset, so many groups can **replay** the same data. Partitioning and ordering: see [distributed.md](distributed.md).
 - **Fan-out**: pub/sub (SNS, Kafka topics) delivers each event to many subscribers independently.
 
 ## Rate limiting
