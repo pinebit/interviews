@@ -31,4 +31,4 @@ cd interviews
 codex  # or: claude
 ```
 
-In the agent chat, run `$quiz golang` in Codex or `/quiz golang` in Claude Code. The quiz asks one question at a time and gives you a score at the end. Use `$quiz all 20` or `/quiz all 20` for 20 questions across all topics.
+In the agent chat, run `/quiz golang` in Claude Code or `$quiz golang` in Codex. The quiz generates questions from random brief concepts, asks one at a time, and gives you a score at the end. Use `/quiz golang ethereum` to mix topics, or `/quiz all 20` for 20 concepts across all topics.

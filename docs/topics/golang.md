@@ -39,7 +39,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - Typed atomics (`atomic.Int64`, etc., **1.19**) replace the old `atomic.AddInt64(&x, ...)` style.
 - `sync.Map` is optimized only for keys written once and read many times, or disjoint key sets per goroutine — a plain map + mutex is usually faster otherwise.
-- `sync.Pool` contents can be dropped on **any** GC cycle, not just after two, and are cleared entirely under memory pressure.
+- `sync.Pool` items are moved to a **victim cache** at each GC and freed at the next one (since Go 1.13), so an unused item survives about **two GC cycles** — never use it as a cache that must hold data.
 
 ### Memory model and races
 
@@ -118,7 +118,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - Constraints are interfaces defining a **type set**; `~int` accepts any type whose underlying type is `int`; `comparable` allows `==`/map keys.
 - Compiled via **GC-shape stenciling** — types with the same underlying shape share code, which can still be slower than hand-specialized code in hot paths.
-- No type parameters on methods, and no specialization.
+- **Generic methods since Go 1.27**: a method may declare its own type parameters, but interface methods can't, and a generic method can't satisfy an interface method. Still no specialization.
 
 ### Iterators and loop variables
 

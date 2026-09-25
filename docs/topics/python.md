@@ -15,10 +15,11 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### Refcounting and GC
 
-- **Reference counting** is the primary mechanism — an object is freed the instant its count hits zero; a **generational cyclic GC** runs periodically to catch reference cycles counting alone can't free.
+- **Reference counting** is the primary mechanism — an object is freed the instant its count hits zero; a **generational cyclic GC** runs periodically to catch reference cycles counting alone can't free (3.14.0–3.14.4 shipped an incremental GC; **3.14.5 reverted it** over memory growth).
 - CPython caches small ints (**-5 to 256**) and some string literals (**interning**) — this is why `is` can accidentally return `True` for equal small values; never rely on it for general values.
 - **`__slots__`** replaces the per-instance `__dict__` with fixed storage, cutting memory for classes with many instances (and disabling arbitrary new attributes).
-- **`weakref`** holds a reference that doesn't keep the object alive, used for caches and observer patterns; **`__del__`** runs at collection time (not deterministically, and never for objects the GC can't reach due to a cycle involving `__del__` in old Python — though the cyclic GC handles finalizers correctly since 3.4).
+- **`weakref`** holds a reference that doesn't keep the object alive, used for caches and observer patterns.
+- **`__del__`** runs when the object is freed — immediately at refcount zero, but only at the next GC pass if it's in a cycle (collectable **since 3.4**, PEP 442); use `with`/`weakref.finalize` for deterministic cleanup.
 
 ## Concurrency
 

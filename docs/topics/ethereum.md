@@ -22,11 +22,13 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - Fee = `gasUsed × (baseFee + priorityFee)`. **Base fee** is set by the protocol, moves **±12.5%** per block toward a 50%-full target, and is **burned**. **Priority fee** (tip) goes to the proposer.
 - Users set `maxFeePerGas` / `maxPriorityFeePerGas`; unused headroom is refunded.
-- The **base fee** and **priority fee** together make ETH potentially deflationary when usage is high — burn can exceed new issuance.
+- Only the **base fee** is burned (the tip is not), so ETH supply shrinks whenever burn exceeds new issuance.
 
 ### Gas costs and refunds
 
 - Base transaction cost **21,000** gas; calldata costs **16 gas/non-zero byte, 4 gas/zero byte**.
+- **EIP-7623** (Pectra, May 2025) adds a calldata **floor price** (40/10 gas per non-zero/zero byte) for data-heavy transactions, pushing bulk data to blobs.
+- **EIP-7825** (Fusaka, Dec 2025) caps a single transaction at **2²⁴ ≈ 16.7M gas**, independent of the block gas limit.
 - **Cold/warm access** (EIP-2929): first touch of a storage slot in a transaction (cold `SLOAD`) costs **2,100**; first touch of an address (cold `CALL`/`BALANCE`/`EXT*`) costs **2,600**; any warm (already-touched) access costs **100**.
 - Clearing a storage slot to zero gives a partial gas refund, capped at **1/5** of the transaction's total gas (EIP-3529, down from the pre-London 1/2).
 - The per-block gas limit is not fixed by protocol — it moves by validator vote, roughly ±1/1024 per block — so treat any specific number as a snapshot, not a constant.

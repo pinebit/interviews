@@ -56,7 +56,7 @@ Roughly strongest to weakest, though they apply to different scopes: **strict se
 
 ### Consensus algorithms
 
-- Needs a **majority quorum** (`N/2 + 1`): a cluster of `2f + 1` nodes tolerates `f` crash failures — hence clusters of 3 or 5.
+- Needs a **majority quorum** (`⌊N/2⌋ + 1`): a cluster of `2f + 1` nodes tolerates `f` crash failures — hence clusters of 3 or 5.
 - **Raft**: **leader election** (randomized election timeouts avoid split votes; nodes vote once per **term**), **log replication** (leader commits once a majority acks), **safety** (election restriction — a candidate must have an up-to-date log to win; any two majorities overlap, so a committed entry can't be lost).
 - **Paxos** solves the same problem in two phases (prepare/promise, accept/accepted) via proposers/acceptors; harder to reason about and implement than Raft.
 

@@ -9,7 +9,8 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - One call stack; the event loop pulls queued callbacks on once the stack is empty. The **microtask queue** (Promise callbacks, `queueMicrotask`, `MutationObserver`) drains **completely** after each stack-emptying step, before the loop continues. The **macrotask queue** (`setTimeout`, I/O, UI events) runs **one task per iteration**, with microtasks drained again right after.
 - This is why `Promise.resolve().then(cb)` always fires before `setTimeout(cb, 0)`, regardless of source order — a microtask that keeps scheduling more microtasks can starve rendering and macrotasks indefinitely.
 - **Rendering** and `requestAnimationFrame` callbacks run after microtasks drain but before the next macrotask/paint — heavy microtask chains can delay a frame even though they "ran first."
-- Node has **more queue phases** than the browser: `process.nextTick` drains before the promise microtask queue on every tick, ahead of timers, I/O callbacks, `setImmediate`, and close callbacks in that phase order.
+- Node loop phases: **timers → pending callbacks → poll (I/O) → check (`setImmediate`) → close**. After each callback, the **`process.nextTick` queue** drains first, then promise microtasks.
+- `setTimeout(f, 0)` vs `setImmediate(f)` order is **nondeterministic** in the main module, but inside an I/O callback `setImmediate` always runs first (check comes right after poll).
 
 ## Scope and closures
 

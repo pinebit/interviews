@@ -44,12 +44,12 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Type erasure and speed
 
-- Type annotations, interfaces, generics, and type-only imports are erased — most type-level constructs add **zero runtime footprint**. Numeric `enum`s and legacy decorators are exceptions that emit real runtime code.
+- Type annotations, interfaces, generics, and type-only imports are erased — most type-level constructs add **zero runtime footprint**. Exceptions that emit real runtime code: **all `enum`s** (numeric and string), `namespace`s with values, parameter properties, and legacy decorators.
 - `tsc` does full type checking (and can emit JS, relatively slowly); esbuild/swc/Babel's TS preset do **transpile-only**, stripping types file-by-file without cross-file checking — much faster, but they'll happily emit JS from type-invalid code since they never build a full type graph. Enable **`isolatedModules`** to catch constructs (like non-`const` re-exported type-only names) that transpile-only tools can't handle correctly.
 - **`verbatimModuleSyntax`** requires explicit `import type`/`export type` for type-only imports/exports, so a transpiler knows unambiguously what to elide without doing type analysis.
-- **`erasableSyntaxOnly`** (**5.8**) forbids TypeScript syntax that can't be *erased* without emitting runtime code (enum bodies, parameter properties, namespaces with runtime code) — this is the flag that guarantees a file is compatible with Node.js's native **`--experimental-strip-types`**/type-stripping support.
+- **`erasableSyntaxOnly`** (**5.8**) forbids TypeScript syntax that can't be *erased* without emitting runtime code (enum bodies, parameter properties, namespaces with runtime code) — this is the flag that guarantees a file runs under Node.js **type stripping**, on by default **since Node 22.18 / 23.6** (no flag).
 - **`moduleResolution: bundler`** matches how modern bundlers resolve imports (no file-extension requirements); **`nodenext`** matches Node's own ESM/CJS resolution rules exactly, including required extensions in ESM.
-- The native, Go-ported compiler (**TypeScript 7**, project name `tsgo` during preview) replaced the JS-based `tsc` as the standard compiler, giving large multiples of speedup on type-checking and project builds.
+- **TypeScript 7** (2026) ships the native Go port of the compiler (`tsgo` during preview): roughly **10×** faster builds with parallel checking; its stable programmatic API is planned for 7.1, so some tooling (typescript-eslint, Vue/Svelte/Angular language tools) still needs the 6.x JS compiler.
 
 ## Strictness flags
 

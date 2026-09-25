@@ -27,12 +27,12 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 
 ## Quiz
 
-The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) quizzes you on the briefs one question at a time and reports your score at the end:
+The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Claude Code) generates questions from random brief concepts, asks them one at a time, and reports your score at the end. Run it from the repository root with `/quiz` in Claude Code or `$quiz` in Codex:
 
 ```
-/quiz golang            # 10 random questions from one topic
-/quiz golang ethereum   # questions mixed from several topics
-/quiz all 20            # 20 questions from every topic
+/quiz golang            # 10 random concepts from one topic
+/quiz golang ethereum   # concepts mixed from several topics
+/quiz all 20            # 20 concepts from every topic
 ```
 
 ## Local site preview
