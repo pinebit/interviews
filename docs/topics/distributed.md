@@ -211,6 +211,18 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 - **Idempotent producer** (default since Kafka 3.0) dedupes retried sends per partition.
 - **Transactions** make writes across partitions and the consumer offset commit atomic — exactly-once for read-process-write within Kafka.
 
+### Kafka durability
+
+- Each partition has a leader and followers; the **ISR** (in-sync replicas) are followers caught up within `replica.lag.time.max.ms`.
+- **`acks=all`** + **`min.insync.replicas=2`** (with replication factor 3) acknowledges a write only once 2 replicas have it — survives one broker loss without losing acknowledged data.
+- **`unclean.leader.election.enable=false`** (default) refuses to elect an out-of-sync replica, choosing unavailability over data loss.
+
+### Kafka rebalancing, compaction, KRaft
+
+- A **rebalance** reassigns partitions when consumers join or leave; the **KIP-848** consumer protocol (GA in **Kafka 4.0**) makes it incremental and broker-driven instead of stop-the-world.
+- **Log compaction** keeps only the latest record per key (a delete = `null` tombstone) — for changelogs and state restoration.
+- **Kafka 4.0 (March 2025) removed ZooKeeper**: metadata lives in a Raft quorum of controllers (**KRaft**).
+
 ### Event sourcing and CQRS
 
 - **Event sourcing** stores every change as an immutable event and rebuilds state by replay, with snapshots for speed.

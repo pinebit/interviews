@@ -8,22 +8,22 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 
 ## Topics
 
-- [Go](docs/topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, testing and profiling
-- [Algorithms](docs/topics/algorithms.md) — complexity, array patterns, sorting, data structures, graphs, dynamic programming, greedy methods
-- [Distributed Systems](docs/topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, stream processing
+- [Go](docs/topics/golang.md) — concurrency, memory management, slices/maps/strings, types and interfaces, errors, standard library gotchas, modules, testing and profiling
+- [Algorithms](docs/topics/algorithms.md) — complexity, array and string patterns, sorting, data structures, graphs, dynamic programming, greedy methods, NP-hardness
+- [Distributed Systems](docs/topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, Kafka and stream processing
 - [Ethereum](docs/topics/ethereum.md) — accounts and transactions, gas, EVM, security, upgradeability, signatures, PoS consensus, scaling, DeFi and MEV
-- [System Design](docs/topics/system.md) — interview framework, traffic and edge, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
-- [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, schema design, scaling
-- [AI Engineering](docs/topics/ai.md) — architecture choices, agent orchestration, tools and integration, RAG, evaluation, cost, security, governance
-- [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes, Terraform, GitOps
-- [AWS](docs/topics/aws.md) — IAM, VPC networking, compute, storage, databases, events, operations
-- [Security](docs/topics/security.md) — web vulnerabilities, auth and sessions, tokens, access control, cryptography, TLS, threat modeling
-- [Rust](docs/topics/rust.md) — ownership and borrowing, lifetimes, traits, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
-- [Python](docs/topics/python.md) — runtime and the GIL, memory management, concurrency, gotchas, object model, typing, tooling
+- [System Design](docs/topics/system.md) — interview framework, traffic and edge, real-time delivery, caching, data storage, async processing, rate limiting, reliability, architecture, classic designs
+- [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, Redis and NoSQL, schema design, scaling
+- [AI Engineering](docs/topics/ai.md) — LLM fundamentals, inference and serving, RAG, fine-tuning, agents, tools and MCP, evaluation, cost, security
+- [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes workloads/networking/operations, Terraform, GitOps
+- [AWS](docs/topics/aws.md) — IAM and KMS, VPC networking, compute, storage and databases, events, operations
+- [Security](docs/topics/security.md) — web vulnerabilities, auth and sessions, tokens and OAuth, access control, cryptography, TLS, supply chain, threat modeling
+- [Rust](docs/topics/rust.md) — ownership and borrowing, lifetimes, traits, closures and iterators, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
+- [Python](docs/topics/python.md) — runtime and the GIL, memory management, data structures, concurrency, gotchas, object model, typing, tooling
 - [TypeScript](docs/topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation, strictness, declarations, typing patterns
-- [JavaScript](docs/topics/javascript.md) — event loop, scope and closures, `this` and prototypes, async, modules, memory, DOM events, recent additions
-- [Backend](docs/topics/backend.md) — API design, idempotency, resilience, async work, data access, lifecycle, security, testing
-- [Frontend](docs/topics/frontend.md) — rendering strategies, browser pipeline, performance, caching, React internals, state management, accessibility, security
+- [JavaScript](docs/topics/javascript.md) — event loop, scope and closures, `this` and prototypes, numbers, async, modules, memory, DOM events, recent additions
+- [Backend](docs/topics/backend.md) — API design, idempotency and concurrency, service calls and webhooks, async work, data access, lifecycle, security, testing
+- [Frontend](docs/topics/frontend.md) — rendering strategies, browser pipeline, performance, caching, React internals and concurrency, state management, accessibility
 
 ## Quiz
 

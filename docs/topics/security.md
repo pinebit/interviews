@@ -33,6 +33,11 @@ What experienced engineers forget about application security before an interview
 - CORS is a **browser read policy**, not authentication or a firewall — non-browser clients ignore it.
 - A credentialed response can't use `Access-Control-Allow-Origin: *`; reflecting any `Origin` with credentials is equivalent to no policy.
 
+### Path traversal and unsafe deserialization
+
+- **Path traversal**: `../../etc/passwd` in a filename escapes the base directory — resolve the canonical path and check it's still inside the base, or map IDs to files.
+- **Unsafe deserialization** (Java serialization, Python `pickle`, YAML with object tags) runs attacker-chosen code — only deserialize untrusted input into plain data formats (JSON) with schema validation.
+
 ### IDOR / BOLA
 
 - The endpoint checks that the caller is logged in but not that they may access **this object ID** — authorize per resource, every time.
@@ -43,6 +48,12 @@ What experienced engineers forget about application security before an interview
 
 - Use a slow, memory-hard hash: **argon2id**, scrypt, or bcrypt — never a fast hash like SHA-256; store algorithm and parameters with the hash.
 - A unique **salt** per password defeats rainbow tables; a **pepper** (server-side secret stored elsewhere) helps if only the database leaks.
+
+### Password policy (NIST SP 800-63B)
+
+- Rev. 4 (2025): minimum **15 characters** for password-only login (8 with MFA), allow at least 64, **no composition rules**, **no forced periodic rotation**.
+- Check new passwords against **breached-password lists**; rotate only on evidence of compromise.
+- Defend logins against credential stuffing with rate limits per account and per IP, and MFA.
 
 ### MFA strength
 
@@ -78,6 +89,12 @@ What experienced engineers forget about application security before an interview
 
 - **OAuth 2.0** is delegated *authorization* (an access token for a resource server); **OIDC** adds *authentication* via an **ID token**.
 - Interactive login: **authorization code + PKCE**; service to service: **client credentials**. **OAuth 2.1** drops the implicit and password grants.
+
+### OAuth pitfalls
+
+- Match **`redirect_uri` exactly** against a registered value — prefix or wildcard matching leaks authorization codes.
+- The **`state`** parameter (or PKCE) ties the callback to the browser session that started it, blocking login CSRF.
+- Bearer tokens work for whoever holds them; **DPoP** or mTLS **sender-constrains** tokens to a client key.
 
 ### Refresh token rotation
 
@@ -119,12 +136,26 @@ What experienced engineers forget about application security before an interview
 - A **MAC** (HMAC) proves integrity to anyone holding the shared key, so it can't give **non-repudiation**; a **signature** can, since only the private-key holder could sign.
 - Naive `hash(key ‖ msg)` is open to **length extension** on Merkle-Damgård hashes (MD5, SHA-1, SHA-256); HMAC isn't.
 
+### Envelope encryption and key management
+
+- Encrypt data with a random **data key (DEK)**, encrypt the DEK with a **key-encryption key (KEK)** held in a KMS/HSM, store the wrapped DEK with the data.
+- Rotating the KEK only rewraps DEKs, not the data; the master key never leaves the KMS. AWS specifics: see [aws.md](aws.md).
+
+### Timing attacks
+
+- Comparing secrets (HMACs, tokens) with `==` returns early at the first differing byte — use a **constant-time compare** (`hmac.compare_digest`, `crypto.timingSafeEqual`).
+
 ## TLS
 
 ### TLS 1.3 handshake
 
 - **1-RTT** full handshake: key shares go in the first flight.
 - Optional **0-RTT** resumption data can be **replayed** — only safe for idempotent requests.
+
+### Post-quantum key exchange
+
+- **Harvest now, decrypt later** makes key exchange the urgent part: browsers and CDNs negotiate hybrid **X25519MLKEM768** (classical + ML-KEM, FIPS 203) by default since 2024–2025.
+- Post-quantum signatures (**ML-DSA**, FIPS 204) are slower to roll out because certificates and chains grow much larger.
 
 ### Certificates and mTLS
 
@@ -135,6 +166,14 @@ What experienced engineers forget about application security before an interview
 
 - **HSTS** forces HTTPS on later visits after one HTTPS response (preload lists cover the first visit).
 - **Certificate pinning** resists CA compromise but makes key rotation painful — mostly limited to mobile apps now.
+
+## Supply chain
+
+### Dependency and build integrity
+
+- Pin dependencies with lock files and hashes, and watch for **typosquatting** and **dependency confusion** (a public package shadowing an internal name).
+- An **SBOM** (SPDX, CycloneDX) lists what's inside an artifact, so a new CVE can be matched to affected builds.
+- **SLSA** levels grade build provenance; **Sigstore** (cosign) signs artifacts with short-lived keys tied to a CI identity.
 
 ## Threat modeling
 

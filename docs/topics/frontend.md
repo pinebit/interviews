@@ -49,6 +49,10 @@ What experienced frontend engineers forget before an interview, grouped by subto
 - **Flexbox** for one axis (a toolbar, centering); **Grid** for two axes (page layout, card grids).
 - **Specificity**: inline > ID > class/attribute/pseudo-class > element; **cascade layers** and origin rank above specificity, and `!important` inverts layer order.
 
+### Stacking contexts
+
+- `z-index` only compares siblings **within the same stacking context**; `opacity < 1`, `transform`, `filter`, `position: fixed`, and positioned elements with a `z-index` each create a new one — why `z-index: 9999` sometimes "doesn't work".
+
 ### Client-side routing
 
 - The router intercepts navigation and updates the URL with the **History API** (`pushState`), no full reload.
@@ -74,6 +78,16 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - **Code splitting** by route or with dynamic `import()` keeps the first bundle to what the first screen needs.
 - **Tree shaking** needs ES modules and side-effect-free code (`"sideEffects": false`).
+
+### Images
+
+- **`srcset`/`sizes`** let the browser pick a resolution per viewport; **AVIF/WebP** are much smaller than JPEG/PNG.
+- **`loading="lazy"`** for below-the-fold images — never on the LCP image, which should get **`fetchpriority="high"`**.
+
+### Main-thread offloading
+
+- **Web Workers** run JS on another thread (no DOM access), talking via `postMessage` (structured clone, or transfer an `ArrayBuffer` for free).
+- **`content-visibility: auto`** skips layout and paint for off-screen sections.
 
 ### Resource hints
 
@@ -104,6 +118,23 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - **Keys** match list items across renders; an array index as key attaches the wrong state after reorder or filter.
 - A component re-renders on its own state change, a **parent re-render** (unless memoized), or a consumed **context value** change.
+
+### Fiber and concurrent rendering
+
+- **Fiber** splits rendering into interruptible units: the **render phase** can pause, restart, or be discarded; the **commit phase** applies DOM changes synchronously.
+- Render must therefore be **pure** — it may run more than once for one commit.
+- React 18 batches all state updates automatically, including in timeouts and promises.
+
+### Transitions and Suspense
+
+- **`useTransition`**/`startTransition` mark an update as non-urgent, so typing stays responsive while a heavy re-render runs; **`useDeferredValue`** defers a derived value.
+- **`<Suspense>`** shows a fallback while children wait for code or data; with streaming SSR each boundary streams in separately.
+
+### React 19 APIs
+
+- **Actions**: async functions passed to `<form action>` or `useActionState`, with pending state handled by React; **`useOptimistic`** shows the expected result before the server confirms.
+- **`use(promise)`** reads a promise or context during render, suspending until it resolves; `ref` is a normal prop (no `forwardRef`).
+- **19.2**: **`<Activity>`** keeps hidden UI mounted with state preserved; **`useEffectEvent`** reads the latest props/state inside an effect without making them dependencies.
 
 ### React Compiler
 

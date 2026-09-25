@@ -8,11 +8,17 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - CPython compiles to bytecode run by a stack-based VM; the **GIL** lets only one thread execute bytecode at a time, keeping refcounting safe without per-object locks.
 - The GIL is released during blocking I/O and by some C extensions, so threads still help **I/O-bound** work; **CPU-bound** work needs processes or a GIL-releasing extension.
+- A running thread is asked to drop the GIL every **5 ms** (`sys.getswitchinterval()`), which is why CPU-bound threads also slow I/O threads.
+- The GIL makes single bytecodes atomic, not whole statements — `x += 1` on a shared value still races.
 
 ### Free threading and subinterpreters
 
 - The **free-threaded build** (no GIL) was experimental in 3.13 and is **officially supported since 3.14** (PEP 779); an incompatible C extension can force the GIL back on.
 - **`concurrent.interpreters`** (**3.14**, PEP 734) runs several interpreters in one process, each with its own GIL, talking over cross-interpreter queues.
+
+### Specializing interpreter and JIT
+
+- **3.11** added the adaptive specializing interpreter (roughly **25%** faster on average); **3.13** added an experimental, off-by-default **JIT** (`--enable-experimental-jit` build).
 
 ## Memory management
 
@@ -31,6 +37,25 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - **`weakref`** holds a reference that doesn't keep the object alive — for caches and observers.
 - **`__del__`** runs at refcount zero, or only at the next GC pass if the object is in a cycle (collectable **since 3.4**, PEP 442); use `with` or `weakref.finalize` for deterministic cleanup.
 
+## Built-in data structures
+
+### Time complexity
+
+| Operation | list | dict / set | deque |
+|---|---|---|---|
+| index / lookup | O(1) | O(1) avg | O(n) |
+| append / add | O(1) amortized | O(1) avg | O(1) both ends |
+| insert/pop at front | **O(n)** | — | **O(1)** |
+| `x in c` | **O(n)** | **O(1)** avg | O(n) |
+
+- `list.sort()`/`sorted` is **Timsort**: stable, O(n log n), O(n) on nearly sorted data.
+- `heapq` is a **min-heap** over a plain list; max-heap functions (`heappush_max`, `heappop_max`) exist **since 3.14**; before that, push negated keys.
+
+### dict and set internals
+
+- A dict is an **open-addressing** hash table plus a compact, insertion-ordered entries array — that layout is why order is preserved.
+- Keys must be hashable; a mutable object whose hash changes after insertion becomes unfindable.
+
 ## Concurrency
 
 ### Threads vs processes vs asyncio
@@ -46,6 +71,12 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - **`fork`** copies the parent — fast, but can inherit inconsistent state (a lock held by another thread mid-acquire).
 - **`spawn`** starts a fresh interpreter — slower, safest; **`forkserver`** forks children from a clean single-threaded server process.
 - **`forkserver` is the Linux default since 3.14** (previously `fork`).
+
+### asyncio event loop
+
+- One thread runs the loop: it polls ready I/O (via `selectors` — epoll/kqueue), then runs ready callbacks; a coroutine only yields control at an **`await`** on something not yet ready.
+- `asyncio.create_task` schedules a coroutine; calling a coroutine function without awaiting or scheduling it **does nothing**.
+- Keep a reference to created tasks — the loop holds only weak references, so an unreferenced task can be **garbage-collected mid-run**.
 
 ### asyncio tasks and cancellation
 
@@ -120,6 +151,17 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - **`__exit__` returning `True` suppresses** the exception; `contextlib.contextmanager` turns a one-`yield` generator into a context manager.
 - `try ... else` runs only when no exception was raised; **`except*`** (**3.11**) handles exception groups, e.g. from a `TaskGroup`.
+
+## Recent language features
+
+### Structural pattern matching
+
+- `match` (**3.10**) destructures by shape: `case {"type": "click", "x": x}`, `case Point(x=0)`.
+- A bare name in a `case` **binds**, it doesn't compare — `case RED:` matches everything; use dotted names (`Color.RED`) for constants.
+
+### Template strings
+
+- **t-strings** (`t"Hello {name}"`, **3.14**, PEP 750) produce a `Template` object with separate static parts and values, so a library can escape values safely (SQL, HTML) instead of receiving a finished string.
 
 ## Typing
 

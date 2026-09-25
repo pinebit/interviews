@@ -66,6 +66,29 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - **Async fn in traits** (**1.75**) desugars to a method returning `impl Future`; `dyn` dispatch over them still needs boxing or the `async-trait` crate.
 
+## Closures, iterators, strings
+
+### Fn, FnMut, FnOnce
+
+| Trait | Captured state | Callable |
+|---|---|---|
+| `Fn` | borrowed immutably | many times, concurrently |
+| `FnMut` | borrowed mutably | many times, not concurrently |
+| `FnOnce` | moved out / consumed | once |
+
+- Every `Fn` is also `FnMut` and `FnOnce`; take the **loosest** bound your code allows (`FnOnce` if you call it once), so callers can pass more kinds of closures.
+- **`move`** changes *how* variables are captured (by value), not which trait is implemented — a `move` closure that only reads is still `Fn`.
+
+### Iterators
+
+- Iterator adapters (`map`, `filter`, …) are **lazy** and compile to the same code as a hand-written loop — a **zero-cost abstraction**; nothing runs until a consumer (`collect`, `sum`, `for`).
+- `iter()` yields `&T`, `iter_mut()` `&mut T`, `into_iter()` `T` (consumes the collection).
+
+### String vs &str
+
+- **`String`** is an owned, growable UTF-8 buffer; **`&str`** is a borrowed slice of UTF-8 bytes — accept `&str` in parameters.
+- No indexing by integer (`s[0]` doesn't compile) because characters are variable-width; slicing at a non-char boundary **panics**.
+
 ## Smart pointers and memory
 
 ### Box, Rc, Arc, Cow
@@ -74,7 +97,9 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - An `Rc`/`Arc` cycle **leaks**; break it with **`Weak<T>`**.
 - **`Cow<T>`** borrows until a mutation forces an owned copy.
 
-### Drop order and leaking
+### RAII, drop order, leaking
+
+- **RAII**: resources (files, locks, sockets) are released in `Drop` when the owner goes out of scope — no `finally` needed.
 
 - Locals drop in **reverse declaration order**; struct fields drop in **declaration order**.
 - **`mem::forget`** is safe: leaking memory isn't undefined behavior in Rust.
@@ -132,6 +157,10 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - Dropping a future cancels it at its current `.await`, with no signal — **cancel safety** in `select!` means losing a branch mid-await leaves no half-done state.
 
+### Async closures
+
+- **Async closures** (`async || { ... }`, **1.85**) can borrow from their captures across `.await`, which `|| async { ... }` couldn't; bound them with **`AsyncFn`/`AsyncFnMut`/`AsyncFnOnce`**.
+
 ## Unsafe and FFI
 
 ### What `unsafe` allows
@@ -160,3 +189,4 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - Commit **`Cargo.lock`** for binaries; since 2023, Cargo's guidance is to commit it for libraries too, as a CI baseline (dependents ignore it).
 - **Editions** are opt-in, per-crate language changes; **edition 2024** is available **since Rust 1.85**.
+- Edition 2024 enables **let chains** (`if let Some(x) = a && x > 0`, **1.88**) and makes `impl Trait` in return position capture all in-scope lifetimes by default.

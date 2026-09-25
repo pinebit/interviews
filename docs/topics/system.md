@@ -10,6 +10,11 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 - Numbers to know: 1 day ≈ **86,400 s ≈ 10⁵ s**; RAM read ~100 ns, SSD random read ~100 µs, same-DC round trip ~0.5 ms, cross-continent ~150 ms.
 - Availability nines: **99.9% ≈ 8.8 h/year** downtime, **99.99% ≈ 53 min/year**, **99.999% ≈ 5 min/year**.
 
+### Back-of-envelope conversions
+
+- **1M requests/day ≈ 12 QPS**; 100M/day ≈ 1,200 QPS; peak ≈ 2–3× average.
+- 1 KB × 1M items = 1 GB; 1 KB × 1B = 1 TB. A single well-indexed PostgreSQL box handles roughly **10k+ simple queries/s**; Redis **~100k ops/s** per core.
+
 ## Traffic and edge
 
 ### Load balancing
@@ -24,6 +29,17 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 - **API gateway**: adds auth, rate limiting, routing, and aggregation for north–south traffic; a **BFF** is one gateway per client type.
 - **Service mesh** (Istio, Linkerd) handles east–west service-to-service traffic via **sidecar proxies**: mTLS, retries, circuit breaking, telemetry, without app code changes.
 - **Service discovery**: instances register with a registry (Consul, etcd, Eureka) and are removed on failed health checks; Kubernetes does this natively via stable Service DNS names — see [devops.md](devops.md).
+
+### Real-time delivery to clients
+
+| Transport | Direction | Note |
+|---|---|---|
+| Short polling | client pulls | simple, wasteful, latency = interval |
+| Long polling | client pulls, server holds | works everywhere, one request per message |
+| **SSE** | server → client | plain HTTP, auto-reconnect with `Last-Event-ID`, text only |
+| **WebSocket** | both ways | stateful connections — needs sticky routing and a connection registry |
+
+- Server push to many clients means **stateful** servers: plan for reconnect storms after a deploy (jittered reconnects).
 
 ### CDN and object storage
 
@@ -140,3 +156,30 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 - A **trie** (or prefix index) storing precomputed **top-k suggestions** per prefix node, built offline from query logs, cached aggressively, debounced client-side.
 - For semantic variants, store embeddings and query an approximate nearest-neighbor index (HNSW).
+
+### Web crawler
+
+- A **URL frontier** of per-host queues enforces **politeness** (one connection per host, `robots.txt`, crawl delay) and priority.
+- Dedupe URLs with a seen-set (Bloom filter at scale) and page content with checksums or **SimHash** for near-duplicates.
+- Cache DNS; guard against spider traps (URL depth and length limits).
+
+### Notification system
+
+- Producers call one API → a queue per channel (push, SMS, email) → workers calling providers (APNs, FCM, Twilio) with retries.
+- Dedupe by notification ID, respect user preferences and rate limits, and track delivery status per message.
+
+### Payments and ledgers
+
+- Record money in a **double-entry ledger**: every transaction is balanced debits and credits, rows are **append-only**, corrections are new entries.
+- **Idempotency keys** on every call to the payment provider; reconcile against provider reports daily to catch drift.
+- Store amounts as integer minor units (cents) with a currency, never floats.
+
+### Leaderboard
+
+- A Redis **sorted set**: `ZINCRBY` to update a score, `ZREVRANGE` for the top N, `ZREVRANK` for a user's rank — all O(log n).
+- Beyond one node, shard by score range or keep per-shard top-k and merge.
+
+### Booking and inventory contention
+
+- Overselling comes from check-then-write races: use **conditional updates** (`UPDATE ... SET left = left - 1 WHERE id = ? AND left > 0`) or row locks.
+- For seat selection, place a **temporary hold with a TTL** that expires if payment doesn't complete; a queue or waiting room absorbs flash-sale spikes.

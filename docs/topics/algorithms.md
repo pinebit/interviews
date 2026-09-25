@@ -45,10 +45,28 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 - For a **next greater/smaller element**, pop indices that the new value makes obsolete; the remaining top is the nearest qualifying candidate.
 - Each index is pushed and popped at most once, so the whole scan is **O(n)**; choose strict versus non-strict comparison deliberately for duplicates.
 
+### Monotonic deque
+
+- **Sliding window maximum**: keep indices in a deque with decreasing values; pop smaller values from the back, drop the front once it leaves the window — **O(n)** total.
+
+### Intervals
+
+- **Merge overlapping intervals**: sort by start, extend the last merged interval while the next start ≤ its end — O(n log n).
+- **Minimum meeting rooms**: sweep sorted start and end points (or a min-heap of end times); the max overlap is the answer.
+
+### Cycle detection in sequences
+
+- **Floyd's tortoise and hare**: a slow and a fast pointer meet inside a cycle; restart one from the head and advance both by one to find the cycle's entry — O(n) time, **O(1) space**.
+
 ### KMP prefix function
 
 - **KMP** preprocesses a pattern's longest proper prefix that is also a suffix, then reuses matches after a mismatch instead of restarting the text scan.
 - Pattern search takes **O(n+m)** time for text length `n` and pattern length `m`, with O(m) preprocessing space.
+
+### Rolling hash (Rabin-Karp)
+
+- A **polynomial rolling hash** updates a window's hash in O(1) as it slides, so pattern search is O(n + m) expected.
+- Hash matches must be verified (or use two moduli) because collisions happen; also useful for finding duplicate substrings.
 
 ## Sorting and selection
 
@@ -93,6 +111,16 @@ These are properties of the standard array implementations; stability and space 
 
 - A **trie** follows one edge per symbol: lookup is O(length of key), independent of the number of stored keys under a bounded alphabet.
 - Prefix search is natural, but storing a node/edge per prefix can cost much more space than a hash map; compressed tries merge single-child paths.
+
+### LRU cache
+
+- **Hash map + doubly linked list**: the map finds a node in O(1); the list keeps recency, moving a node to the front on access and evicting from the tail — **O(1) get and put**.
+- In Python, `OrderedDict.move_to_end` + `popitem(last=False)`; in Java, `LinkedHashMap` with access order.
+
+### Fenwick and segment trees
+
+- A **Fenwick tree** (binary indexed tree) gives prefix sums with point updates, both **O(log n)**, in one array.
+- A **segment tree** handles any associative range query (min, max, sum) with updates in O(log n); **lazy propagation** adds range updates.
 
 ## Trees and graphs
 
@@ -143,6 +171,20 @@ These are properties of the standard array implementations; stability and space 
 - The O(n log n) method stores the **smallest possible tail** for each subsequence length and binary-searches where each new value belongs.
 - Use first tail `>= x` for **strictly increasing** subsequences; the tails array alone gives the length, not necessarily an actual subsequence.
 
+### Two-sequence DP: LCS and edit distance
+
+- **LCS**: `dp[i][j] = dp[i-1][j-1] + 1` if characters match, else `max(dp[i-1][j], dp[i][j-1])`.
+- **Edit distance**: `1 + min(insert, delete, replace)` on a mismatch, diagonal on a match; both O(nm) time, reducible to **O(min(n, m)) space** with two rows.
+
+### Bitmask DP
+
+- Represent a subset as bits and index DP by it: travelling salesman is `dp[mask][last]` in **O(2ⁿ · n²)** — feasible up to n ≈ 20.
+
+### Bit manipulation
+
+- `x & (x − 1)` clears the lowest set bit (power-of-two test: result is 0); `x & −x` isolates it.
+- XOR of all elements cancels pairs — finds the single non-duplicated number in O(1) space.
+
 ### Greedy proof pattern
 
 - A greedy choice needs an **exchange argument** or a maintained invariant; choosing the locally best-looking option is not enough.
@@ -152,3 +194,8 @@ These are properties of the standard array implementations; stability and space 
 
 - Backtracking explores a **decision tree**, undoing each choice after recursion; track state that lets you reject invalid partial solutions early.
 - Exponential worst-case search may still be necessary to enumerate exponentially many outputs; prune only when a branch cannot yield a required answer or improve the best score.
+
+### Recognizing NP-hard problems
+
+- Traveling salesman, subset sum, knapsack, graph coloring, SAT, Hamiltonian path, and set cover are **NP-hard** in general.
+- Signals in an interview: exact answers need exponential search (backtracking, bitmask DP) or pseudopolynomial DP on small numbers; otherwise use a greedy or approximation algorithm and say so.

@@ -23,6 +23,11 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 - `interface` supports **declaration merging** (reopening adds members) and gives clearer error messages for object shapes.
 - `type` can alias unions, tuples, and mapped/conditional types, which `interface` can't express.
 
+### Variance annotations
+
+- Generic types are checked by **structure**, so variance is inferred; **`in`**/**`out`** annotations (`interface Producer<out T>`, **4.7**) declare contravariance/covariance explicitly — faster checks and clearer errors.
+- Arrays are treated **covariantly** (`Dog[]` assignable to `Animal[]`) even though writes make that unsound.
+
 ### Method bivariance
 
 - Under `strictFunctionTypes`, **function-typed properties** (`f: (x: T) => void`) check parameters **contravariantly**.
@@ -44,6 +49,11 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 - In a `default` branch, assign the value to a `never` variable; adding a new union member then fails to compile until handled.
 
+### `as` vs `satisfies` vs `!`
+
+- **`x as T`** is an unchecked assertion — it only rejects conversions between unrelated types (bypass: `as unknown as T`).
+- **`satisfies T`** checks without changing the inferred type; **`x!`** strips `null`/`undefined` with no runtime check.
+
 ## Type-level programming
 
 ### Conditional types
@@ -61,6 +71,11 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 - **`satisfies`** (**4.9**) checks a value against a type without widening its inferred type.
 - **`const` type parameters** (**5.0**) infer literal types without the caller writing `as const`.
 - **`NoInfer<T>`** (**5.4**) excludes a position from inference, so a default argument can't widen `T`.
+
+### Branded types
+
+- Structural typing makes `UserId` and `OrderId` both plain `string`s; **brand** them for nominal-like safety: `type UserId = string & { readonly __brand: 'UserId' }`.
+- Create values only through a validating function (`asUserId(s)`); the brand has no runtime cost.
 
 ## Compilation and tooling
 
@@ -111,6 +126,10 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 - **`.d.ts`** files hold only types, describing JS libraries or shipping types beside compiled output.
 - **`declare global`** and **module augmentation** (`declare module 'express' { interface Request { user?: User } }`) extend third-party types.
+
+### Explicit resource management
+
+- **`using`** / **`await using`** (TS **5.2**, standardized in **ES2026**) call `[Symbol.dispose]()` / `[Symbol.asyncDispose]()` when the block exits, even on throw — scoped cleanup without `try/finally`.
 
 ### Decorators
 

@@ -33,6 +33,11 @@ What experienced database engineers forget before an interview, grouped by subto
 | **BRIN** | huge, naturally ordered tables (append-only time series); tiny |
 | Hash | equality only |
 
+### Building indexes online
+
+- Plain `CREATE INDEX` blocks writes for the whole build; **`CREATE INDEX CONCURRENTLY`** doesn't, but is slower, can't run in a transaction, and leaves an `INVALID` index if it fails.
+- Index every foreign key you join or cascade-delete on — PostgreSQL doesn't create them automatically.
+
 ## Transactions and isolation
 
 ### Anomalies × isolation levels
@@ -85,6 +90,11 @@ What experienced database engineers forget before an interview, grouped by subto
 
 - Two transactions each hold a lock the other needs; the database detects the cycle and **aborts one**.
 - Prevent with a **consistent lock order** and short transactions.
+
+### DDL locks and the lock queue
+
+- Most `ALTER TABLE` forms take an **`ACCESS EXCLUSIVE`** lock. If it waits behind a long query, **every later query queues behind it** — a brief outage from a "fast" migration.
+- Set **`lock_timeout`** (a few seconds) on migrations and retry; rollout patterns in [devops.md](devops.md).
 
 ### Advisory locks
 
@@ -157,6 +167,32 @@ What experienced database engineers forget before an interview, grouped by subto
 ### Upsert
 
 - **`INSERT ... ON CONFLICT (...) DO UPDATE`** (PostgreSQL) / `ON DUPLICATE KEY UPDATE` (MySQL) replaces a racy check-then-write.
+
+## Non-relational stores
+
+### Redis
+
+- Commands execute on **one thread**, so each command (and Lua script or `MULTI` block) is atomic; a slow command (`KEYS *`, big `SMEMBERS`) blocks everyone.
+- Structures: strings, hashes, lists, sets, **sorted sets** (skip list + hash — leaderboards, rate limiters), streams, HyperLogLog.
+- **Redis Cluster** splits keys into **16,384 hash slots**; multi-key operations need the same slot, forced with **hash tags** (`{user42}:cart`).
+
+### Redis persistence and licensing
+
+- **RDB**: periodic fork + snapshot (copy-on-write), loses writes since the last one. **AOF**: logs every write; `appendfsync everysec` (default) loses up to **~1 s**.
+- Replication is **asynchronous** — failover can drop acknowledged writes.
+- The 2024 license change led to the **Valkey** fork (Linux Foundation); **Redis 8** (2025) added AGPLv3 as an option.
+
+### Wide-column key design (Cassandra, DynamoDB)
+
+- The **partition key** picks the node; the **sort/clustering key** orders rows inside the partition — a query must supply the partition key.
+- Model **tables per query** (denormalized), not per entity; unbounded partitions (all events of a popular user) become hot and huge — add a time bucket to the key.
+- Deletes write **tombstones**, which slow reads until compaction purges them.
+
+### Search engines and inverted indexes
+
+- An **inverted index** maps each term to the list of documents containing it; scoring is **BM25**.
+- Elasticsearch/OpenSearch are **near-real-time** (new docs searchable after a refresh, ~1 s default), and the primary shard count is fixed at index creation — resize by reindexing or split/shrink.
+- Treat the search index as a derived store, fed by CDC from the source of truth.
 
 ## Schema design
 

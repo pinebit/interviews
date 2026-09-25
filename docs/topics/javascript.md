@@ -63,6 +63,18 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - `typeof null === 'object'` — a historical bug kept for compatibility.
 - Default `Array.prototype.sort()` compares **as strings**: `[10, 2, 1].sort()` → `[1, 10, 2]`; pass `(a, b) => a - b`.
 
+## Numbers
+
+### IEEE 754 doubles
+
+- Every `number` is a 64-bit double: `0.1 + 0.2 !== 0.3`; compare with a tolerance or use integers (cents).
+- Integers are exact only up to **`Number.MAX_SAFE_INTEGER` = 2⁵³ − 1**; IDs beyond that (Snowflake, tweet IDs) must travel as strings or **`BigInt`**.
+- Bitwise operators convert to **32-bit** signed integers.
+
+### Math.sumPrecise
+
+- **`Math.sumPrecise(iterable)`** (**ES2026**) adds floats without accumulating rounding error, unlike a naive `reduce`.
+
 ## Async
 
 ### Promise combinators
@@ -121,6 +133,16 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - **`structuredClone`** handles cycles, `Map`, `Set`, `Date`, and typed arrays, but not functions or DOM nodes.
 - `JSON.parse(JSON.stringify(x))` drops `undefined`/functions/symbols, turns `Date` into a string, throws on `BigInt` and cycles.
 
+### Proxy and Reflect
+
+- A **`Proxy`** intercepts operations (get, set, has, delete, apply) on a target — the basis of Vue's reactivity and MobX.
+- **`Reflect`** exposes the default behavior of each trap, so handlers can forward with `Reflect.get(target, key, receiver)`.
+
+### Iterators and generators
+
+- An object is iterable if it has **`[Symbol.iterator]()`** returning `{ next() → { value, done } }`; `for...of`, spread, and destructuring use it.
+- Generators (`function*`) are lazy, pause at `yield`, and can receive values via `next(v)`; async generators power `for await`.
+
 ### Typed arrays
 
 - **Typed arrays** are fixed-type views over an `ArrayBuffer` — unboxed numeric storage; several views can share one buffer.
@@ -143,6 +165,15 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 - **`toSorted`, `toReversed`, `toSpliced`, `with`** (ES2023) return a new array instead of mutating.
 - **`Object.groupBy`/`Map.groupBy`** (ES2024) group an iterable by a callback's key.
+
+### Temporal
+
+- **`Temporal`** (**ES2026**) replaces `Date`: immutable values, explicit time zones (`ZonedDateTime`), calendar-safe arithmetic, and separate types for dates, times, and instants.
+- Shipped in Firefox 139 and Chrome 144; Safari still lacks it as of 2026, so it's not Baseline yet.
+
+### Explicit resource management
+
+- **`using`** / **`await using`** (**ES2026**) dispose a resource via `Symbol.dispose` when the block exits — no `try/finally`.
 
 ### Sets and iterators
 

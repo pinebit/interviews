@@ -79,6 +79,17 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - Preallocate slices/maps with a known capacity, reuse buffers via `sync.Pool`, avoid unnecessary `[]byte`↔`string` conversions (both copy), build strings with `strings.Builder`.
 
+### Struct layout and padding
+
+- Fields are aligned to their size, so `struct{ a bool; b int64; c bool }` takes **24 bytes** while `{b int64; a, c bool}` takes **16** — order fields largest first in hot, numerous structs.
+- An empty struct (`struct{}`) is **zero bytes** — used for sets (`map[K]struct{}`) and signal channels.
+
+### Cleanups, weak pointers, interning
+
+- **`runtime.AddCleanup`** (**1.24**) replaces `SetFinalizer`: several cleanups per object, no resurrection, and no leak when objects form a cycle.
+- **`weak.Pointer`** (**1.24**) references an object without keeping it alive — for caches and canonicalization maps.
+- **`unique.Make`** (**1.23**) interns comparable values, turning equality into a pointer compare.
+
 ## Slices, maps, strings
 
 ### Slice mechanics
@@ -126,6 +137,12 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 - **Range-over-func** iterators (`iter.Seq`, `iter.Seq2`, **1.23**) let `range` work over a function, powering the `slices`/`maps` iterator helpers.
 - **Since Go 1.22**, each loop iteration gets its own variable — the classic closure-capture-in-loop bug requires `go 1.21` or earlier semantics to reproduce.
 
+### Newer language features
+
+- **1.21**: `min`, `max`, `clear` built-ins. **1.22**: `for i := range 10` over integers.
+- **1.24**: generic type aliases. **1.26**: `new(expr)` allocates and initializes in one step (`new(42)` → `*int`).
+- **1.27**: generic methods; `go fix` (**1.26**) applies "modernizer" rewrites to adopt new idioms.
+
 ## Errors, defer, panic
 
 ### Error wrapping
@@ -139,6 +156,38 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 - `defer` inside a long-running loop accumulates — calls only run at function return, not at loop end.
 - `recover()` only stops a panic when called **directly inside a deferred function**; an unrecovered panic in any goroutine kills the whole process.
 
+## Standard library gotchas
+
+### net/http clients and servers
+
+- The default **`http.Client` has no timeout** — a hung server blocks the goroutine forever; always set `Timeout` or use a context.
+- Always **close `resp.Body`** (and drain it) or the connection isn't reused and leaks.
+- `http.Server` needs `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`, or slow clients (Slowloris) hold connections open.
+
+### Routing, JSON, logging
+
+- **`ServeMux` patterns since 1.22**: methods and wildcards, `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
+- **`encoding/json/v2`**: experimental in 1.25 (`GOEXPERIMENT=jsonv2`), standard in **1.27** — faster, and stricter defaults (e.g. case-sensitive field matching).
+- **`log/slog`** (**1.21**) is the standard structured logger.
+
+## Modules and tooling
+
+### Minimal version selection
+
+- Go picks the **minimum** version satisfying every `require` (**MVS**), not the latest — builds are reproducible without a lock file.
+- **`go.sum`** holds checksums verified against the public checksum database; it isn't a lock file.
+
+### Module layout and workspaces
+
+- Major versions ≥ 2 change the import path (`example.com/lib/v2`).
+- **`internal/`** packages are importable only from within the parent tree.
+- **`go.work`** (**1.18**) builds several local modules together without `replace` directives.
+
+### Toolchains and tools
+
+- The `toolchain` line and **`GOTOOLCHAIN`** (**1.21**) let `go` download the toolchain a module requires.
+- **`tool` directives** in `go.mod` (**1.24**) track dev tools, run with `go tool <name>` — replaces the `tools.go` hack.
+
 ## Testing and profiling
 
 ### Test tooling
@@ -151,3 +200,4 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - **pprof** profiles: CPU, heap (alloc vs inuse), goroutine, block, mutex — collected via test flags or `net/http/pprof` in a running service.
 - `go tool trace` shows scheduler and latency behavior over time, complementing pprof's aggregate view.
+- **Go 1.27** adds a **goroutine leak profile** that reports goroutines blocked on unreachable channels or locks.
