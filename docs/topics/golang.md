@@ -8,8 +8,8 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 
 - Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps, defaults to CPU count.
 - **Since Go 1.25**, the default `GOMAXPROCS` respects the cgroup CPU limit and updates when it changes; before that it used the host CPU count, hence `automaxprocs`.
-- Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the **netpoller** and doesn't hold a thread.
-- Preemption is asynchronous (signal-based) **since Go 1.14**, so tight loops no longer starve the scheduler.
+- Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the netpoller and doesn't hold a thread.
+- Preemption is asynchronous (signal-based) since Go 1.14, so tight loops no longer starve the scheduler.
 - Goroutines start with a **2 KB** stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
 
 ### Channel axioms
@@ -71,13 +71,15 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 ### Garbage collector
 
-- Concurrent, tri-color mark-sweep; **non-generational** and **non-compacting**; a write barrier keeps marking correct while the program runs.
-- **`GOGC`** (default 100) controls heap growth before the next cycle; **`GOMEMLIMIT`** (**1.19**) sets a soft memory cap, useful in containers.
-- **Green Tea GC** improves memory locality by scanning objects in larger, contiguous spans; introduced experimental (`GOEXPERIMENT=greenteagc`) in **1.25**, it became the default collector in **1.26**.
+- Concurrent, tri-color mark-sweep; non-generational and non-compacting; a write barrier keeps marking correct while the program runs.
+- **`GOGC`** (default 100) controls heap growth before the next cycle; **`GOMEMLIMIT`** (1.19) sets a soft memory cap, useful in containers.
+- **Green Tea GC** improves memory locality by scanning objects in larger, contiguous spans; introduced experimental (`GOEXPERIMENT=greenteagc`) in 1.25, it became the default collector in 1.26.
 
 ### Reducing allocations
 
-- Preallocate slices/maps with a known capacity, reuse buffers via `sync.Pool`, avoid unnecessary `[]byte`↔`string` conversions (both copy), build strings with `strings.Builder`.
+- **Preallocate** slices and maps when the size is known (`make([]T, 0, n)`).
+- Reuse buffers via `sync.Pool`; build strings with `strings.Builder`.
+- Avoid needless `[]byte`↔`string` conversions — both copy, except where the compiler proves it safe (map lookups `m[string(b)]`).
 
 ### Struct layout and padding
 
@@ -86,9 +88,9 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 ### Cleanups, weak pointers, interning
 
-- **`runtime.AddCleanup`** (**1.24**) replaces `SetFinalizer`: several cleanups per object, no resurrection, and no leak when objects form a cycle.
-- **`weak.Pointer`** (**1.24**) references an object without keeping it alive — for caches and canonicalization maps.
-- **`unique.Make`** (**1.23**) interns comparable values, turning equality into a pointer compare.
+- **`runtime.AddCleanup`** (1.24) replaces `SetFinalizer`: several cleanups per object, no resurrection, and no leak when objects form a cycle.
+- **`weak.Pointer`** (1.24) references an object without keeping it alive — for caches and canonicalization maps.
+- **`unique.Make`** (1.23) interns comparable values, turning equality into a pointer compare.
 
 ## Slices, maps, strings
 
@@ -139,9 +141,9 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 ### Newer language features
 
-- **1.21**: `min`, `max`, `clear` built-ins. **1.22**: `for i := range 10` over integers.
-- **1.24**: generic type aliases. **1.26**: `new(expr)` allocates and initializes in one step (`new(42)` → `*int`).
-- **1.27**: generic methods; `go fix` (**1.26**) applies "modernizer" rewrites to adopt new idioms.
+- 1.21: `min` and `max` built-ins. 1.22: **`for i := range 10`** over integers.
+- 1.24: generic type aliases.
+- 1.26: **`new(expr)`** allocates and initializes in one step (`new(42)` → `*int`).
 
 ## Errors, defer, panic
 
@@ -167,8 +169,8 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 ### Routing, JSON, logging
 
 - **`ServeMux` patterns since 1.22**: methods and wildcards, `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
-- **`encoding/json/v2`**: experimental in 1.25 (`GOEXPERIMENT=jsonv2`), standard in **1.27** — faster, and stricter defaults (e.g. case-sensitive field matching).
-- **`log/slog`** (**1.21**) is the standard structured logger.
+- **`encoding/json/v2`**: experimental in 1.25 (`GOEXPERIMENT=jsonv2`), standard in 1.27 — faster, and stricter defaults (e.g. case-sensitive field matching).
+- **`log/slog`** (1.21) is the standard structured logger.
 
 ## Modules and tooling
 
@@ -185,8 +187,14 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 ### Toolchains and tools
 
-- The `toolchain` line and **`GOTOOLCHAIN`** (**1.21**) let `go` download the toolchain a module requires.
+- The `toolchain` line and **`GOTOOLCHAIN`** (1.21) let `go` download the toolchain a module requires.
 - **`tool` directives** in `go.mod` (**1.24**) track dev tools, run with `go tool <name>` — replaces the `tools.go` hack.
+- `go fix` (1.26) applies "modernizer" rewrites that adopt new idioms across a codebase.
+
+### Compatibility and GODEBUG
+
+- Behavior changes ship behind **`GODEBUG`** settings whose defaults follow the main module's **`go` line** — upgrading the toolchain alone doesn't change semantics.
+- Override per program with `//go:debug` directives or the `GODEBUG` environment variable.
 
 ## Testing and profiling
 
@@ -201,3 +209,8 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 - **pprof** profiles: CPU, heap (alloc vs inuse), goroutine, block, mutex — collected via test flags or `net/http/pprof` in a running service.
 - `go tool trace` shows scheduler and latency behavior over time, complementing pprof's aggregate view.
 - **Go 1.27** adds a **goroutine leak profile** that reports goroutines blocked on unreachable channels or locks.
+
+### Profile-guided optimization
+
+- **PGO** (GA in 1.21): commit a production CPU profile as **`default.pgo`** in the main package, and builds use it automatically.
+- The compiler inlines hot calls and devirtualizes hot interface calls — typically **2–14%** less CPU.

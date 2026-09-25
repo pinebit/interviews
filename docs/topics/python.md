@@ -7,18 +7,19 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### The GIL
 
 - CPython compiles to bytecode run by a stack-based VM; the **GIL** lets only one thread execute bytecode at a time, keeping refcounting safe without per-object locks.
-- The GIL is released during blocking I/O and by some C extensions, so threads still help **I/O-bound** work; **CPU-bound** work needs processes or a GIL-releasing extension.
+- The GIL is released during blocking I/O and by some C extensions, so threads still help I/O-bound work; **CPU-bound** work needs processes or a GIL-releasing extension.
 - A running thread is asked to drop the GIL every **5 ms** (`sys.getswitchinterval()`), which is why CPU-bound threads also slow I/O threads.
 - The GIL makes single bytecodes atomic, not whole statements — `x += 1` on a shared value still races.
 
 ### Free threading and subinterpreters
 
 - The **free-threaded build** (no GIL) was experimental in 3.13 and is **officially supported since 3.14** (PEP 779); an incompatible C extension can force the GIL back on.
-- **`concurrent.interpreters`** (**3.14**, PEP 734) runs several interpreters in one process, each with its own GIL, talking over cross-interpreter queues.
+- **`concurrent.interpreters`** (3.14, PEP 734) runs several interpreters in one process, each with its own GIL, talking over cross-interpreter queues.
 
 ### Specializing interpreter and JIT
 
-- **3.11** added the adaptive specializing interpreter (roughly **25%** faster on average); **3.13** added an experimental, off-by-default **JIT** (`--enable-experimental-jit` build).
+- **3.11** added the adaptive specializing interpreter, roughly **25%** faster on average: hot bytecodes are rewritten into type-specialized versions.
+- 3.13 added an experimental copy-and-patch **JIT**; 3.14's official Windows and macOS builds include it, off by default (`PYTHON_JIT=1`).
 
 ## Memory management
 
@@ -29,13 +30,14 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### Object identity and caching
 
-- CPython caches small ints (**-5 to 256**) and interns some strings, so `is` can return `True` for equal values by accident — use `==` for values, `is` only for singletons like `None`.
+- CPython caches small ints (**-5 to 256**) and interns some strings, so `is` can return `True` for equal values by accident.
+- Use `==` for values and **`is` only for singletons** like `None`.
 
 ### `__slots__`, weakrefs, finalizers
 
 - **`__slots__`** replaces the per-instance `__dict__` with fixed storage — less memory per instance, no arbitrary new attributes.
 - **`weakref`** holds a reference that doesn't keep the object alive — for caches and observers.
-- **`__del__`** runs at refcount zero, or only at the next GC pass if the object is in a cycle (collectable **since 3.4**, PEP 442); use `with` or `weakref.finalize` for deterministic cleanup.
+- **`__del__`** runs at refcount zero, or only at the next GC pass if the object is in a cycle (collectable since 3.4, PEP 442); use `with` or `weakref.finalize` for deterministic cleanup.
 
 ## Built-in data structures
 
@@ -69,7 +71,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### multiprocessing start methods
 
 - **`fork`** copies the parent — fast, but can inherit inconsistent state (a lock held by another thread mid-acquire).
-- **`spawn`** starts a fresh interpreter — slower, safest; **`forkserver`** forks children from a clean single-threaded server process.
+- `spawn` starts a fresh interpreter — slower, safest; **`forkserver`** forks children from a clean single-threaded server process.
 - **`forkserver` is the Linux default since 3.14** (previously `fork`).
 
 ### asyncio event loop
@@ -80,8 +82,8 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### asyncio tasks and cancellation
 
-- **`TaskGroup`** (**3.11**) is structured concurrency: one failure cancels the siblings and waits for them; `gather` doesn't cancel the others by default.
-- A blocking call in a coroutine (`time.sleep`, sync file I/O) **stalls the whole event loop** — use async libraries or **`asyncio.to_thread`**.
+- **`TaskGroup`** (3.11) is structured concurrency: one failure cancels the siblings and waits for them; `gather` doesn't cancel the others by default.
+- A blocking call in a coroutine (`time.sleep`, sync file I/O) **stalls the whole event loop** — use async libraries or `asyncio.to_thread`.
 - Cancellation raises **`CancelledError`** at the next `await`; cleanup in `finally` must re-raise it, never swallow it.
 
 ## Gotchas
@@ -89,6 +91,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### Mutable default arguments
 
 - Defaults are evaluated **once, at definition time** — `def f(x, cache=[])` shares one list across calls; default to `None` and create the object inside.
+- Dataclasses reject unhashable defaults (`list`, `dict`, `set`) — use **`field(default_factory=list)`**.
 
 ### Late-binding closures
 
@@ -118,7 +121,8 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### MRO and `super()`
 
-- Multiple inheritance resolves via **C3 linearization** (the **MRO**); `super()` follows the computed MRO, not the direct parent, so every class in a mixin chain must call `super().__init__()`.
+- Multiple inheritance resolves via **C3 linearization** (the MRO, `Cls.__mro__`).
+- **`super()`** follows the instance's MRO, not the direct parent, so every class in a mixin chain must call `super().__init__()`.
 
 ### Descriptors
 
@@ -147,6 +151,12 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - Wrap with **`functools.wraps(func)`** or the wrapper loses `__name__`, `__doc__`, and signature.
 - A decorator with arguments needs an extra layer: `@deco(arg)` calls `deco(arg)`, which must return the real decorator.
 
+### functools.cache pitfalls
+
+- **`@cache`** (3.9) is `lru_cache(maxsize=None)` — unbounded, so it grows forever on unbounded inputs; set a `maxsize`.
+- On a method it keys on `self` and **keeps every instance alive**; use `cached_property` or a per-instance cache.
+- Arguments must be hashable, and a returned mutable object is shared by every caller.
+
 ### Context managers and exceptions
 
 - **`__exit__` returning `True` suppresses** the exception; `contextlib.contextmanager` turns a one-`yield` generator into a context manager.
@@ -161,19 +171,20 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### Template strings
 
-- **t-strings** (`t"Hello {name}"`, **3.14**, PEP 750) produce a `Template` object with separate static parts and values, so a library can escape values safely (SQL, HTML) instead of receiving a finished string.
+- **t-strings** (`t"Hello {name}"`, **3.14**, PEP 750) produce a `Template` object with static parts and interpolated values kept separate.
+- A library receiving it can escape values safely (SQL, HTML), unlike an f-string that arrives already joined.
 
 ## Typing
 
 ### Gradual typing and protocols
 
 - Type hints are **not enforced at runtime** — they're for `mypy`/`pyright`.
-- **`typing.Protocol`** gives **structural** typing: a class matches by having the methods, unlike ABCs, which need subclassing or registration.
+- **`typing.Protocol`** gives structural typing: a class matches by having the methods, unlike ABCs, which need subclassing or registration.
 - **`TypedDict`** types a dict's known keys without making it a class.
 
 ### Generics and annotation evaluation
 
-- **PEP 695** syntax (`class Box[T]: ...`, `type Alias = ...`, **3.12**) replaces manual `TypeVar` declarations with scoped type parameters.
+- **PEP 695** syntax (`class Box[T]: ...`, `type Alias = ...`, 3.12) replaces manual `TypeVar` declarations with scoped type parameters.
 - Annotations are **evaluated lazily since 3.14** (**PEP 649**), making `from __future__ import annotations` largely unnecessary.
 
 ## Tooling
@@ -186,3 +197,4 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### Profiling
 
 - **`cProfile`** gives function-level call counts and cumulative time; **`py-spy`** samples a running process without code changes, safe in production.
+- **`tracemalloc`** snapshots allocations by line to find memory growth.

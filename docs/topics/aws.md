@@ -6,10 +6,9 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Policy evaluation
 
-- Requests start with an **implicit deny**; any applicable **explicit deny** wins over every allow.
-- Identity and resource policies **grant**; permissions boundaries, session policies, and SCPs/RCPs only **cap** what can be granted.
+- Requests start with an implicit deny; any applicable **explicit deny** wins over every allow.
+- Identity and resource policies grant; permissions boundaries, session policies, and SCPs/RCPs only **cap** what can be granted.
 - A role needs both a **trust policy** allowing the principal to assume it and permissions for the resulting session to perform actions.
-- An **SCP** caps permissions in member accounts; it does not grant permissions by itself.
 
 ### Workload credentials
 
@@ -43,31 +42,31 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Route 53 routing
 
-- Policies: simple, **weighted** (canary), **latency**, **failover** (with health checks), geolocation, geoproximity, multivalue.
+- Policies: simple, **weighted** (canary), latency, **failover** (with health checks), geolocation, geoproximity, multivalue.
 - **Alias records** work at the zone apex (`example.com` → ALB/CloudFront), where a CNAME isn't allowed, and are free to query.
 
 ## Compute
 
 ### Workload choice
 
-| Service | Use when | Operational boundary |
+| Service | Use when | You still manage |
 |---|---|---|
-| EC2 | OS, runtime, or host control matters | manage instances and scaling |
-| ECS on Fargate | containers without worker-node management | manage tasks, services, and capacity settings |
-| EKS | Kubernetes APIs and ecosystem are required | manage workloads; worker capacity can be managed with EKS Auto Mode or Fargate |
-| Lambda | event-driven, bounded work | manage function concurrency, timeouts, and event handling |
+| EC2 | OS, runtime, or host control matters | instances, patching, scaling |
+| ECS on Fargate | containers without managing nodes | task definitions, services |
+| EKS | Kubernetes APIs and ecosystem are required | workloads; nodes unless Auto Mode or Fargate |
+| Lambda | event-driven, bounded work | concurrency, timeouts, event handling |
 
 ### Lambda limits and concurrency
 
-- Maximum timeout **15 minutes**; synchronous payloads **6 MB** each way (streamed responses allow more).
-- **Lambda Managed Instances** allow up to **90 minutes** for async and event-source invocations (Sept 2026); synchronous calls stay at 15.
-- **Reserved concurrency** guarantees capacity and caps a function; **provisioned concurrency** pre-initializes environments to reduce startup latency and incurs separate charges.
+- Maximum timeout **15 minutes**; synchronous payloads 6 MB each way (streamed responses allow more).
+- Lambda Managed Instances allow up to **90 minutes** for async and event-source invocations (Sept 2026); synchronous calls stay at 15.
+- **Reserved concurrency** guarantees capacity and caps a function; provisioned concurrency pre-initializes environments to reduce startup latency and incurs separate charges.
 
 ### Lambda cold starts and scaling
 
 - A cold start downloads code, starts the runtime, and runs init code; the **INIT phase is billed since August 2025**.
-- Reduce it with **provisioned concurrency** or **SnapStart** (Java, Python, .NET), which restores a snapshot of an initialized environment — make sure randomness and connections are recreated after restore.
-- Default **1,000** concurrent executions per account per Region; each function scales by up to **1,000 more every 10 seconds**.
+- Reduce it with provisioned concurrency or **SnapStart** (Java, Python, .NET), which restores a snapshot of an initialized environment — make sure randomness and connections are recreated after restore.
+- Default 1,000 concurrent executions per account per Region; each function scales by up to **1,000 more every 10 seconds**.
 
 ### API Gateway vs ALB
 
@@ -76,8 +75,8 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### ECS service mechanics
 
-- An ECS **task definition** specifies containers and resources; a **service** maintains the desired number of tasks and replaces failed ones.
-- An Application Load Balancer routes at **L7** by HTTP attributes; a Network Load Balancer routes at **L4** for TCP/UDP-style traffic.
+- A **task definition** specifies containers and resources; a **service** keeps the desired number of tasks running and replaces failed ones.
+- Services register tasks with a load balancer target group and roll out new task definitions with rolling or blue/green deployments.
 
 ## Storage and databases
 
@@ -99,20 +98,20 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Managed database behavior
 
-- An RDS **Multi-AZ DB instance** uses a synchronous standby for failover; that standby does **not** serve reads. Use a read replica or Multi-AZ DB cluster for read scaling.
+- An RDS **Multi-AZ DB instance** uses a synchronous standby for failover; that standby does not serve reads. Use a read replica or Multi-AZ DB cluster for read scaling.
 - DynamoDB reads are **eventually consistent by default**; strong reads are available on tables and local secondary indexes, **not GSIs**.
-- DynamoDB global tables support both **multi-Region eventual** and **multi-Region strong** consistency modes (strong mode since June 2025); specify the mode before stating cross-Region read behavior.
+- DynamoDB global tables support multi-Region eventual and multi-Region strong consistency (strong since June 2025).
 
 ### Aurora storage
 
 - The storage volume keeps **6 copies across 3 AZs**; a write needs **4 of 6**, a read **3 of 6** — it survives losing an AZ plus one more copy for reads.
-- Up to **15 replicas** share the same storage volume, so replica lag is usually well under 100 ms and failover doesn't copy data.
+- Up to 15 replicas share the same storage volume, so replica lag is usually well under 100 ms and failover doesn't copy data.
 
 ### DynamoDB partitions and indexes
 
 - Each partition serves about **3,000 RCU and 1,000 WCU** and holds ~10 GB; a hot partition key throttles even if table capacity is fine.
-- **GSIs** have their own capacity and are eventually consistent; a throttled GSI **throttles writes to the base table**. LSIs must be defined at table creation.
-- Items are at most **400 KB**; transactions cover up to **100 items**; TTL deletes are background work that can lag by days.
+- GSIs have their own capacity and are eventually consistent; a throttled GSI **throttles writes to the base table**. LSIs must be defined at table creation.
+- Items are at most **400 KB**; transactions cover up to 100 items; TTL deletes are background work that can lag by days.
 
 ## Events and workflows
 
@@ -128,15 +127,15 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Routing and orchestration
 
-- **SNS** pushes to subscribers; **EventBridge** matches event patterns and routes to targets, with optional archive/replay; **SQS** retains work for consumers to poll. Choose based on routing and consumer behavior, not service names.
+- SNS pushes to subscribers; EventBridge matches event patterns and routes to targets, with optional archive/replay; SQS retains work for consumers to poll.
 - Step Functions **Standard** workflows use exactly-once execution unless a task has explicit retries; **asynchronous Express** is at-least-once, while **synchronous Express** is at-most-once. Retried external side effects still need idempotency.
 
 ## Operations
 
 ### Observability and audit
 
-- **CloudWatch** holds metrics, logs, and alarms; **CloudTrail** records account API activity. CloudTrail **data events** such as S3 object access are not logged by default when creating a trail.
-- **VPC Flow Logs** show accepted/rejected IP traffic metadata, not packet payloads; use them when route and security-rule debugging needs evidence.
+- CloudWatch holds metrics, logs, and alarms; **CloudTrail** records account API activity. CloudTrail **data events** such as S3 object access are not logged by default when creating a trail.
+- **VPC Flow Logs** record accepted/rejected IP traffic metadata, not packet payloads — for debugging routes and security rules.
 
 ### Infrastructure changes and secrets
 
@@ -145,6 +144,6 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Capacity and cost guardrails
 
-- Service **quotas** can stop scaling before the application reaches its own limits; check the relevant account and Region quota before a load test or launch.
-- **AWS Budgets** alerts follow billing-data updates, at least daily; use CloudWatch service metrics for operational alarms. **Cost Explorer** is for spend analysis.
+- Service **quotas** are per account and Region and often stop scaling before the application does — many are soft and raised by request.
+- AWS Budgets alerts follow billing-data updates, at least daily; use CloudWatch service metrics for operational alarms. Cost Explorer is for spend analysis.
 - EC2 **Spot** capacity can be reclaimed; stop/terminate interruption notices give about **2 minutes** on a best-effort basis (hibernation starts immediately). Checkpoint work and replace capacity proactively.

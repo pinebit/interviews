@@ -9,9 +9,26 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 - Models read **tokens** (subword pieces from BPE-style tokenizers): roughly **4 characters or ¾ of a word** of English per token; code and non-English text use more.
 - The context window holds input **and** output tokens; price and latency scale with both, and output tokens cost several times more than input.
 
+### Attention cost
+
+- Self-attention compares every token with every other: prefill compute grows **O(n²)** with sequence length; each decoded token attends to all cached ones.
+- **GQA/MQA** share key/value heads across query heads, shrinking the KV cache several-fold.
+- **FlashAttention** computes exact attention in tiles held in on-chip memory — same result, far less memory traffic.
+
+### Mixture of experts
+
+- An **MoE** layer routes each token to a few of many expert feed-forward networks, so **active parameters** per token are a fraction of the total.
+- Compute follows active parameters, but GPUs must hold **all** weights; uneven routing complicates serving.
+
+### Reasoning models
+
+- Reasoning models spend **test-time compute**: they generate a chain of thought before answering, trading latency and cost for accuracy on math, code, and planning.
+- **Thinking tokens are billed as output** and count against the context window; APIs expose a thinking budget or effort level.
+- Prompt them with goals and constraints — "think step by step" is already built in.
+
 ### Sampling parameters
 
-- **Temperature** scales logits before softmax: low → focused and repeatable, high → diverse. **Top-p** (nucleus) samples from the smallest set covering probability `p`; **top-k** from the `k` likeliest tokens.
+- **Temperature** scales logits before softmax: low → focused and repeatable, high → diverse. **Top-p** (nucleus) samples from the smallest set covering probability `p`; top-k from the `k` likeliest tokens.
 - Temperature 0 is near-greedy but **not guaranteed deterministic** — batching and floating-point order change results.
 
 ### Long-context behavior
@@ -21,7 +38,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Structured output
 
-- **Constrained decoding** masks tokens so output always matches a JSON schema or grammar — it guarantees **shape, not correctness**; still validate values in code.
+- **Constrained decoding** masks tokens so output always matches a JSON schema or grammar.
+- It guarantees **shape, not correctness** — still validate values in code.
 
 ### Tool calling
 
@@ -32,8 +50,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Prefill vs decode
 
-- **Prefill** processes the whole prompt in parallel — compute-bound, drives **time to first token (TTFT)**.
-- **Decode** emits one token at a time — memory-bandwidth-bound, drives **time per output token (TPOT)**; total latency ≈ TTFT + TPOT × output tokens.
+- Prefill processes the whole prompt in parallel — compute-bound, drives **time to first token (TTFT)**.
+- Decode emits one token at a time — memory-bandwidth-bound, drives **time per output token (TPOT)**; total latency ≈ TTFT + TPOT × output tokens.
 
 ### KV cache
 
@@ -47,7 +65,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Speculative decoding
 
-- A small **draft model** proposes several tokens; the large model verifies them in one pass and keeps the accepted prefix — faster, with the **same output distribution**.
+- A small **draft model** proposes several tokens; the large model verifies them in one pass and keeps the accepted prefix.
+- Faster decode with the **same output distribution**; the gain depends on how often drafts are accepted.
 
 ### Quantization
 
@@ -83,8 +102,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Hybrid search and reranking
 
-- **BM25** (lexical) catches exact names and IDs; **dense vectors** catch paraphrases; merge with **reciprocal rank fusion**.
-- A **cross-encoder reranker** rescores a small candidate set — but can't recover a passage that was never retrieved, so tune **recall@k** first.
+- **BM25** (lexical) catches exact names and IDs; dense vectors catch paraphrases; merge with **reciprocal rank fusion**.
+- A cross-encoder reranker rescores a small candidate set — but can't recover a passage that was never retrieved, so tune **recall@k** first.
 
 ### Permission-aware retrieval
 
@@ -133,7 +152,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Context management
 
-- Long agent runs overflow the window: **compact** old turns into summaries, keep tool outputs short, and store bulky state in files or memory the agent can re-read.
+- Long agent runs overflow the window: **compact** old turns into summaries and keep tool outputs short.
+- Store bulky state in files or memory the agent can re-read; **subagents** keep exploratory work out of the main context.
 
 ## Tools and integration
 
@@ -144,12 +164,13 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Model Context Protocol
 
-- **MCP** standardizes how apps discover and call **tools**, read **resources**, and fetch **prompts** — JSON-RPC 2.0 over **stdio** (local) or **Streamable HTTP** (remote, replaced HTTP+SSE in 2025).
+- **MCP** standardizes how apps discover and call tools, read resources, and fetch prompts — JSON-RPC 2.0 over stdio (local) or **Streamable HTTP** (remote, replaced HTTP+SSE in 2025).
 - Remote servers authorize with **OAuth 2.1**; MCP doesn't replace per-action authorization or business validation.
 
 ### Browser automation as a fallback
 
-- Use it only without an API — layouts change and clicks have ambiguous effects; isolate its credentials and require approval before irreversible submits.
+- Use it only without an API — layouts change and clicks have ambiguous effects.
+- Isolate its credentials and require **approval** before irreversible submits.
 
 ## Evaluation
 
@@ -170,7 +191,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Tracing
 
-- One trace per run across model calls, retrieval, tool calls, approvals, and writes: latency, tokens, cost, errors, and whether a side effect already happened.
+- **One trace per run** across model calls, retrieval, tool calls, approvals, and writes.
+- Record latency, tokens, cost, errors, and whether a side effect already happened — so a retry doesn't repeat it.
 
 ## Cost and latency
 
@@ -179,6 +201,11 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 - **Route** easy requests to a small, fast model and hard ones to a strong model.
 - **Semantic caching** reuses answers to similar queries; its key must include user permissions, source version, and freshness, or it leaks.
 - Measure cost **per completed task**, not per call.
+
+### Batch and streaming
+
+- **Batch APIs** run requests asynchronously (results within ~24 h) at about **half price** — for evals, backfills, and offline labeling.
+- **Streaming** doesn't cut total time but shows the first tokens at TTFT, which is what users perceive.
 
 ## Security and oversight
 
@@ -189,7 +216,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Lethal trifecta
 
-- **Private data access + untrusted content + an exfiltration channel** in one agent enables data theft; removing any one of the three closes most of the risk.
+- **Private data access + untrusted content + an exfiltration channel** in one agent enables data theft.
+- Removing any one of the three closes most of the risk — e.g. no outbound network from an agent that reads private data.
 
 ### Human approval gates
 

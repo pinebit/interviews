@@ -24,11 +24,16 @@ What experienced frontend engineers forget before an interview, grouped by subto
 - **Islands architecture**: the page is static HTML; only interactive islands ship JS and hydrate independently.
 - **React Server Components** render only on the server and send serialized output, not code — less JS, but props crossing into client components must be serializable.
 
+### Client-side routing
+
+- The router intercepts navigation and updates the URL with the **History API** (`pushState`), no full reload.
+- A refresh on `/profile` hits the **server**, which must fall back to `index.html` for unknown paths or it 404s.
+
 ## Browser pipeline
 
 ### Critical rendering path
 
-- HTML → **DOM**, CSS → **CSSOM** → **render tree** (visible nodes) → **layout** → **paint** → **composite**.
+- HTML → DOM, CSS → CSSOM → **render tree** (visible nodes) → layout → paint → composite.
 - CSS is **render-blocking**; a classic `<script>` is **parser-blocking**.
 
 ### Script loading: async, defer, module
@@ -39,24 +44,35 @@ What experienced frontend engineers forget before an interview, grouped by subto
 ### Compositor-only animation
 
 - Changing `width`/`top` re-runs layout + paint + composite; **`transform`/`opacity`** can skip to composite on the GPU once the element has its own layer.
+- `will-change: transform` promotes a layer ahead of time; too many layers waste GPU memory.
 
 ### Layout thrashing
 
-- Alternating reads (`offsetHeight`) and writes (`style.width`) in a loop forces a **synchronous reflow** each time — batch all reads, then all writes.
+- Alternating reads (`offsetHeight`) and writes (`style.width`) in a loop forces a **synchronous reflow** each time.
+- Batch all reads, then all writes — or schedule writes in `requestAnimationFrame`.
+
+## CSS
 
 ### CSS layout and specificity
 
 - **Flexbox** for one axis (a toolbar, centering); **Grid** for two axes (page layout, card grids).
-- **Specificity**: inline > ID > class/attribute/pseudo-class > element; **cascade layers** and origin rank above specificity, and `!important` inverts layer order.
+- **Specificity**: inline > ID > class/attribute/pseudo-class > element; cascade layers and origin rank above specificity, and `!important` inverts layer order.
 
 ### Stacking contexts
 
-- `z-index` only compares siblings **within the same stacking context**; `opacity < 1`, `transform`, `filter`, `position: fixed`, and positioned elements with a `z-index` each create a new one — why `z-index: 9999` sometimes "doesn't work".
+- `z-index` only compares elements **within the same stacking context** — why `z-index: 9999` sometimes "doesn't work".
+- `opacity < 1`, `transform`, `filter`, `position: fixed`, and positioned elements with a `z-index` each create a new context.
 
-### Client-side routing
+### Modern CSS features
 
-- The router intercepts navigation and updates the URL with the **History API** (`pushState`), no full reload.
-- A refresh on `/profile` hits the **server**, which must fall back to `index.html` for unknown paths or it 404s.
+- **Container queries** (`@container`) style a component by its container's size, not the viewport — reusable responsive components.
+- **`:has()`** selects a parent by its children (`form:has(:invalid)`); native **nesting** and `subgrid` remove common preprocessor and wrapper hacks.
+- All Baseline since 2023.
+
+### View transitions
+
+- **View Transitions API** animates between two DOM states: `document.startViewTransition(update)` snapshots old and new, then cross-fades or morphs elements sharing a `view-transition-name`.
+- Same-document transitions are Baseline since Firefox 144 (October 2025); multi-page apps opt in with `@view-transition { navigation: auto }`.
 
 ## Performance
 
@@ -72,7 +88,7 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - **LCP**: preload the hero image or font, cut render-blocking resources, fast TTFB.
 - **INP**: break long tasks (> **50 ms**) and yield to the main thread.
-- **CLS**: reserve space with `width`/`height` or `aspect-ratio`.
+- CLS: reserve space with `width`/`height` or `aspect-ratio`.
 
 ### Bundle size
 
@@ -81,8 +97,8 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 ### Images
 
-- **`srcset`/`sizes`** let the browser pick a resolution per viewport; **AVIF/WebP** are much smaller than JPEG/PNG.
-- **`loading="lazy"`** for below-the-fold images — never on the LCP image, which should get **`fetchpriority="high"`**.
+- **`srcset`/`sizes`** let the browser pick a resolution per viewport; AVIF/WebP are much smaller than JPEG/PNG.
+- `loading="lazy"` for below-the-fold images — never on the LCP image, which should get **`fetchpriority="high"`**.
 
 ### Main-thread offloading
 
@@ -99,20 +115,20 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 ### Cache-Control directives
 
-- **`no-cache`** means **revalidate every time**, not "don't cache"; **`no-store`** means never store.
+- **`no-cache`** means **revalidate every time**, not "don't cache"; `no-store` means never store.
 - `max-age` applies to every cache; **`s-maxage`** overrides it for shared caches (CDN).
 
 ### Hashed assets and validators
 
 - Long `max-age` + `immutable` on **content-hashed filenames** (`app.a3f9c1.js`), with HTML served `no-cache` — each deploy is a new URL.
-- **`ETag`**/`Last-Modified` let the server answer **`304 Not Modified`** — saves the body, not the round trip.
+- `ETag`/`Last-Modified` let the server answer **`304 Not Modified`** — saves the body, not the round trip.
 
 ### Service workers
 
 - **Service workers** implement cache-first, network-first, or stale-while-revalidate strategies and offline support.
 - A waiting service worker is a common reason users keep seeing the old deploy.
 
-## React internals and pitfalls
+## React rendering model
 
 ### Reconciliation and keys
 
@@ -121,42 +137,46 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 ### Fiber and concurrent rendering
 
-- **Fiber** splits rendering into interruptible units: the **render phase** can pause, restart, or be discarded; the **commit phase** applies DOM changes synchronously.
+- **Fiber** splits rendering into interruptible units: the render phase can pause, restart, or be discarded; the **commit phase** applies DOM changes synchronously.
 - Render must therefore be **pure** — it may run more than once for one commit.
 - React 18 batches all state updates automatically, including in timeouts and promises.
 
 ### Transitions and Suspense
 
-- **`useTransition`**/`startTransition` mark an update as non-urgent, so typing stays responsive while a heavy re-render runs; **`useDeferredValue`** defers a derived value.
+- **`useTransition`**/`startTransition` mark an update as non-urgent, so typing stays responsive while a heavy re-render runs; `useDeferredValue` defers a derived value.
 - **`<Suspense>`** shows a fallback while children wait for code or data; with streaming SSR each boundary streams in separately.
 
 ### React 19 APIs
 
-- **Actions**: async functions passed to `<form action>` or `useActionState`, with pending state handled by React; **`useOptimistic`** shows the expected result before the server confirms.
+- **Actions**: async functions passed to `<form action>` or `useActionState`, with pending state handled by React; `useOptimistic` shows the expected result before the server confirms.
 - **`use(promise)`** reads a promise or context during render, suspending until it resolves; `ref` is a normal prop (no `forwardRef`).
-- **19.2**: **`<Activity>`** keeps hidden UI mounted with state preserved; **`useEffectEvent`** reads the latest props/state inside an effect without making them dependencies.
+- 19.2: **`<Activity>`** keeps hidden UI mounted with state preserved; `useEffectEvent` reads the latest props/state inside an effect without making them dependencies.
 
 ### React Compiler
 
-- **React Compiler** (stable **1.0**, **October 2025**) auto-memoizes components and values at build time, replacing most manual `useMemo`/`useCallback`/`memo`.
+- **React Compiler** (stable 1.0, **October 2025**) auto-memoizes components and values at build time, replacing most manual `useMemo`/`useCallback`/`memo`.
+- It relies on the Rules of React (pure render, no mutating props or state) and skips code it can't prove safe.
+
+### Strict Mode double invocation
+
+- In development, **Strict Mode** double-calls render functions to expose impure rendering.
+- It also mounts → unmounts → remounts each component to expose effects with **missing cleanup**; production runs once.
+
+## React hooks pitfalls
 
 ### Stale closures
 
-- An effect or callback sees the values from the render that created it; a value missing from the dependency array stays stale.
+- An effect or callback sees the values from the render that created it; a value missing from the dependency array stays **stale**.
 - Fix by restructuring (a ref, a functional `setState`, moving the logic into the effect) — not by silencing the lint rule.
 
 ### Effects: when not to use one
 
-- Deriving state inside an effect + `setState` causes an extra render and a flash — compute it during render.
+- Deriving state inside an effect + `setState` causes an extra render and a flash — **compute it during render**.
 - Every subscription, timer, or listener an effect creates needs a **cleanup** function.
-
-### Strict Mode double invocation
-
-- In development, Strict Mode mounts → unmounts → remounts and double-calls render functions to expose non-idempotent effects and missing cleanup; production runs once.
 
 ### Memoization pitfalls
 
-- `React.memo` is defeated by a new object, array, or function literal passed as a prop on every render.
+- `React.memo` is defeated by a **new object, array, or function** literal passed as a prop on every render.
 - Memoize only when the skipped work costs more than the comparison.
 
 ### Controlled vs uncontrolled inputs
@@ -168,12 +188,13 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 ### Where state lives
 
-- Local state → lift to the nearest common parent → context → a dedicated store only when many unrelated components share it.
+- Local state → lift to the nearest common parent → context → a **dedicated store** only when many unrelated components share it.
 - Reach for context or a store when prop drilling actually hurts, not for a two-level pass.
 
 ### Server state vs client state
 
 - **Server state** (fetched data) has its own caching, staleness, refetching, and loading lifecycle — use TanStack Query or SWR, not a global client store.
+- These libraries dedupe requests, cache by **query key**, and refetch after invalidating a key on mutation.
 
 ## Accessibility
 
@@ -184,9 +205,10 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 ### Focus management in SPAs
 
-- Client-side navigation doesn't reset focus — move focus to the new view's heading on route change.
-- Everything clickable must be keyboard-reachable with a visible focus indicator.
+- Client-side navigation doesn't reset focus — **move focus** to the new view's heading on route change.
+- Everything clickable must be keyboard-reachable with a visible focus indicator; a `<dialog>` opened with `showModal()` makes the rest of the page inert.
 
 ### Contrast
 
 - **WCAG AA**: **4.5:1** for normal text, **3:1** for large text and UI components.
+- Never convey information by color alone (error states need text or an icon).

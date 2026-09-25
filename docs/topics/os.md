@@ -22,7 +22,7 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### Signals
 
-- **`SIGTERM`** asks politely and can be handled; **`SIGKILL`** and **`SIGSTOP`** can't be caught or ignored.
+- **`SIGTERM`** asks politely and can be handled; **`SIGKILL`** and `SIGSTOP` can't be caught or ignored.
 - `SIGCHLD` tells a parent a child changed state; `SIGHUP` conventionally means reload config; `SIGPIPE` kills a process writing to a closed socket unless ignored.
 - Signal handlers may call only **async-signal-safe** functions (not `malloc`, not `printf`).
 
@@ -71,6 +71,23 @@ What experienced engineers forget about Linux and OS internals before an intervi
 - `malloc` usually succeeds without backing memory; physical pages are allocated **on first touch** (overcommit).
 - When memory runs out, the **OOM killer** kills the process with the highest `oom_score` (tuned by `oom_score_adj`); in a container, hitting the **cgroup limit** triggers an OOM kill inside that cgroup only.
 
+### cgroup memory limits
+
+- cgroup v2 **`memory.max`** is the hard limit: exceeding it OOM-kills inside the cgroup (a Kubernetes memory limit maps here).
+- **`memory.high`** is a soft limit: above it the kernel throttles and reclaims aggressively instead of killing.
+- Page cache counts toward the cgroup but is reclaimed first, so watch the **working set** (usage minus inactive file pages), which the kubelet uses for eviction.
+
+### Swap
+
+- Swap moves anonymous pages to disk under pressure: fewer OOM kills, but touching them costs **major faults**.
+- `vm.swappiness` biases reclaim between page cache and anonymous memory; latency-sensitive servers usually run with little or no swap.
+
+### NUMA
+
+- On multi-socket servers each socket has local memory; reaching another node's memory costs **1.5–2×** the latency.
+- Linux allocates on the node of the thread that **first touches** a page, so a thread moved to another socket reads remotely.
+- Pin latency-critical processes and their memory with `numactl`; `numastat` shows remote allocations.
+
 ### Page cache and "free" memory
 
 - Unused RAM caches file data (**page cache**), so low `free` is normal — check **`available`** in `free -m`.
@@ -78,21 +95,21 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### RSS, VSZ, and shared memory
 
-- **VSZ** counts all mapped virtual memory (mostly irrelevant); **RSS** counts resident pages but double-counts shared ones; **PSS** splits shared pages proportionally.
+- VSZ counts all mapped virtual memory (mostly irrelevant); **RSS** counts resident pages but double-counts shared ones; **PSS** splits shared pages proportionally.
 - Default thread stack size is typically **8 MB** of virtual memory (`ulimit -s`), mostly untouched.
 
 ## Files and I/O
 
 ### File descriptors and inodes
 
-- Everything open — files, sockets, pipes — is a **file descriptor**; the soft limit is often **1024** (`ulimit -n`), causing "too many open files" on busy servers.
-- A filename points to an **inode**; deleting an open file frees its space only when the **last descriptor closes** — why `df` and `du` can disagree.
-- **Hard links** are extra names for the same inode (same filesystem only); **symlinks** store a path and can dangle.
+- Everything open — files, sockets, pipes — is a file descriptor; the soft limit is often **1024** (`ulimit -n`), causing "too many open files" on busy servers.
+- A filename points to an inode; deleting an open file frees its space only when the **last descriptor closes** — why `df` and `du` can disagree.
+- **Hard links** are extra names for the same inode (same filesystem only); symlinks store a path and can dangle.
 
 ### I/O multiplexing: select, poll, epoll
 
-- `select`/`poll` pass the whole descriptor set on every call — **O(n)** per wait; `select` is capped at 1024 descriptors.
-- **`epoll`** registers descriptors once and returns only ready ones — **O(ready)**; the basis of Nginx, Node's libuv, and Go's netpoller (**kqueue** on BSD/macOS).
+- `select`/`poll` pass the whole descriptor set on every call — O(n) per wait; `select` is capped at 1024 descriptors.
+- **`epoll`** registers descriptors once and returns only ready ones — O(ready); the basis of Nginx, Node's libuv, and Go's netpoller (kqueue on BSD/macOS).
 - **Level-triggered** keeps reporting while data remains; **edge-triggered** reports once per change, so you must read until `EAGAIN`.
 
 ### io_uring
@@ -115,12 +132,12 @@ What experienced engineers forget about Linux and OS internals before an intervi
 ### Mutexes, spinlocks, futexes
 
 - A **spinlock** busy-waits — only for very short critical sections, never while sleeping.
-- A **mutex** sleeps when contended; Linux implements it on **futexes**, which stay entirely in user space until there's contention.
-- A **semaphore** counts permits (connection limits); a **condition variable** waits for a predicate and must be re-checked in a loop (spurious wakeups).
+- A mutex sleeps when contended; Linux implements it on **futexes**, which stay entirely in user space until there's contention.
+- A semaphore counts permits (connection limits); a **condition variable** waits for a predicate and must be re-checked in a loop (spurious wakeups).
 
 ### Deadlock conditions
 
-- All four **Coffman conditions** must hold: mutual exclusion, **hold and wait**, no preemption, **circular wait**.
+- All four **Coffman conditions** must hold: mutual exclusion, hold and wait, no preemption, **circular wait**.
 - Break one — usually circular wait, with a global **lock ordering** — or use `trylock` with timeouts.
 
 ### Priority inversion
@@ -138,10 +155,10 @@ What experienced engineers forget about Linux and OS internals before an intervi
 ### Linux observability tools
 
 - `top`/`htop` (CPU per process), `vmstat 1` (run queue, swap, context switches), `iostat -x 1` (disk utilization, await), `pidstat` (per-process CPU and I/O).
-- **`perf`** samples stacks with low overhead → **flame graphs**; **eBPF** tools (`bpftrace`, bcc) trace kernel events in production safely.
+- **`perf`** samples stacks with low overhead → flame graphs; **eBPF** tools (`bpftrace`, bcc) trace kernel events in production safely.
 - **`strace`** shows every syscall but slows the process heavily (ptrace) — avoid on hot production paths.
 
 ### CPU time breakdown
 
-- **us** (user code), **sy** (kernel), **wa** (idle waiting for I/O), **st** (stolen by the hypervisor — noisy neighbors on VMs).
-- High **sy** points at syscall-heavy code or lock contention; high **st** means you need a bigger or dedicated instance, not code changes.
+- us (user code), sy (kernel), **wa** (idle waiting for I/O), **st** (stolen by the hypervisor — noisy neighbors on VMs).
+- High sy points at syscall-heavy code or lock contention; high **st** means you need a bigger or dedicated instance, not code changes.

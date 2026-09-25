@@ -22,6 +22,7 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### Rollbacks
 
 - Roll back by shifting traffic or redeploying the previous **immutable artifact**; it never undoes data changes already made.
+- So the previous version must run against the new schema — keep migrations backward compatible.
 
 ### Zero-downtime schema changes
 
@@ -34,8 +35,8 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### How containers work
 
 - A container is a Linux process with **namespaces** (isolated view: PID, network, mount, UTS, IPC, user) and **cgroups** (resource limits: CPU, memory, I/O).
-- The filesystem is image layers stacked with **OverlayFS** plus a thin writable layer; all containers share the **host kernel**, unlike VMs.
-- The OCI runtime (**runc**) sets this up; containerd/CRI-O manage images and lifecycles above it.
+- The filesystem is image layers stacked with OverlayFS plus a thin writable layer; all containers share the **host kernel**, unlike VMs.
+- The OCI runtime (runc) sets this up; containerd/CRI-O manage images and lifecycles above it.
 
 ### Dockerfile practices
 
@@ -56,7 +57,7 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Control plane
 
-- The **API server** is the only component talking to **etcd**; the **scheduler** assigns Pods to nodes; **controllers** reconcile actual state toward desired state.
+- The **API server** is the only component talking to **etcd**; the scheduler assigns Pods to nodes; **controllers** reconcile actual state toward desired state.
 - Everything is declarative and level-triggered: `kubectl apply` succeeding means the object was stored, not that the app is healthy.
 
 ### Node components
@@ -69,7 +70,7 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### Workload types
 
 - **Deployment**: interchangeable stateless Pods via ReplicaSets. **StatefulSet**: stable names (`db-0`), ordered rollout, a volume per Pod.
-- **DaemonSet**: one Pod per node (log agents, CNI). **Job**/**CronJob**: run to completion, once or on a schedule.
+- **DaemonSet**: one Pod per node (log agents, CNI). Job/CronJob: run to completion, once or on a schedule.
 - Never run a bare Pod for anything that should come back after failure.
 
 ### Rolling update tuning
@@ -84,19 +85,26 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Scheduling constraints
 
-- **Taints** on nodes repel Pods unless they have a matching **toleration** (dedicated GPU nodes).
-- **Node affinity** attracts Pods to labeled nodes; **pod anti-affinity** or **topology spread constraints** spread replicas across nodes and zones.
+- **Taints** on nodes repel Pods unless they have a matching toleration (dedicated GPU nodes).
+- **Node affinity** attracts Pods to labeled nodes; pod anti-affinity or **topology spread constraints** spread replicas across nodes and zones.
 
 ### PodDisruptionBudgets
 
 - A **PDB** (`minAvailable` or `maxUnavailable`) limits **voluntary** disruptions — node drains, upgrades, autoscaler scale-down — not crashes.
 - A PDB that allows zero disruptions blocks node drains forever.
 
+### Persistent volumes
+
+- A **PVC** requests storage; a **StorageClass** provisions a matching PV dynamically.
+- Access modes: `ReadWriteOnce` (one node — most block storage) vs `ReadWriteMany` (shared file systems such as EFS or NFS).
+- **`WaitForFirstConsumer`** binding delays provisioning until the Pod is scheduled, so a zonal disk lands in the Pod's zone.
+- Dynamic volumes default to reclaim policy `Delete` (the disk goes with the PVC); `Retain` keeps it.
+
 ## Kubernetes networking
 
 ### Services
 
-- A **Service** gives a changing set of Pods (chosen by label selector) a stable virtual IP and DNS name: **ClusterIP** (internal), **NodePort**, **LoadBalancer** (cloud LB).
+- A **Service** gives a changing set of Pods (chosen by label selector) a stable virtual IP and DNS name: **ClusterIP** (internal), NodePort, LoadBalancer (cloud LB).
 - No traffic? Check the selector and readiness first: `kubectl get endpointslices` (the Endpoints API is deprecated **since 1.33**).
 - General service-discovery patterns: see [system.md](system.md).
 
@@ -114,23 +122,23 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Probes
 
-- **Readiness** gates Service traffic; **liveness** restarts a stuck container; **startup** holds off both during slow boots.
+- **Readiness** gates Service traffic; **liveness** restarts a stuck container; startup holds off both during slow boots.
 - A liveness probe that checks dependencies or times out under load causes **restart cascades** — keep it a cheap local check.
 
 ### Requests, limits, QoS
 
-- **Requests** drive scheduling; **limits** cap usage — over the CPU limit the container is **throttled**, over the memory limit it's **OOMKilled**.
-- Requests vs limits set the **QoS class** (Guaranteed / Burstable / BestEffort), which decides eviction order under node pressure.
-- **In-place Pod resize** (GA in **1.35**) changes CPU/memory requests without restarting the Pod.
+- Requests drive scheduling; limits cap usage — over the CPU limit the container is **throttled**, over the memory limit it's **OOMKilled**.
+- Requests vs limits set the QoS class (Guaranteed / Burstable / BestEffort), which decides eviction order under node pressure.
+- In-place Pod resize (GA in **1.35**) changes CPU/memory requests without restarting the Pod.
 
 ### Autoscaling
 
-- **HPA** scales replicas from metrics; **VPA** adjusts requests; **Cluster Autoscaler**/**Karpenter** add nodes when Pods can't be scheduled.
+- **HPA** scales replicas from metrics; **VPA** adjusts requests; Cluster Autoscaler/**Karpenter** add nodes when Pods can't be scheduled.
 - More replicas don't help when the bottleneck is a saturated downstream database.
 
 ### Graceful Pod shutdown
 
-- On deletion the Pod is removed from endpoints **and** gets `SIGTERM` at the same time, so it may still receive traffic briefly — a short **`preStop`** sleep covers that race.
+- On deletion the Pod is removed from endpoints and gets `SIGTERM` at the same time, so it may still receive traffic briefly — a short **`preStop`** sleep covers that race.
 - After **`terminationGracePeriodSeconds`** (default **30 s**) the kubelet sends `SIGKILL`; app-side steps are in [backend.md](backend.md).
 
 ### ConfigMaps and Secrets
@@ -142,6 +150,12 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 - **`Pending`**: unschedulable (resources, quota, taints, unbound volume). **`ImagePullBackOff`**: wrong image or registry credentials. **`CrashLoopBackOff`**: the process or its liveness probe keeps failing.
 - `kubectl describe pod` shows events; `kubectl logs --previous` shows the crashed container's last output.
+
+### ServiceAccounts and workload identity
+
+- Each Pod runs as a **ServiceAccount**; RBAC Roles bound to it limit what it may do through the Kubernetes API.
+- Its tokens are projected, short-lived, and audience-bound; set `automountServiceAccountToken: false` when the app doesn't call the API.
+- **Workload identity** maps a ServiceAccount to a cloud role (EKS IRSA or Pod Identity, GKE Workload Identity) — no static cloud keys in Secrets.
 
 ### Packaging and extension
 
@@ -162,15 +176,23 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Refactoring resources
 
-- **`moved`** blocks record a renamed address so the plan doesn't destroy and recreate; **`import`** blocks (**1.5**) adopt existing resources; **`removed`** (**1.7**) forgets a resource without destroying it.
+- **`moved`** blocks record a renamed address, so the plan doesn't destroy and recreate it.
+- **`import`** blocks (1.5) adopt existing resources into state.
+- **`removed`** blocks (1.7) forget a resource without destroying it.
 
 ### Modules, workspaces, licensing
 
-- **Modules** package resources behind inputs and outputs.
-- **Workspaces** give one configuration several states but are **not an access boundary** — isolate environments with separate backends or root modules.
+- Modules package resources behind inputs and outputs.
+- Workspaces give one configuration several states but are **not an access boundary** — isolate environments with separate backends or root modules.
 - Terraform moved to the **BSL license in 2023**; **OpenTofu** is the open-source fork with the same workflow.
 
-## GitOps
+## CI/CD and GitOps
+
+### CI pipeline practices
+
+- **Trunk-based development**: short-lived branches merged at least daily, unfinished work behind flags.
+- **Build once, promote** the same image digest through environments — never rebuild per environment.
+- Cache dependencies keyed on the lock-file hash, run fast checks first, and pin third-party CI actions by commit SHA.
 
 ### Pull-based reconciliation
 
