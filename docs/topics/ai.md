@@ -1,112 +1,197 @@
 # AI Engineering
 
-What experienced AI engineers forget before an interview, grouped by subtopic. This topic is design-heavy — bullets are conditions and trade-offs, not definitions.
+What experienced AI engineers forget before an interview, grouped by subtopic. For retries and idempotency see [distributed.md](distributed.md); for general observability see [system.md](system.md).
 
-## Architecture choices
+## LLM fundamentals
 
-### Workflow vs agent vs multi-agent
+### Tokens and context windows
 
-- **Workflow** — steps fixed in code; use when the process is well understood and mostly deterministic.
-- **Single agent** — chooses tools and next steps within a bounded task; use when the path varies but one component can own the result.
-- **Multi-agent** — delegates distinct work to specialists; justified only when roles need different tools/instructions or subtasks can run in parallel — extra agents add handoffs, latency, cost, and ways to lose context.
-- Default to the least complex design that passes the task's evaluations; add complexity only when a measured failure mode demands it.
+- Models read **tokens** (subword pieces from BPE-style tokenizers): roughly **4 characters or ¾ of a word** of English per token; code and non-English text use more.
+- The context window holds input **and** output tokens; price and latency scale with both, and output tokens cost several times more than input.
 
-### Redesigning a process around AI
+### Sampling parameters
 
-- Map the current process first — handoffs, waiting time, exceptions, and *why* a human judgment step exists — before automating anything.
-- Design the exception path before scaling the happy path; copying every manual step into an agent workflow usually just preserves the old bottlenecks.
-- Pilot with real users and measure cycle time, error rate, adoption, cost, and downstream rework, not just model accuracy.
+- **Temperature** scales logits before softmax: low → focused and repeatable, high → diverse. **Top-p** (nucleus) samples from the smallest set covering probability `p`; **top-k** from the `k` likeliest tokens.
+- Temperature 0 is near-greedy but **not guaranteed deterministic** — batching and floating-point order change results.
 
-## Agent orchestration
+### Long-context behavior
 
-### State machines and durable execution
+- Recall is weakest for facts in the **middle** of a long prompt ("lost in the middle"), and quality degrades as irrelevant context grows.
+- Put instructions and the key evidence at the start or end; retrieving less but better beats stuffing the window.
 
-- A **stateful graph** (nodes = steps, edges = transitions, explicit state) can branch, loop, pause for review, and resume from a checkpoint.
-- **Durable execution** (e.g. Temporal) suits processes that wait/retry over days; a scheduler (Airflow) suits batch pipelines; none of these makes an external write exactly-once — use idempotency keys or dedup (see [distributed.md](distributed.md)).
-- Persist task IDs, inputs, completed steps, approvals, and external side effects, not just the conversation — resumability depends on this state being outside the model.
+### Structured output
 
-### Planning, reflection, and stop conditions
+- **Constrained decoding** masks tokens so output always matches a JSON schema or grammar — it guarantees **shape, not correctness**; still validate values in code.
 
-- **Planning** decomposes an open-ended task into verifiable steps; **reflection** checks an intermediate result against requirements and repairs a concrete error — both earn their cost only when the next action depends on tool results.
-- Don't add open-ended critique loops by default — they can repeat mistakes and burn budget. Cap steps, require evidence (tests, source records), and escalate on unresolved failure.
-- A model's private reasoning text is not a reliable audit record — persist decisions and tool outcomes explicitly, not the chain-of-thought.
+### Tool calling
 
-## Tools and integration
+- The model emits a structured call (name + JSON arguments); **the application executes it** and appends the result, then the model continues — a loop until the model answers.
+- The model never runs anything itself, so every side effect is under application control.
 
-### Tool design
+## Inference and serving
 
-- Give tools narrow names/schemas, meaningful errors, and short outputs; treat a tool call as a **request**, not permission — authorize and validate in application code, not the prompt.
-- Add timeouts and idempotency keys for writes; log what was read or changed.
-- **MCP** standardizes how an application discovers tools/resources — it does not replace authorization or business validation.
+### Prefill vs decode
 
-### Enterprise integration and browser fallback
+- **Prefill** processes the whole prompt in parallel — compute-bound, drives **time to first token (TTFT)**.
+- **Decode** emits one token at a time — memory-bandwidth-bound, drives **time per output token (TPOT)**; total latency ≈ TTFT + TPOT × output tokens.
 
-- Build connectors around each system's actual interface (REST/GraphQL/gRPC/webhooks/SOAP), separating reads from writes and respecting per-service rate limits; keep credentials in a managed secret store, using delegated user access when an action must reflect the user's own permissions.
-- Record the external ID and result of a write so a retry never duplicates a transaction; define a compensating action for cross-system workflows where an earlier write succeeds and a later one fails (see [distributed.md](distributed.md) for sagas).
-- Reach for **browser automation** only when there's no usable API — layouts change, sessions expire, and clicks have ambiguous effects; prefer an official API, isolate browser credentials, and require approval before irreversible submissions.
+### KV cache
 
-## RAG
+- Attention keys and values of past tokens are cached so each new token doesn't recompute them; cache size grows with **sequence length × layers × batch**, which is what limits concurrency on a GPU.
+- **Prompt caching** reuses the KV cache of an identical **prefix** — put stable content (system prompt, tool schemas, documents) first.
 
-### Pipeline and hybrid retrieval
+### Batching and PagedAttention
 
-- Pipeline: ingest → parse → chunk → index → retrieve → rerank → answer with citations; keep source versions and access metadata so answers stay traceable and refreshable.
-- RAG doesn't guarantee truth — the right answer can be absent, outdated, or missed by retrieval; abstain when evidence is insufficient.
-- **Hybrid search**: lexical (BM25, catches exact names/IDs) + dense vector (semantic matches), merged with **reciprocal rank fusion**, then a **cross-encoder reranks** a small candidate set. Reranking cannot recover a passage that was never retrieved — tune recall@k first.
-- **GraphRAG** combines graph traversal with source documents for relationship questions; verify extracted relationships against the underlying records.
+- **Continuous batching** adds and removes requests at every decode step instead of waiting for a whole batch to finish.
+- **PagedAttention** (vLLM) stores the KV cache in fixed-size blocks like virtual-memory pages, cutting fragmentation so more requests fit.
 
-### Ingestion and permissions
+### Speculative decoding
 
-- A robust ingestion pipeline extracts text/tables/layout/metadata, runs OCR on scans, and records the original page/section for citation; chunk by document structure, and consider parent-document retrieval to return a passage plus its surrounding section.
-- Carry the requester's identity and entitlements into retrieval and filter by tenant/ACL/sensitivity **before** a passage reaches the model — the same filter must apply to cached answers, follow-up retrieval, and agent memory. A prompt instruction to "ignore forbidden data" is not an access-control mechanism; fail closed when permission metadata is stale or missing.
+- A small **draft model** proposes several tokens; the large model verifies them in one pass and keeps the accepted prefix — faster, with the **same output distribution**.
+
+### Quantization
+
+- Weights in FP16 take **2 bytes per parameter** (a 70B model ≈ 140 GB); INT8 halves that, **4-bit** (GPTQ, AWQ) quarters it, with some quality loss.
+- Smaller weights also speed up decode, since decode is memory-bound.
+
+## Retrieval and RAG
+
+### RAG pipeline
+
+- Ingest → parse → **chunk** → embed → index → retrieve → **rerank** → answer with citations.
+- Keep source version and access metadata on every chunk, so answers stay traceable and refreshable.
+- RAG doesn't guarantee truth — the answer can be missing or stale; **abstain** when evidence is insufficient.
+
+### Embeddings and similarity
+
+- An embedding maps text to a vector; similarity is usually **cosine** — on normalized vectors that's just the dot product.
+- Query and documents must use the **same embedding model**; changing models means re-embedding the corpus.
+
+### Vector index types
+
+| Index | How | Trade-off |
+|---|---|---|
+| Flat | exact scan | perfect recall, O(n) per query |
+| **HNSW** | layered proximity graph | high recall and speed, memory-heavy, slow builds |
+| **IVF** | cluster, then probe `nprobe` clusters | less memory; recall depends on `nprobe` |
+| **PQ** | compress vectors into codes | much smaller, lower recall; often combined as IVF-PQ |
+
+### Chunking
+
+- Chunk along **document structure** (sections, paragraphs); a few hundred tokens with **10–20% overlap** is a common starting point — tune on evals.
+- **Parent-document retrieval**: match small chunks, return the surrounding section for context.
+
+### Hybrid search and reranking
+
+- **BM25** (lexical) catches exact names and IDs; **dense vectors** catch paraphrases; merge with **reciprocal rank fusion**.
+- A **cross-encoder reranker** rescores a small candidate set — but can't recover a passage that was never retrieved, so tune **recall@k** first.
+
+### Permission-aware retrieval
+
+- Filter by tenant, ACL, and sensitivity **before** a chunk reaches the model; a prompt saying "ignore forbidden data" is not access control.
+- The same filter must apply to caches, follow-up retrieval, and agent memory; fail closed when permission metadata is missing.
 
 ### RAG vs prompting vs fine-tuning
 
 | Approach | Use when |
 |---|---|
-| Prompting + structured-output validation | Instructions or a JSON schema need to change |
-| RAG | Facts are private or change often, citations matter |
-| Fine-tuning (LoRA/QLoRA for open weights) | Repeated evals show a stable style/format/decision gap prompting can't close — poor for keeping facts current |
+| Prompting + structured output | behavior or format needs to change quickly |
+| RAG | facts are private or change often; citations matter |
+| Fine-tuning | a stable style, format, or decision gap persists after prompting; poor for keeping facts current |
 
-## Evaluation and observability
+## Fine-tuning
 
-### Evaluation
+### SFT, RLHF, DPO
 
-- Build the eval set from real business cases, edge cases, and past incidents with expected outcomes and sources; measure retrieval (recall@k), answer groundedness/relevance/citation correctness, and agent success on the final business task, separately.
-- Use deterministic checks for schemas/state changes, human review for high-value cases, and an **LLM-as-judge** for scalable rubric scoring only after calibrating it against human labels.
-- **Shadow mode**: feed real production inputs to a candidate agent but only log proposed outputs/writes without executing them, to compare before a live rollout.
+- **SFT**: train on input → ideal-output pairs.
+- **RLHF**: train a reward model on human preferences, then optimize the policy against it (PPO).
+- **DPO**: learn directly from preferred/rejected pairs, no separate reward model — simpler and more stable.
+
+### LoRA and QLoRA
+
+- **LoRA** freezes the base weights and trains small low-rank adapter matrices — a tiny fraction of parameters, swappable per task.
+- **QLoRA** trains LoRA adapters on top of a **4-bit** quantized base, fitting large models on one GPU.
+
+## Agents and orchestration
+
+### Workflow vs agent vs multi-agent
+
+- **Workflow**: steps fixed in code — for well-understood, mostly deterministic processes.
+- **Agent**: the model picks tools and next steps in a loop — for tasks whose path varies.
+- **Multi-agent**: only when roles need different tools or context, or work can run in parallel — each handoff adds latency, cost, and lost context.
+- Start with the simplest design that passes the evals.
+
+### Durable execution and state
+
+- Persist task IDs, inputs, completed steps, approvals, and side effects **outside the model**, so a run can resume from a checkpoint.
+- **Durable execution** (Temporal) fits processes that wait or retry for days; none of it makes external writes exactly-once — use idempotency keys.
+
+### Stop conditions
+
+- Cap steps, tokens, and cost per run; require evidence (tests pass, a record exists) before declaring success; escalate on repeated failure.
+- Open-ended self-critique loops often repeat the same mistake and burn budget.
+
+### Context management
+
+- Long agent runs overflow the window: **compact** old turns into summaries, keep tool outputs short, and store bulky state in files or memory the agent can re-read.
+
+## Tools and integration
+
+### Tool design
+
+- Narrow names and schemas, clear errors, short outputs; a tool call is a **request**, not permission — authorize and validate in code.
+- Writes need timeouts and **idempotency keys**; log what was read and changed.
+
+### Model Context Protocol
+
+- **MCP** standardizes how apps discover and call **tools**, read **resources**, and fetch **prompts** — JSON-RPC 2.0 over **stdio** (local) or **Streamable HTTP** (remote, replaced HTTP+SSE in 2025).
+- Remote servers authorize with **OAuth 2.1**; MCP doesn't replace per-action authorization or business validation.
+
+### Browser automation as a fallback
+
+- Use it only without an API — layouts change and clicks have ambiguous effects; isolate its credentials and require approval before irreversible submits.
+
+## Evaluation
+
+### Eval sets and metrics
+
+- Build eval cases from real traffic, edge cases, and past incidents, with expected outcomes.
+- Measure separately: retrieval (**recall@k**, **MRR**, **nDCG**), answer groundedness and citation accuracy, and end-to-end task success.
+
+### LLM-as-judge
+
+- Scales rubric grading, but has **position**, **verbosity**, and **self-preference** biases — calibrate against human labels and randomize answer order.
+- Prefer deterministic checks (schema, state change, test pass) wherever they exist.
+
+### Shadow mode and prompt versioning
+
+- **Shadow mode**: run a candidate on live inputs, log its proposed outputs without executing them, compare before rollout.
+- Version prompts like code and record which **prompt + model version** produced each result, so a regression can be traced.
 
 ### Tracing
 
-- Trace each workflow run across model calls, retrieval, tool calls, approvals, and external writes under one correlation ID; record latency, tokens, cost, errors, retries, and the final outcome.
-- Alert on user-facing failures, stuck workflows, permission violations, and cost spikes — a trace must show which step failed and whether a side effect already happened, so an operator can resume or compensate safely. See [system.md](system.md) for general logs/metrics/traces.
-
-### Prompt management
-
-- Treat prompts as **versioned code**: templates, variables, examples, and output contracts live in source control and are tested against a fixed evaluation set before merging — not hand-edited strings scattered across services.
-- Trace which prompt **version** produced each result, so a regression can be tied back to the change that caused it instead of just "the model got worse."
+- One trace per run across model calls, retrieval, tool calls, approvals, and writes: latency, tokens, cost, errors, and whether a side effect already happened.
 
 ## Cost and latency
 
-### Routing and caching
+### Model routing and caching
 
-- **Model routing**: simple extraction to a fast/cheap model, hard reasoning to a stronger one; compare hosted vs privately served open-weights models on quality, throughput, latency, privacy terms, and GPU/ops cost.
-- **Prompt caching** reuses an identical input prefix (tool schemas, standard instructions) to cut repeated processing cost — keep stable content first in the prompt.
-- **Semantic caching** reuses a prior answer to a similar query; its cache key must include user permissions, source version, and freshness requirements, or it leaks stale/unauthorized answers.
-- Set token and step budgets, trim retrieved context, and measure cost **per completed workflow**, not per call.
+- **Route** easy requests to a small, fast model and hard ones to a strong model.
+- **Semantic caching** reuses answers to similar queries; its key must include user permissions, source version, and freshness, or it leaks.
+- Measure cost **per completed task**, not per call.
 
-## Security
+## Security and oversight
 
-### Prompt injection and data leakage
+### Prompt injection
 
-- **Prompt injection** hides instructions inside lower-trust content (documents, emails, tool results) — treat that content as data, keep tool permissions narrow, and validate actions in code, never in the prompt alone.
-- The **"lethal trifecta"**: private data access + untrusted content exposure + an exfiltration channel, all in one agent — removing any one of the three closes most of the risk.
-- Input/output filters can flag suspicious content or PII but cannot guarantee the model ignores every malicious instruction; prevent leakage structurally with retrieval permissions, separate tool identities, egress controls, and approval gates for external sends.
-- **Red-team** before release with adversarial documents/tool results designed to reveal private records or trigger unauthorized writes, and keep those cases in regression tests.
+- Instructions hidden in lower-trust content (web pages, emails, tool results) can hijack the model; no filter reliably stops it.
+- Treat that content as **data**, keep tool permissions narrow, and validate actions in code.
 
-## Governance and human oversight
+### Lethal trifecta
 
-### Approval and audit
+- **Private data access + untrusted content + an exfiltration channel** in one agent enables data theft; removing any one of the three closes most of the risk.
 
-- Gate **human-in-the-loop** approval before actions with high financial, legal, privacy, or external impact; present the proposed action, evidence, and affected records, and verify the approver's authority and that the data hasn't changed materially since the proposal.
-- Approval authorizes one specific action, not later agent decisions — provide timeout, cancellation, and escalation paths, and record who approved what and when.
-- Define ownership/policy per use case (allowed data, permitted actions, retention, model/provider inventory, incident response); verify a vendor's retention and training-use terms before claiming zero-retention, and enforce role-based access and tenant isolation across prompts, retrieval, traces, caches, and connectors.
+### Human approval gates
+
+- Require approval before high-impact actions (money, legal, external sends); show the action, evidence, and affected records.
+- An approval covers **one specific action**; re-check that data hasn't changed since the proposal, and record who approved what and when.
