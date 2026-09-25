@@ -23,6 +23,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 - [JavaScript](docs/topics/javascript.md) — event loop, scope and closures, `this` and prototypes, numbers, async, modules, memory, metaprogramming, Node.js runtime, DOM events, recent additions
 - [Python](docs/topics/python.md) — runtime and the GIL, memory management, data structures, concurrency, gotchas, object model, functions, recent features, typing, tooling
 - [Rust](docs/topics/rust.md) — ownership and borrowing, lifetimes, traits, closures and iterators, smart pointers, error handling, concurrency, async, unsafe, macros and Cargo
+- [Solidity](docs/topics/solidity.md) — language semantics, storage layout, calls and ABI, contract security, gas optimization, upgradeability, errors, compiler and Foundry testing, inline assembly
 - [TypeScript](docs/topics/typescript.md) — type system semantics, narrowing, type-level programming, compilation and TypeScript 6/7, strictness, declarations, typing patterns
 
 ### Web
@@ -39,7 +40,7 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 ### Domains
 
 - [AI Engineering](docs/topics/ai.md) — LLM fundamentals, attention and MoE, reasoning models, inference and serving, RAG, fine-tuning, agents, tools and MCP, evaluation, cost, security
-- [Ethereum](docs/topics/ethereum.md) — accounts and transactions, gas, EVM, Solidity, calls and ABI, security, upgradeability, signatures and standards, PoS consensus, scaling, DeFi and MEV
+- [Ethereum](docs/topics/ethereum.md) — accounts and transactions, gas, EVM, signatures and standards, PoS consensus, scaling, DeFi and MEV
 
 ## Quiz
 

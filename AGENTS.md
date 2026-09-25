@@ -91,6 +91,8 @@ Each concept has one owner file that covers it in full. Other files may overlap 
 | TCP/UDP, HTTP versions, QUIC, DNS, IP addressing, NAT, MTU, BGP/anycast | networking | backend, system, devops |
 | Processes, signals, scheduling, virtual memory, OOM, file descriptors, epoll/io_uring, fsync, locks | os | devops, database, golang |
 | Container internals (namespaces, cgroups), Kubernetes graceful shutdown | devops | os, backend |
+| Solidity language, storage layout, calls and ABI, contract security, gas optimization, upgradeability | solidity | ethereum |
+| EVM execution, gas and fee market, transaction types, signatures and token standards, DeFi (flash loans, oracle manipulation) and MEV | ethereum | solidity |
 
 ## Style
 

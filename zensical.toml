@@ -19,6 +19,7 @@ nav = [
     { "JavaScript" = "topics/javascript.md" },
     { "Python" = "topics/python.md" },
     { "Rust" = "topics/rust.md" },
+    { "Solidity" = "topics/solidity.md" },
     { "TypeScript" = "topics/typescript.md" },
   ] },
   { "Web" = [
