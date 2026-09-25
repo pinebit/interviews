@@ -1,79 +1,158 @@
 # Backend
 
-What experienced backend engineers forget before an interview, grouped by subtopic. For database internals see [database.md](database.md); for queues, sagas, and retries see [distributed.md](distributed.md); for caching and rate limiting see [system.md](system.md); for deployment see [devops.md](devops.md); for auth and vulnerabilities see [security.md](security.md).
+What experienced backend engineers forget before an interview, grouped by subtopic. For database internals see [database.md](database.md); for queues, sagas, and retries see [distributed.md](distributed.md); for caching and rate limiting see [system.md](system.md); for HTTP versions see [networking.md](networking.md); for auth and vulnerabilities see [security.md](security.md).
 
 ## API design
 
-### Resource modeling and status codes
+### Resource modeling
 
-- Model the API as resources (nouns) with HTTP verbs, not verbs in the URL (`/orders/42/items`, not `/getOrder`).
-- Status codes people confuse: **401** (missing/invalid auth) vs **403** (authenticated but not allowed); **409** (conflict with current state) vs **422** (well-formed request, fails business validation); **429** (rate limited); **202** (accepted, processing async — no result yet).
-- `PUT` **replaces** a resource and is idempotent; `PATCH` partially updates and is **not necessarily** idempotent depending on the patch semantics used.
+- Resources are nouns and HTTP methods are verbs: `POST /orders/42/items`, not `/addItemToOrder`.
+- Non-CRUD actions become sub-resources or state changes: `POST /orders/42/cancellation`.
 
-### Protocol choice and pagination
+### Status codes people confuse
 
-- **REST** — resource CRUD, good HTTP caching, simple mental model. **gRPC** — Protobuf over HTTP/2, strict schema, streaming; needs HTTP/2, so poor direct browser support. **GraphQL** — client asks for exact fields in one round trip; harder to cache, needs N+1 protection on resolvers.
-- **Cursor (keyset) pagination** (`WHERE id > cursor LIMIT n`) stays fast and stable at any depth; **offset pagination** degrades and can skip/repeat rows as data changes underneath it — see [database.md](database.md).
-- **Versioning**: URI (`/v1/`, explicit, cacheable) vs header (`Accept: ...;version=2`, clean URLs, harder to discover) vs additive-only with no versioning. Never make a breaking change to a live version regardless of scheme.
-- Error responses: a consistent shape across endpoints (RFC 9457 **problem details** is the standardized JSON format) — never leak stack traces or SQL in the response; log detail server-side and return a correlation/request ID.
+- **401** not authenticated vs **403** authenticated but not allowed (or **404** to hide that the resource exists).
+- **409** conflicts with current state vs **422** well-formed but fails validation.
+- **202** accepted for async processing; **204** success with no body; **412** precondition (`If-Match`) failed; **429** rate limited.
 
-## Idempotency and consistency
+### Method semantics
+
+| Method | Safe | Idempotent |
+|---|---|---|
+| GET, HEAD | yes | yes |
+| PUT, DELETE | no | **yes** |
+| POST | no | no |
+| PATCH | no | not guaranteed — depends on the patch format |
+
+### REST vs gRPC vs GraphQL
+
+| | REST | gRPC | GraphQL |
+|---|---|---|---|
+| Contract | OpenAPI (optional) | **Protobuf**, strict | schema, strict |
+| Transport | HTTP/1.1 or 2 | **HTTP/2** only | usually HTTP POST |
+| Strength | HTTP caching, simplicity | streaming, speed, codegen | client picks fields, one round trip |
+| Weakness | over/under-fetching | browsers need gRPC-Web | hard to cache, N+1, query-cost limits |
+
+### Pagination
+
+- **Cursor (keyset)**: `WHERE (created_at, id) > (:c, :id) ORDER BY ... LIMIT n` — fast and stable at any depth; return an opaque cursor.
+- **Offset**: simple and jumps to page N, but slows with depth and skips or repeats rows as data changes.
+
+### Versioning
+
+- URI (`/v1/`) is explicit and cacheable; a header (`Accept: ...;version=2`) keeps URLs clean but is harder to discover.
+- Whatever the scheme: **additive changes only** within a version; removing or renaming a field is a breaking change.
+
+### Error responses
+
+- One error shape everywhere — **RFC 9457 problem details** (`type`, `title`, `status`, `detail`).
+- Never return stack traces or SQL; log details server-side and return a request ID.
+
+## Idempotency and concurrency
 
 ### Idempotency keys
 
-- An operation is idempotent if repeating it has the same effect as doing it once — `GET`/`PUT`/`DELETE` by definition, `POST` not.
-- **Idempotency key** implementation: client generates a UUID per logical operation, server stores the key with the first request's result, and returns that stored result for any retry with the same key instead of re-executing the side effect. Handle the **in-flight** case too — a retry arriving while the first request is still processing should wait or be rejected, not race a second execution. Expire keys after a TTL.
-- **Outbox pattern**: writing a business row and an "event to publish" row in the **same DB transaction**, then a separate poller/CDC process publishes from the outbox and marks rows sent — avoids the split between "DB commit succeeded" and "message actually published" that a direct publish-after-commit can't guarantee atomically.
-- **Inbox / deduplication on consumers**: since delivery is at-least-once, a consumer records processed message IDs (with a TTL) and skips already-seen ones — the receiving-side complement to the outbox pattern.
+- The client sends a unique key per logical operation; the server stores the key with the **first result** and returns it on every retry.
+- Handle the **in-flight** case: a retry arriving while the first attempt is running must wait or get 409, not execute twice.
+- Scope keys per client and expire them after a TTL (e.g. 24 h).
 
-## Resilience in service calls
+### Optimistic concurrency with ETags
 
-### Defense per call
+- `GET` returns an **`ETag`**; the client sends `PUT` with **`If-Match: <etag>`**, and the server answers **412** if the resource changed — no lost updates between clients.
 
-- **Timeout on every outbound call** — never wait forever on a dependency.
-- Retry **only idempotent operations** — see [distributed.md](distributed.md) for backoff, jitter, and why blind retries amplify outages.
-- **Deadline propagation**: pass the remaining time budget down the call chain so a downstream service doesn't keep working after the original caller has already given up — without it, a slow leaf call can burn resources for a result nobody will use.
+### Transactional outbox
+
+- Write the business row and an outbox row in the **same DB transaction**; a relay (poller or CDC) publishes outbox rows and marks them sent.
+- Fixes the dual-write problem: committing and publishing can't both be atomic otherwise. Delivery is at-least-once.
+
+### Inbox deduplication
+
+- Consumers record processed message IDs (in the same transaction as their effect) and skip repeats — the receiving side of the outbox.
+
+## Service calls
+
+### Timeouts and deadline propagation
+
+- Every outbound call gets a **timeout**, shorter than the caller's own.
+- **Propagate the deadline** (gRPC does it natively) so downstream services stop work once the original caller has given up.
+- Retries, backoff, and circuit breakers: see [distributed.md](distributed.md).
+
+### Webhooks
+
+- **Sign** each payload (HMAC over timestamp + body) and have receivers verify it with a **constant-time** compare; reject stale timestamps to stop replays.
+- Deliver **at least once** with backoff, so receivers dedupe by event ID; receivers should ack fast (2xx) and process asynchronously.
+- Fetching a user-supplied webhook URL is an **SSRF** risk — see [security.md](security.md).
 
 ## Async work
 
 ### Queue vs direct call
 
-- Direct call when the result is needed immediately and the dependency is fast/available; a queue when work is slow, the downstream is unreliable/rate-limited (**load leveling**), or multiple independent consumers need the same event.
-- **Background jobs**: at-least-once delivery means jobs must be **idempotent**; route persistently-failing jobs to a **dead-letter queue** with alerting, not silent drops.
-- **Scheduled jobs**: guard against **overlapping runs** (a run longer than its interval) with a lock, and ensure only one instance runs the job when horizontally scaled — a leader-election or DB-lock pattern, not "hope cron only fires once."
+- Direct call when the caller needs the result now and the dependency is fast and available.
+- Queue when work is slow, the downstream is flaky or rate-limited (**load leveling**), or several consumers need the event.
+
+### Long-running operations
+
+- Return **202 Accepted** with a `Location` to a status resource (`/operations/123`); the client polls it or gets a webhook when done.
+- The status resource carries state (`pending`, `running`, `succeeded`, `failed`) and the result or error.
+
+### Background jobs
+
+- At-least-once delivery means jobs must be **idempotent**; persistently failing jobs go to a **dead-letter queue** with alerting.
+
+### Scheduled jobs
+
+- Guard against **overlapping runs** (a run longer than its interval) and against every replica firing the same cron — use a lock (DB row, advisory lock, lease) or a single scheduler.
 
 ## Data access
 
-### N+1 and transactions
+### N+1 queries
 
-- **N+1**: fetching a list then issuing one extra query per item for related data. Fix with eager loading (a `JOIN` or batched `WHERE id IN (...)`) or a **DataLoader**-style batching layer that collects lookups within a tick and issues one query — common in GraphQL resolvers. Spot it via query-count logging or APM. See [database.md](database.md).
-- **Pool sizing**: too few connections queues requests behind the pool itself; too many can overwhelm the database's own connection limit before its CPU limit — size around the DB's actual capacity, not the app's thread count.
-- **Transaction boundaries**: never make a network call (another service, a slow API) inside an open DB transaction — it holds locks and a connection for the full round trip, starving the pool under load.
+- Loading a list, then one query per item. Fix with a `JOIN`, a batched `WHERE id IN (...)`, or a **DataLoader** that batches lookups per tick (GraphQL resolvers).
+- Spot it with per-request query counts in logs or APM.
+
+### Connection pool sizing
+
+- Size the pool from the **database's** capacity, not the app's thread count — many app instances × a large pool overwhelm the database.
+- A good starting point is a small pool per instance (~2× DB cores total across instances), then measure wait time.
+
+### Transaction boundaries
+
+- Never make a network call inside an open DB transaction — it holds locks and a connection for the whole round trip.
+
+### File uploads
+
+- Large files go straight to object storage with a **presigned URL**, bypassing app servers; the app stores only metadata.
+- **Multipart/resumable uploads** retry individual parts instead of the whole file.
 
 ## Lifecycle and config
 
 ### Graceful shutdown
 
-- On `SIGTERM`: **fail the readiness probe first** (so the load balancer stops routing new traffic) → stop accepting new requests → let in-flight requests finish within a deadline → close DB connections / flush buffered writes and metrics → exit. A hard kill mid-request drops responses clients are waiting on and can leave partial writes.
-- Background workers: stop pulling new jobs, let (or checkpoint) the current job finish, then exit — otherwise work is lost or duplicated depending on the queue's ack semantics.
+- On **`SIGTERM`**: fail readiness → stop accepting new connections → finish in-flight requests within a deadline → close pools and flush telemetry → exit.
+- Workers stop pulling jobs and finish or checkpoint the current one. Kubernetes timing: see [devops.md](devops.md).
 
-### Twelve-factor config
+### Configuration and secrets
 
-- Config that varies by environment (DB URLs, flags, credentials) comes from the **environment**, not the build artifact — the same built artifact promotes from staging to production unchanged.
-- Secrets go in a secret manager, injected at deploy/runtime, never committed; validate required config at **startup**, failing fast instead of discovering a gap on the first request that hits the unconfigured path.
+- Config that varies by environment comes from the **environment**, so one immutable artifact promotes from staging to production.
+- Secrets come from a secret manager at runtime, never from the repo; **validate config at startup** and fail fast.
 
-## Backend security specifics
+## Backend security
 
-### Common backend-side gaps
+### Mass assignment
 
-- **Mass assignment**: binding a request body directly onto a model can let a client set fields it shouldn't (`isAdmin: true`) — allowlist bindable fields explicitly.
-- **Input validation at the boundary**: parse and validate type/required/format/range before any business logic runs, fail fast with 400; business-rule failures (e.g. "email already registered") are a distinct, deeper check, usually 409/422.
-- **SSRF in webhooks/URL fetchers**: any endpoint that fetches a user-supplied URL is a potential SSRF vector against internal services or cloud metadata — see [security.md](security.md) for mitigations.
-- **Secrets in logs**: request/response logging middleware can accidentally capture auth headers, tokens, or PII — redact known-sensitive fields at the logging layer, not per call site.
+- Binding the request body straight onto a model lets clients set `isAdmin: true` — **allowlist** bindable fields or use separate DTOs.
+
+### Input validation
+
+- Validate type, format, and range at the boundary before business logic (**400**); business-rule failures come later (**409/422**).
+
+### Secrets in logs
+
+- Request logging middleware can capture tokens, auth headers, and PII — **redact centrally** in the logging layer, not per call site.
 
 ## Testing
 
-### Test pyramid
+### Integration and contract tests
 
-- **Unit** — business logic isolated, dependencies mocked, fast, run every commit. **Integration** — real (often containerized via **Testcontainers**) dependencies, catches SQL that's syntactically fine but semantically wrong. **Contract tests** — verify a service's API matches consumer expectations (e.g. Pact) without spinning up the consumer, catching breaking changes before production. **End-to-end** — full system through real interfaces, valuable but slow/flaky, so keep the count small.
-- Favor the pyramid shape (many unit, fewer integration, few e2e) — an inverted pyramid (mostly e2e) makes the suite slow and hard to debug when something fails.
+- **Testcontainers** runs real dependencies (Postgres, Kafka) in tests, catching SQL and serialization bugs that mocks hide.
+- **Consumer-driven contract tests** (Pact) check that a provider still satisfies what each consumer relies on, without deploying both.

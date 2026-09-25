@@ -4,127 +4,227 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ## Theory and impossibility results
 
-### CAP theorem
+### CAP and PACELC
 
-- During a **network partition (P)**, choose **Consistency** (reject/block, e.g. etcd, ZooKeeper) or **Availability** (keep serving, possibly stale, e.g. Cassandra, DynamoDB default).
-- "C" here means **linearizability** — don't confuse it with ACID's "C" (application invariants).
-- **PACELC** extends it: if Partitioned, trade Availability vs Consistency; **E**lse (normal operation), trade **L**atency vs **C**onsistency — the everyday cost even when nothing is broken.
+- During a **network partition**, choose **Consistency** (reject or block — etcd, ZooKeeper) or **Availability** (serve possibly stale data — Cassandra, DynamoDB default).
+- CAP's "C" is **linearizability**, not ACID's "C" (application invariants).
+- **PACELC**: if Partitioned, A vs C; **Else**, **Latency vs Consistency** — the everyday cost when nothing is broken.
 
-### Impossibility results
+### FLP and Two Generals
 
-- **FLP**: no deterministic algorithm guarantees consensus in a fully asynchronous system with even one faulty node. Real systems use timeouts, trading liveness (progress) for safety during bad periods, never the reverse.
-- **Two Generals**: two parties over an unreliable channel can never be certain they agree, since the last ack can always be lost — why exactly-once delivery is impossible.
-- **Byzantine fault tolerance**: nodes that lie or send conflicting messages need **`3f + 1`** nodes to tolerate `f` faulty ones (vs `2f + 1` for crash faults); classic algorithm is **PBFT**. Most internal systems assume crash faults only.
+- **FLP**: no deterministic algorithm guarantees consensus in a fully asynchronous system with even one crash. Real systems use timeouts and give up liveness, never safety, in bad periods.
+- **Two Generals**: over a lossy channel the last ack can always be lost, so two parties can never be sure they agree — why exactly-once *delivery* is impossible.
+
+### Byzantine faults
+
+- Nodes that lie need **`3f + 1`** nodes to tolerate `f` faults (vs **`2f + 1`** for crash faults); classic algorithm **PBFT**. Most internal systems assume crash faults only.
 
 ## Consistency models
 
 ### Consistency hierarchy
 
-Roughly strongest to weakest, though they apply to different scopes: **strict serializable**/**linearizable** (single-object/transaction recency) > **sequential** > **causal** > **eventual** (multi-replica ordering).
+- From strongest: **strict serializable** > **linearizable** > **sequential** > **causal** > **eventual**.
+- **Linearizability**: single-object recency — once a write completes, every later read (in real time) sees it.
+- **Serializability**: multi-object transaction isolation — equivalent to *some* serial order, not necessarily real-time order.
 
-- **Linearizability** — a recency guarantee for a single object: once a write completes, every later real-time read sees it.
-- **Serializability** — an isolation guarantee for transactions (potentially many objects): the result equals *some* serial order, not necessarily matching real time.
-- **Strict serializability** combines both: transactions appear in a serial order that also respects real time (Spanner, CockroachDB aim for it; FoundationDB provides it) — it's what you get when linearizability is applied at the transaction level instead of the single-object level.
-- **Sequential/causal/eventual** describe how far apart replicas' views of the world can drift, not transaction isolation — session guarantees on top of them: **read-your-writes**, **monotonic reads**, **monotonic writes**, **writes-follow-reads**.
+### Strict serializability
+
+- Serializability + real-time order: transactions behave like linearizable operations (Spanner, FoundationDB). CockroachDB is serializable but linearizable only **per key**.
+
+### Session guarantees
+
+- **Read-your-writes**, **monotonic reads**, **monotonic writes**, **writes-follow-reads** — per-client guarantees layered on eventual consistency.
+- Typical implementations: sticky routing to one replica, or reading from a replica that has caught up to the client's last-seen version.
 
 ## Replication
 
-### Replication strategies
+### Single-leader replication
 
-- **Single-leader** — all writes to one leader; **sync** replication is durable but slower, **async** is fast but can lose recent writes on failover; **semi-sync** waits for at least one replica.
-- **Multi-leader** — several nodes accept writes (e.g. per data center); needs conflict resolution.
-- **Leaderless** (Dynamo-style) — clients write/read several replicas; tuned with quorums.
+- All writes go to one leader; **sync** followers are durable but add latency, **async** followers are fast but lose recent writes on failover.
+- **Semi-sync** waits for at least one follower.
+- **Replication lag** breaks read-your-writes: a user can't see their own update right after writing.
 
-### Quorums and repair
+### Multi-leader and leaderless
 
-- **`W + R > N`** guarantees read and write sets overlap.
-- **Sloppy quorum + hinted handoff**: accept writes on non-owner nodes during an outage, hand them off later.
-- **Read repair** fixes stale replicas during a read; **anti-entropy** compares **Merkle trees** in the background so only differing ranges transfer.
-- Replication lag causes anomalies like reading stale data right after your own write.
+- **Multi-leader**: several nodes accept writes (one per region) — needs conflict resolution.
+- **Leaderless** (Dynamo-style): the client writes to and reads from several replicas, tuned with quorums.
+
+### Quorums
+
+- **`W + R > N`** makes read and write sets overlap, e.g. N=3, W=2, R=2.
+- **Sloppy quorum + hinted handoff**: during an outage, accept writes on stand-in nodes and hand them back later — overlap is no longer guaranteed.
+
+### Replica repair
+
+- **Read repair** fixes stale replicas seen during a read.
+- **Anti-entropy** compares **Merkle trees** in the background so only differing key ranges transfer.
 
 ## Partitioning
 
-### Sharding strategies
+### Hash vs range partitioning
 
-- **Hash partitioning** spreads load evenly, loses range-scan ordering; **range partitioning** keeps keys sorted, risks hot spots on sequential keys.
-- **Consistent hashing** places nodes and keys on a ring; a key belongs to the next node clockwise, so adding/removing a node moves only about `1/N` of keys. **Virtual nodes** (many ring positions per node) smooth load.
-- **Rendezvous hashing** (highest random weight) picks the owner by hashing `(node, key)` pairs — no ring, simpler rebalancing math.
-- **Hot keys** need salting (splitting a key into sub-keys) since no amount of replication fixes a single overloaded key.
-- Secondary indexes are either **local** (each partition indexes its own data, scatter-gather reads) or **global** (indexed across partitions, needs its own partitioning and gets async, eventually-consistent updates).
+- **Hash** spreads load evenly but loses range scans; **range** keeps keys sorted but sequential keys (timestamps) create hot spots.
+
+### Consistent and rendezvous hashing
+
+- **Consistent hashing**: nodes and keys on a ring; a key belongs to the next node clockwise, so adding a node moves ~**`1/N`** of keys. **Virtual nodes** smooth the load.
+- **Rendezvous hashing**: owner = node with the highest `hash(node, key)` — no ring, same minimal movement.
+
+### Hot keys and secondary indexes
+
+- A single hot key isn't fixed by more partitions — **salt** it into sub-keys and merge on read.
+- **Local** secondary indexes (per partition) need scatter-gather reads; **global** ones are partitioned separately and updated asynchronously.
 
 ## Consensus and coordination
 
-### Consensus algorithms
+### Quorum sizing
 
-- Needs a **majority quorum** (`N/2 + 1`): a cluster of `2f + 1` nodes tolerates `f` crash failures — hence clusters of 3 or 5.
-- **Raft**: **leader election** (randomized election timeouts avoid split votes; nodes vote once per **term**), **log replication** (leader commits once a majority acks), **safety** (election restriction — a candidate must have an up-to-date log to win; any two majorities overlap, so a committed entry can't be lost).
-- **Paxos** solves the same problem in two phases (prepare/promise, accept/accepted) via proposers/acceptors; harder to reason about and implement than Raft.
+- Consensus needs a **majority** (`⌊N/2⌋ + 1`): `2f + 1` nodes tolerate `f` crashes — hence 3 or 5 nodes.
+- An even size adds no tolerance: 4 nodes still tolerate only 1 failure.
 
-### Locks and leases
+### Raft
 
-- A **lease** is a lock with a TTL that must be renewed; if the holder dies, it expires and another node takes over.
-- **Split brain**: two nodes both believe they're leader (e.g. the old leader paused for a long GC past its lease expiry). Prevent damage with **fencing tokens** — a monotonically increasing number per lease that storage rejects if it goes backward. A lock alone, without fencing, is safety only against contention, not correctness.
-- The **Redlock** algorithm (Redis-based distributed locking) is criticized for depending on wall-clock assumptions; prefer a consensus-backed store (etcd, ZooKeeper) when correctness matters.
+- **Leader election**: randomized timeouts avoid split votes; one vote per node per **term**.
+- **Log replication**: an entry commits once a **majority** stores it.
+- **Election restriction**: only a candidate with an up-to-date log can win, so committed entries survive.
+
+### Raft reads and membership
+
+- A leader can't just read locally — a deposed leader may not know it yet. **ReadIndex** confirms leadership with a heartbeat round; **lease reads** skip it but rely on bounded clock drift.
+- Membership changes go one server at a time (or via joint consensus); **snapshots** truncate the log.
+
+### Paxos
+
+- Two phases — **prepare/promise**, then **accept/accepted** — across proposers and acceptors; same guarantees as Raft, harder to implement (Multi-Paxos adds a stable leader).
+
+### Leases and fencing tokens
+
+- A **lease** is a lock with a TTL; if the holder dies, it expires and someone else takes over.
+- A holder paused past expiry (long GC) still thinks it's the leader — **split brain**. **Fencing tokens** (increasing per lease, checked by the storage) reject its stale writes.
+- **Redlock** depends on timing assumptions; use a consensus store (etcd, ZooKeeper) when correctness matters.
 
 ## Time, ordering, and IDs
 
-### Clocks
+### Physical clocks
 
-- Physical clocks drift and NTP can jump backward, so wall-clock timestamps are unreliable for cross-node ordering (breaks last-write-wins).
-- **Lamport clocks**: each node increments a counter per event, and on receive sets `max(local, received) + 1`. Gives a total order consistent with causality but can't detect concurrency.
-- **Vector clocks** keep one counter per node; comparing vectors detects whether two events are causally ordered or **concurrent**.
-- **Hybrid logical clocks (HLC)** combine physical time with a logical counter for a causally-consistent, roughly time-ordered value.
-- Spanner's **TrueTime** exposes clock uncertainty bounds and commit-waits out the uncertainty interval to get external consistency.
+- Clocks drift and NTP can step them backward, so wall-clock timestamps can't order events across nodes — last-write-wins silently loses data.
+
+### Logical clocks
+
+- **Lamport clock**: increment per event; on receive, `max(local, received) + 1`. A total order consistent with causality, but can't detect concurrency.
+- **Vector clock**: one counter per node; comparing two vectors tells **happened-before** from **concurrent**.
+- **Hybrid logical clock (HLC)**: physical time + logical counter — causal and close to wall time (CockroachDB).
+
+### TrueTime
+
+- Spanner's **TrueTime** returns an uncertainty interval; a commit **waits out** the uncertainty (~ms) before becoming visible, giving external consistency.
 
 ### Distributed IDs
 
-- **Snowflake**: 64 bits = **41-bit timestamp** (ms) + **10-bit machine ID** + **12-bit sequence** (4096 IDs/ms/machine); roughly time-sortable, fits a `bigint`.
-- **UUIDv7**: time-ordered prefix plus randomness — no coordination needed and good B-tree index locality, unlike random UUIDv4.
-- **ULID**: similar time-ordered + random design, encoded as a sortable 26-char string.
+| Scheme | Layout | Note |
+|---|---|---|
+| **Snowflake** | 41-bit ms timestamp + 10-bit machine + 12-bit sequence | 4,096 IDs/ms/machine, fits `bigint` |
+| **UUIDv7** | 48-bit ms timestamp + random | time-ordered, good B-tree locality |
+| **ULID** | timestamp + random, 26-char string | sortable text form |
+| UUIDv4 | 122 random bits | scatters index inserts |
 
 ## Transactions across services
 
-### 2PC, 3PC, sagas
+### Two-phase commit
 
-- **2PC**: coordinator asks all participants to **prepare** (vote, lock resources), then **commit**/**abort**. Atomic but **blocking** — if the coordinator dies after prepare, participants hold locks until it recovers.
-- **3PC** adds a pre-commit phase to avoid indefinite blocking on coordinator failure, but still fails under network partitions and is rarely used in practice.
-- **Sagas** break a transaction into local steps, each with a **compensating action** to undo it. Give eventual consistency, not isolation. **Orchestration** (central controller) vs **choreography** (services react to events).
-- **Exactly-once = at-least-once delivery + idempotent processing** — pair with the **transactional outbox** pattern (see [backend.md](backend.md)) to publish events atomically with a local write.
+- Coordinator asks participants to **prepare** (vote and hold locks), then **commit** or **abort**.
+- Atomic but **blocking**: if the coordinator dies after prepare, participants hold locks until it returns. **3PC** avoids that only without partitions, so it's rarely used.
+
+### Sagas
+
+- A chain of local transactions, each with a **compensating action**; eventual consistency, **no isolation** (others see intermediate states).
+- **Orchestration** (a central coordinator) vs **choreography** (services react to each other's events).
+
+### Effectively-once processing
+
+- **Exactly-once = at-least-once delivery + idempotent processing**.
+- Publish events atomically with the local write via the **transactional outbox**; dedupe on the consumer via an inbox — both in [backend.md](backend.md).
 
 ## Conflict resolution
 
-### Strategies and CRDTs
+### Last-write-wins and siblings
 
-- **Last-write-wins (LWW)** — simplest, but silently drops data and depends on clock accuracy.
-- **Version vectors** detect concurrent writes (**siblings**) and surface them for app/user merge instead of silently discarding one.
-- **CRDTs** (Conflict-free Replicated Data Types) merge **commutatively, associatively, and idempotently**, so replicas converge with no coordination: **G-Counter** (sum per-node counters), **PN-Counter** (inc/dec), **OR-Set** (add/remove set), **LWW-Register**.
-- **OT** (Operational Transformation) vs **CRDT** for collaborative editing: OT transforms concurrent ops against a central server/order; CRDTs merge peer-to-peer without one, at the cost of larger metadata (Automerge, Yjs use CRDTs).
+- **LWW** is simplest but silently drops concurrent writes and depends on clocks.
+- **Version vectors** detect concurrent writes and keep **siblings** for the app or user to merge.
+
+### CRDTs
+
+- Merges are **commutative, associative, idempotent**, so replicas converge without coordination.
+- **G-Counter** (per-node counts, summed), **PN-Counter** (two G-Counters), **OR-Set** (add wins over concurrent remove), **LWW-Register**.
+
+### OT vs CRDT for collaborative editing
+
+- **OT** transforms concurrent operations against each other, usually via a central server (Google Docs).
+- **CRDTs** merge peer-to-peer with larger metadata (Automerge, Yjs).
 
 ## Failure handling
 
-### Resilience techniques
+### Timeouts and retries
 
-- **Timeouts** on every remote call; **retries with exponential backoff + jitter**, only for idempotent operations, to avoid retry storms.
-- **Retry budgets** cap the fraction of traffic that may be retries, preventing a retry storm from amplifying an outage.
-- **Circuit breaker** states: closed (normal) → open (fail fast after threshold) → half-open (probe, then close or re-open).
-- **Bulkheads** isolate resources (thread pools, connections) per dependency; **backpressure** and **load shedding** reject excess work before it queues unboundedly.
-- **Hedged requests**: send a second copy to another replica if the first hasn't answered by roughly the p95 time, use whichever returns first.
+- Put a **timeout** on every remote call.
+- Retry only **idempotent** operations, with **exponential backoff + jitter** so retries don't synchronize.
+- A **retry budget** (e.g. retries ≤ 10% of requests) stops retries from multiplying load during an outage.
 
-### Tail latency and failure detection
+### Circuit breakers
 
-- **Fan-out amplification**: if a request calls `n` servers each slow `p`% of the time, roughly `1 − (1 − p)ⁿ` of requests hit at least one slow server — at scale the tail becomes typical.
-- Failure detectors: **heartbeats with fixed timeouts** (simple, but a bad trade between speed and false positives); **phi-accrual** (Cassandra, Akka) outputs a continuous suspicion level from heartbeat history instead of a hard cutoff; **SWIM** (Consul/Serf) pings a random node and, on timeout, asks k peers to ping it indirectly before marking it suspect.
+- **Closed** (normal) → **open** after an error threshold (fail fast) → **half-open** (let a probe through, then close or reopen).
+
+### Bulkheads, backpressure, load shedding
+
+- **Bulkheads** give each dependency its own pool (threads, connections), so one slow dependency can't exhaust everything.
+- **Backpressure** slows producers; **load shedding** rejects excess work early rather than queueing it without bound.
+
+### Tail latency and hedging
+
+- With fan-out to `n` servers each slow with probability `p`, a request is slow with probability **`1 − (1 − p)ⁿ`** — at 100 servers, a 1% tail hits 63% of requests.
+- **Hedged requests**: send a second copy after ~p95 latency and take the first reply.
+
+### Failure detection
+
+- **Fixed-timeout heartbeats** trade detection speed against false positives.
+- **Phi-accrual** (Cassandra, Akka) outputs a suspicion level from heartbeat history.
+- **SWIM** (Consul, Serf) pings a random member, then asks `k` peers to probe it indirectly before suspecting it.
 
 ## Stream processing
 
-### Event time and windows
+### Event time and watermarks
 
-- **Event time** (when it happened) vs **processing time** (when the system saw it) — late or out-of-order events break naive processing-time windows.
-- **Watermarks** declare "no more events before time T are expected," deciding when a window can close despite lateness.
-- Window types: **tumbling** (fixed, non-overlapping), **sliding** (fixed, overlapping), **session** (gap-based, variable length).
+- **Event time** (when it happened) vs **processing time** (when it arrived) — late events break processing-time windows.
+- A **watermark** says "no events older than T are expected", letting a window close; later stragglers go to a side output or update results.
 
-### Kafka and event architectures
+### Window types
 
-- Ordering is guaranteed **only within a partition**; **consumer groups** split partitions across consumer instances for parallelism.
-- **Idempotent producer** (`enable.idempotence`) dedupes retried sends per partition; **transactions** extend that to atomic multi-partition writes.
-- **Event sourcing** stores every change as an immutable event and rebuilds state by replay (with snapshots for speed); **CQRS** separates the write model from one or more read models updated asynchronously — the read side is eventually consistent, and event schemas must evolve without breaking old events.
+- **Tumbling** (fixed, non-overlapping), **sliding/hopping** (fixed, overlapping), **session** (closed by an inactivity gap).
+
+### Kafka ordering and consumer groups
+
+- Order is guaranteed **only within a partition**; key by entity ID to keep one entity's events in order.
+- A **consumer group** splits partitions among its members — parallelism is capped at the **partition count**.
+
+### Kafka producer semantics
+
+- **Idempotent producer** (default since Kafka 3.0) dedupes retried sends per partition.
+- **Transactions** make writes across partitions and the consumer offset commit atomic — exactly-once for read-process-write within Kafka.
+
+### Kafka durability
+
+- Each partition has a leader and followers; the **ISR** (in-sync replicas) are followers caught up within `replica.lag.time.max.ms`.
+- **`acks=all`** + **`min.insync.replicas=2`** (with replication factor 3) acknowledges a write only once 2 replicas have it — survives one broker loss without losing acknowledged data.
+- **`unclean.leader.election.enable=false`** (default) refuses to elect an out-of-sync replica, choosing unavailability over data loss.
+
+### Kafka rebalancing, compaction, KRaft
+
+- A **rebalance** reassigns partitions when consumers join or leave; the **KIP-848** consumer protocol (GA in **Kafka 4.0**) makes it incremental and broker-driven instead of stop-the-world.
+- **Log compaction** keeps only the latest record per key (a delete = `null` tombstone) — for changelogs and state restoration.
+- **Kafka 4.0 (March 2025) removed ZooKeeper**: metadata lives in a Raft quorum of controllers (**KRaft**).
+
+### Event sourcing and CQRS
+
+- **Event sourcing** stores every change as an immutable event and rebuilds state by replay, with snapshots for speed.
+- **CQRS** splits the write model from read models updated asynchronously — reads are eventually consistent.
+- Event schemas must stay readable forever: only add fields, or upcast old events.

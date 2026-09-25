@@ -6,72 +6,139 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Structural typing
 
-- Compatibility is by **shape**, not declared name — a class or object satisfies an interface just by having the right members, no `implements` required. Contrast with nominal typing (Java, C#).
-- **Excess property checks** apply only to **fresh object literals** assigned directly (`const p: Point = { x: 1, y: 2, z: 3 }` errors) — the same literal passed through a variable first (`const o = {...}; const p: Point = o`) bypasses the check entirely.
-- **`any`** opts out of checking entirely; **`unknown`** is the type-safe counterpart — assignable to it from anything, but must be narrowed before use; **`never`** is the type of a value that can't occur, useful for exhaustiveness checks.
+- Compatibility is by **shape**, not declared name — an object satisfies an interface just by having the members; no `implements` needed.
 
-### interface vs type, bivariance
+### Excess property checks
 
-- `interface` supports **declaration merging** (reopening the name adds members); `type` can alias unions, tuples, and mapped/conditional types that `interface` can't express.
-- **Method parameters are bivariant** (unsound but pragmatic for override compatibility) while **standalone function-typed properties are checked contravariantly**; `strictFunctionTypes` makes function-typed properties strict, but method shorthand syntax (`foo(x: T): void` vs `foo: (x: T) => void`) is deliberately exempted and stays bivariant, for compatibility with common override patterns.
+- Only **fresh object literals** get excess-property errors: `const p: Point = { x: 1, y: 2, z: 3 }` fails.
+- The same literal assigned to a variable first, then to `Point`, passes — the check never runs.
+
+### `any`, `unknown`, `never`
+
+- **`any`** turns checking off in both directions; **`unknown`** accepts anything but must be narrowed before use.
+- **`never`** is the empty type — the result of exhaustive narrowing and of functions that never return.
+
+### `interface` vs `type`
+
+- `interface` supports **declaration merging** (reopening adds members) and gives clearer error messages for object shapes.
+- `type` can alias unions, tuples, and mapped/conditional types, which `interface` can't express.
+
+### Variance annotations
+
+- Generic types are checked by **structure**, so variance is inferred; **`in`**/**`out`** annotations (`interface Producer<out T>`, **4.7**) declare contravariance/covariance explicitly — faster checks and clearer errors.
+- Arrays are treated **covariantly** (`Dog[]` assignable to `Animal[]`) even though writes make that unsound.
+
+### Method bivariance
+
+- Under `strictFunctionTypes`, **function-typed properties** (`f: (x: T) => void`) check parameters **contravariantly**.
+- **Method shorthand** (`f(x: T): void`) stays **bivariant** on purpose — unsound, but keeps common override patterns compiling.
 
 ## Narrowing
 
-### Mechanisms
+### Control-flow narrowing
 
-- `typeof`, `instanceof`, `in`, equality checks, and truthiness all narrow within a branch via **control flow analysis** — the narrowed type applies only where it's provably true.
-- **Discriminated unions**: a shared literal tag field lets `switch (x.kind)` narrow automatically per case — one of the most useful patterns for safely modeling variants.
-- A **type predicate** (`x is Fish`) or **`asserts`** function lets you encapsulate custom narrowing logic the compiler can't infer on its own.
-- **Exhaustiveness** via `never`: assigning the presumed-unreachable branch to a `never`-typed variable causes a compile error if a new union member isn't handled.
-- **Inferred type predicates** (**5.5**): a function whose body already narrows and returns a boolean gets an automatically inferred `x is T` return type, no manual annotation needed.
+- `typeof`, `instanceof`, `in`, equality, and truthiness checks narrow a variable inside the branch where they're provably true.
+- **Discriminated unions**: a shared literal tag (`kind`) lets `switch (x.kind)` narrow each case.
+
+### Custom type guards
+
+- A **type predicate** (`x is Fish`) or an **`asserts x is T`** function packages narrowing the compiler can't infer.
+- **Inferred type predicates** (**5.5**): a boolean-returning function that already narrows gets `x is T` automatically, e.g. `arr.filter(x => x !== undefined)`.
+
+### Exhaustiveness with `never`
+
+- In a `default` branch, assign the value to a `never` variable; adding a new union member then fails to compile until handled.
+
+### `as` vs `satisfies` vs `!`
+
+- **`x as T`** is an unchecked assertion — it only rejects conversions between unrelated types (bypass: `as unknown as T`).
+- **`satisfies T`** checks without changing the inferred type; **`x!`** strips `null`/`undefined` with no runtime check.
 
 ## Type-level programming
 
-### Conditional and mapped types
+### Conditional types
 
-- Conditional types (`T extends U ? X : Y`) are distributive over naked type parameters — `Cond<A | B>` becomes `Cond<A> | Cond<B>`; wrapping in `[T]` (`[T] extends [U] ? X : Y`) disables distribution when the union should be treated as one unit.
-- `infer` inside a conditional extracts a sub-type, powering `ReturnType<T>`/`Parameters<T>`.
-- Mapped types transform each property (`{ [K in keyof T]: T[K] }`); the `as` clause remaps keys, and `+`/`-` modifiers add or strip `readonly`/`?` per property.
-- Template literal types build string-literal unions structurally (`` `on${Capitalize<Event>}` ``).
+- Conditional types **distribute** over a naked type parameter: `C<A | B>` = `C<A> | C<B>`; wrap as `[T] extends [U]` to disable it.
+- **`infer`** extracts a part of a type, powering `ReturnType<T>` and `Parameters<T>`.
 
-### Recent inference features
+### Mapped and template literal types
 
-- **`satisfies`** (**4.9**) checks a value against a type without widening the value's own inferred type.
-- **`const` type parameters** (**5.0**) infer the most specific literal type for a generic argument without the caller writing `as const`.
-- **`NoInfer<T>`** (**5.4**) blocks a type parameter position from participating in inference, useful to stop a default value from widening the inferred type.
+- Mapped types (`{ [K in keyof T]: T[K] }`) transform each property; `as` remaps keys; `+`/`-` add or strip `readonly` and `?`.
+- Template literal types build string unions: `` `on${Capitalize<Event>}` ``.
+
+### Inference controls
+
+- **`satisfies`** (**4.9**) checks a value against a type without widening its inferred type.
+- **`const` type parameters** (**5.0**) infer literal types without the caller writing `as const`.
+- **`NoInfer<T>`** (**5.4**) excludes a position from inference, so a default argument can't widen `T`.
+
+### Branded types
+
+- Structural typing makes `UserId` and `OrderId` both plain `string`s; **brand** them for nominal-like safety: `type UserId = string & { readonly __brand: 'UserId' }`.
+- Create values only through a validating function (`asUserId(s)`); the brand has no runtime cost.
 
 ## Compilation and tooling
 
-### Type erasure and speed
+### Type erasure
 
-- Type annotations, interfaces, generics, and type-only imports are erased — most type-level constructs add **zero runtime footprint**. Numeric `enum`s and legacy decorators are exceptions that emit real runtime code.
-- `tsc` does full type checking (and can emit JS, relatively slowly); esbuild/swc/Babel's TS preset do **transpile-only**, stripping types file-by-file without cross-file checking — much faster, but they'll happily emit JS from type-invalid code since they never build a full type graph. Enable **`isolatedModules`** to catch constructs (like non-`const` re-exported type-only names) that transpile-only tools can't handle correctly.
-- **`verbatimModuleSyntax`** requires explicit `import type`/`export type` for type-only imports/exports, so a transpiler knows unambiguously what to elide without doing type analysis.
-- **`erasableSyntaxOnly`** (**5.8**) forbids TypeScript syntax that can't be *erased* without emitting runtime code (enum bodies, parameter properties, namespaces with runtime code) — this is the flag that guarantees a file is compatible with Node.js's native **`--experimental-strip-types`**/type-stripping support.
-- **`moduleResolution: bundler`** matches how modern bundlers resolve imports (no file-extension requirements); **`nodenext`** matches Node's own ESM/CJS resolution rules exactly, including required extensions in ESM.
-- The native, Go-ported compiler (**TypeScript 7**, project name `tsgo` during preview) replaced the JS-based `tsc` as the standard compiler, giving large multiples of speedup on type-checking and project builds.
+- Types, interfaces, and type-only imports are erased — **zero runtime footprint**.
+- Exceptions that emit runtime code: **all `enum`s**, `namespace`s with values, parameter properties, and legacy decorators.
+
+### Transpile-only builds
+
+- esbuild, swc, and Babel strip types **file by file** without type checking — fast, but they emit JS from type-invalid code.
+- **`isolatedModules`** flags constructs a single-file transpiler can't handle; **`verbatimModuleSyntax`** requires explicit `import type`, so elision needs no type analysis.
+
+### Node type stripping
+
+- Node runs `.ts` files by stripping types, on by default **since Node 22.18 / 23.6**.
+- **`erasableSyntaxOnly`** (**5.8**) forbids syntax that can't simply be erased (enums, parameter properties, value namespaces), guaranteeing a file runs there.
+
+### Module resolution
+
+- **`moduleResolution: bundler`** mirrors bundlers (extensionless imports allowed); **`nodenext`** mirrors Node exactly, requiring file extensions in ESM.
+
+### TypeScript 7 native compiler
+
+- **TypeScript 7** (2026) ships the Go port of the compiler (`tsgo` in preview): roughly **10×** faster builds with parallel checking.
+- Its stable programmatic API is planned for **7.1**, so some tools (typescript-eslint, Vue/Svelte/Angular language tooling) still need the 6.x JS compiler.
 
 ## Strictness flags
 
-### The strict family
+### The `strict` family
 
-- **`strict: true`** enables the full family: `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, and others — treat it as the floor for new projects.
-- **`strictNullChecks`**: without it, `null`/`undefined` are assignable to everything (historically "the billion dollar mistake"); with it, only where explicitly allowed (`T | null`).
-- **`noUncheckedIndexedAccess`**: an indexed access (`arr[i]`, `record[key]`) returns `T | undefined` instead of just `T` — catches the common bug of assuming an index/key is always present.
-- **`exactOptionalPropertyTypes`**: distinguishes "property is absent" from "property is present but `undefined`" for optional properties — without it, `{ x?: number }` silently allows explicitly assigning `x: undefined`.
+- **`strict: true`** enables `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, and more — the floor for new code.
+- Without **`strictNullChecks`**, `null`/`undefined` are assignable to every type.
+
+### Flags outside `strict`
+
+- **`noUncheckedIndexedAccess`**: `arr[i]` and `record[key]` become `T | undefined`.
+- **`exactOptionalPropertyTypes`**: `x?: number` means "absent", no longer "absent or explicitly `undefined`".
 
 ## Declarations and runtime features
 
-### Enums and declaration merging
+### Enums and alternatives
 
-- Numeric `enum`s compile to a **bidirectional** runtime object (value→name and name→value) — real emitted code, unlike most TS constructs. **`const enum`** inlines values at compile time instead, but can't be referenced across an `isolatedModules` boundary from an *ambient* declaration — many teams prefer string literal unions or `as const` objects instead, for zero runtime cost and predictable cross-module behavior.
-- **Declaration merging**: multiple `interface Foo` blocks merge members; a `namespace` can merge with a same-named function/class. **`.d.ts`** files hold only declarations, describing plain-JS libraries or shipping types separately from compiled output; **`declare global`** and **module augmentation** (`declare module 'express' { interface Request {...} }`) extend third-party or global types without touching their source.
-- Decorators: the **standard** (stage-3 ECMAScript) form, stabilized in **5.0**, has a simpler runtime shape and drops parameter decorators; **`experimentalDecorators`** is the older, metadata-heavy stage-2 implementation still used by some frameworks — the two are incompatible, so check which a given codebase targets.
+- Numeric enums compile to a **bidirectional** object (name ↔ value); string enums map one way.
+- **`const enum`** values are inlined, but break under `isolatedModules` when imported from declaration files — many teams use string-literal unions or `as const` objects instead.
+
+### Declaration files and augmentation
+
+- **`.d.ts`** files hold only types, describing JS libraries or shipping types beside compiled output.
+- **`declare global`** and **module augmentation** (`declare module 'express' { interface Request { user?: User } }`) extend third-party types.
+
+### Decorators
+
+- **Standard decorators** (TC39, **5.0**) have no parameter decorators and no metadata by default.
+- **`experimentalDecorators`** is the older, incompatible form still used by Angular and NestJS — check which one a codebase uses.
 
 ## Typing patterns
 
-### Overloads and readonly arrays
+### Overloads
 
-- **Overload signatures** give a function multiple valid call shapes, followed by one implementation signature (a superset, invisible to callers) — reach for this only when a generic function or a discriminated-union parameter can't express the same precision more simply.
-- **Readonly arrays** (`ReadonlyArray<T>`, `readonly T[]`) block mutating methods (`push`, `splice`) at compile time; **`as const`** on a literal narrows to the most specific literal type and makes nested properties `readonly` recursively — both are erased at compile time, enforcing nothing at runtime.
-- Typed event handlers and generic component props (React) use the specific DOM/event generic (`React.ChangeEvent<HTMLInputElement>`) to get correctly typed fields without casts, and infer a component's type parameter from the prop actually passed at the call site rather than requiring the caller to specify it.
+- Several **overload signatures** followed by one hidden implementation signature; prefer generics or a union parameter when they're precise enough.
+
+### Readonly and `as const`
+
+- `readonly T[]` blocks `push`/`splice` at compile time; **`as const`** narrows a literal to its most specific type and makes it deeply `readonly`.
+- Both are compile-time only — nothing is frozen at runtime.

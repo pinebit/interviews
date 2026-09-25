@@ -7,7 +7,7 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 ### Scheduler (GMP)
 
 - Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps, defaults to CPU count.
-- **Since Go 1.25**, the default `GOMAXPROCS` considers cgroup CPU limits (`GODEBUG=containermaxprocs`) and updates periodically as they change (`GODEBUG=updatemaxprocs`); before 1.25, Go ignored cgroup limits entirely, which is why third-party libraries like `automaxprocs` existed.
+- **Since Go 1.25**, the default `GOMAXPROCS` respects the cgroup CPU limit and updates when it changes; before that it used the host CPU count, hence `automaxprocs`.
 - Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the **netpoller** and doesn't hold a thread.
 - Preemption is asynchronous (signal-based) **since Go 1.14**, so tight loops no longer starve the scheduler.
 - Goroutines start with a **2 KB** stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
@@ -35,16 +35,17 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 - `sync.Once` plus `OnceFunc`/`OnceValue`/`OnceValues` (**1.21**) for once-only initialization.
 - `WaitGroup.Go(f)` (**1.25**) starts a goroutine and handles `Add`/`Done` for you.
 
-### More sync primitives
+### Atomics, sync.Map, sync.Pool
 
 - Typed atomics (`atomic.Int64`, etc., **1.19**) replace the old `atomic.AddInt64(&x, ...)` style.
 - `sync.Map` is optimized only for keys written once and read many times, or disjoint key sets per goroutine — a plain map + mutex is usually faster otherwise.
-- `sync.Pool` contents can be dropped on **any** GC cycle, not just after two, and are cleared entirely under memory pressure.
+- `sync.Pool` items are moved to a **victim cache** at each GC and freed at the next one (since Go 1.13), so an unused item survives about **two GC cycles** — never use it as a cache that must hold data.
 
 ### Memory model and races
 
 - Happens-before is established by channel send/receive, mutex lock/unlock, `sync.Once`, and atomics — not by program order across goroutines.
-- A data race is a bug the Go memory model does not fully define the outcome of — not as unconstrained as C/C++ UB, but a multiword value (an interface, a slice header) can still tear and corrupt. Detect with `go test -race` / `go run -race`; it only catches races that actually execute during the run.
+- A data race is less undefined than in C/C++, but multiword values (interfaces, slice headers, strings) can **tear** and corrupt memory.
+- `-race` detects only races that actually execute during the run.
 - Rule of thumb: channels to hand off ownership or coordinate, a mutex to protect shared state in place.
 
 ### context.Context
@@ -77,6 +78,17 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 ### Reducing allocations
 
 - Preallocate slices/maps with a known capacity, reuse buffers via `sync.Pool`, avoid unnecessary `[]byte`↔`string` conversions (both copy), build strings with `strings.Builder`.
+
+### Struct layout and padding
+
+- Fields are aligned to their size, so `struct{ a bool; b int64; c bool }` takes **24 bytes** while `{b int64; a, c bool}` takes **16** — order fields largest first in hot, numerous structs.
+- An empty struct (`struct{}`) is **zero bytes** — used for sets (`map[K]struct{}`) and signal channels.
+
+### Cleanups, weak pointers, interning
+
+- **`runtime.AddCleanup`** (**1.24**) replaces `SetFinalizer`: several cleanups per object, no resurrection, and no leak when objects form a cycle.
+- **`weak.Pointer`** (**1.24**) references an object without keeping it alive — for caches and canonicalization maps.
+- **`unique.Make`** (**1.23**) interns comparable values, turning equality into a pointer compare.
 
 ## Slices, maps, strings
 
@@ -118,12 +130,18 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - Constraints are interfaces defining a **type set**; `~int` accepts any type whose underlying type is `int`; `comparable` allows `==`/map keys.
 - Compiled via **GC-shape stenciling** — types with the same underlying shape share code, which can still be slower than hand-specialized code in hot paths.
-- No type parameters on methods, and no specialization.
+- **Generic methods since Go 1.27**: a method may declare its own type parameters, but interface methods can't, and a generic method can't satisfy an interface method. Still no specialization.
 
 ### Iterators and loop variables
 
 - **Range-over-func** iterators (`iter.Seq`, `iter.Seq2`, **1.23**) let `range` work over a function, powering the `slices`/`maps` iterator helpers.
 - **Since Go 1.22**, each loop iteration gets its own variable — the classic closure-capture-in-loop bug requires `go 1.21` or earlier semantics to reproduce.
+
+### Newer language features
+
+- **1.21**: `min`, `max`, `clear` built-ins. **1.22**: `for i := range 10` over integers.
+- **1.24**: generic type aliases. **1.26**: `new(expr)` allocates and initializes in one step (`new(42)` → `*int`).
+- **1.27**: generic methods; `go fix` (**1.26**) applies "modernizer" rewrites to adopt new idioms.
 
 ## Errors, defer, panic
 
@@ -138,6 +156,38 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 - `defer` inside a long-running loop accumulates — calls only run at function return, not at loop end.
 - `recover()` only stops a panic when called **directly inside a deferred function**; an unrecovered panic in any goroutine kills the whole process.
 
+## Standard library gotchas
+
+### net/http clients and servers
+
+- The default **`http.Client` has no timeout** — a hung server blocks the goroutine forever; always set `Timeout` or use a context.
+- Always **close `resp.Body`** (and drain it) or the connection isn't reused and leaks.
+- `http.Server` needs `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`, or slow clients (Slowloris) hold connections open.
+
+### Routing, JSON, logging
+
+- **`ServeMux` patterns since 1.22**: methods and wildcards, `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
+- **`encoding/json/v2`**: experimental in 1.25 (`GOEXPERIMENT=jsonv2`), standard in **1.27** — faster, and stricter defaults (e.g. case-sensitive field matching).
+- **`log/slog`** (**1.21**) is the standard structured logger.
+
+## Modules and tooling
+
+### Minimal version selection
+
+- Go picks the **minimum** version satisfying every `require` (**MVS**), not the latest — builds are reproducible without a lock file.
+- **`go.sum`** holds checksums verified against the public checksum database; it isn't a lock file.
+
+### Module layout and workspaces
+
+- Major versions ≥ 2 change the import path (`example.com/lib/v2`).
+- **`internal/`** packages are importable only from within the parent tree.
+- **`go.work`** (**1.18**) builds several local modules together without `replace` directives.
+
+### Toolchains and tools
+
+- The `toolchain` line and **`GOTOOLCHAIN`** (**1.21**) let `go` download the toolchain a module requires.
+- **`tool` directives** in `go.mod` (**1.24**) track dev tools, run with `go tool <name>` — replaces the `tools.go` hack.
+
 ## Testing and profiling
 
 ### Test tooling
@@ -150,3 +200,4 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 - **pprof** profiles: CPU, heap (alloc vs inuse), goroutine, block, mutex — collected via test flags or `net/http/pprof` in a running service.
 - `go tool trace` shows scheduler and latency behavior over time, complementing pprof's aggregate view.
+- **Go 1.27** adds a **goroutine leak profile** that reports goroutines blocked on unreachable channels or locks.

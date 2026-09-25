@@ -22,11 +22,13 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - Fee = `gasUsed × (baseFee + priorityFee)`. **Base fee** is set by the protocol, moves **±12.5%** per block toward a 50%-full target, and is **burned**. **Priority fee** (tip) goes to the proposer.
 - Users set `maxFeePerGas` / `maxPriorityFeePerGas`; unused headroom is refunded.
-- The **base fee** and **priority fee** together make ETH potentially deflationary when usage is high — burn can exceed new issuance.
+- Only the **base fee** is burned (the tip is not), so ETH supply shrinks whenever burn exceeds new issuance.
 
 ### Gas costs and refunds
 
 - Base transaction cost **21,000** gas; calldata costs **16 gas/non-zero byte, 4 gas/zero byte**.
+- **EIP-7623** (Pectra, May 2025) adds a calldata **floor price** (40/10 gas per non-zero/zero byte) for data-heavy transactions, pushing bulk data to blobs.
+- **EIP-7825** (Fusaka, Dec 2025) caps a single transaction at **2²⁴ ≈ 16.7M gas**, independent of the block gas limit.
 - **Cold/warm access** (EIP-2929): first touch of a storage slot in a transaction (cold `SLOAD`) costs **2,100**; first touch of an address (cold `CALL`/`BALANCE`/`EXT*`) costs **2,600**; any warm (already-touched) access costs **100**.
 - Clearing a storage slot to zero gives a partial gas refund, capped at **1/5** of the transaction's total gas (EIP-3529, down from the pre-London 1/2).
 - The per-block gas limit is not fixed by protocol — it moves by validator vote, roughly ±1/1024 per block — so treat any specific number as a snapshot, not a constant.
@@ -62,14 +64,14 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 ## Smart contract security
 
-### Common vulnerability classes
+### Reentrancy, access control, oracles
 
 - **Reentrancy** (single-function, cross-function, and **read-only** reentrancy via view functions reading pre-update state) — fix with **Checks-Effects-Interactions** plus a guard.
 - **Access control** — missing `onlyOwner`, unprotected initializers, using `tx.origin` instead of `msg.sender` for auth.
 - **Oracle/price manipulation** — spot DEX prices moved within one transaction via flash loan; use TWAPs or a push oracle like Chainlink instead.
 - **Signature replay/malleability** — missing nonce/chainId/deadline in signed messages; `s` can be flipped (`n - s`) unless the verifier enforces low-`s`.
 
-### More vulnerability classes
+### Unchecked calls, proxies, token quirks
 
 - **Unchecked calls** — ignoring a low-level `call`'s return, or `transfer`/`transferFrom` on non-standard ERC-20s (use SafeERC20).
 - **Delegatecall storage collisions**, **uninitialized proxies**, **fee-on-transfer/rebasing tokens** breaking balance assumptions, **unbounded-loop DoS**.
@@ -80,7 +82,14 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 ### Proxy patterns
 
 - All upgrade patterns route calls through a proxy that holds **storage** and `delegatecall`s to an **implementation**.
-- **Transparent proxy** — admin calls go to upgrade logic, everyone else to the implementation. **UUPS** (ERC-1822) — upgrade logic lives in the implementation itself (cheaper proxy, but a broken implementation can brick upgrades). **Beacon** — many proxies read one shared beacon for their implementation address. **Diamond** (EIP-2535) — many implementation "facets" behind one proxy.
+
+| Pattern | Upgrade logic lives in | Note |
+|---|---|---|
+| **Transparent** | proxy (admin-only path) | admin can't call the implementation |
+| **UUPS** (ERC-1822) | implementation | cheaper proxy; an implementation without upgrade code bricks it |
+| **Beacon** | shared beacon contract | upgrades many proxies at once |
+| **Diamond** (EIP-2535) | proxy routing to many facets | per-selector implementations |
+
 - Implementation address stored at the pseudo-random **EIP-1967** slot to avoid collision with the implementation's own variables; new versions must only **append** storage, never reorder — or use **ERC-7201 namespaced storage**.
 - Constructors don't run through a proxy — use **initializer** functions, and call `_disableInitializers()` in the implementation's own constructor so it can't be initialized directly.
 

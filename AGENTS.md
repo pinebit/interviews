@@ -8,7 +8,7 @@ This repo is a set of concise topic briefs for technical interview prep. The rea
 - `docs/index.md` — the reading site's homepage.
 - `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on brief concepts. `.claude/skills/quiz` is a symlink to it so Claude Code and Codex share one copy.
 - File names are lowercase, single word or kebab-case.
-- `README.md` and `docs/index.md` list every topic with a link and a one-line summary. Update both when adding or renaming a file.
+- `README.md` and `docs/index.md` list every topic with a link and a one-line summary, and `zensical.toml` lists it in the site nav. Update all three when adding or renaming a file.
 
 ## Target format
 
@@ -86,6 +86,9 @@ Each concept lives in exactly one file. Other files link to it.
 | Browser event loop, JS language semantics | javascript | frontend, typescript |
 | Rendering strategies, browser pipeline, Web Vitals, HTTP caching in the browser, React | frontend | javascript |
 | asyncio event loop | python | — |
+| TCP/UDP, HTTP versions, QUIC, DNS, IP addressing, NAT, MTU, BGP/anycast | networking | backend, system, devops |
+| Processes, signals, scheduling, virtual memory, OOM, file descriptors, epoll/io_uring, fsync, locks | os | devops, database, golang |
+| Container internals (namespaces, cgroups), Kubernetes graceful shutdown | devops | os, backend |
 
 ## Style
 
