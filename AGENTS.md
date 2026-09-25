@@ -50,7 +50,7 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 - **Code** only when shorter than prose; ≤ 6 lines.
 - **Bold** the term or number worth memorizing — at most 3 per concept, not counting tables.
 - **Versions**: note when behavior changed ("since Go 1.22", "Python 3.14+", "Pectra, May 2025").
-- **Cross-topic**: never repeat a concept owned by another file; link to it instead: `see [security.md](security.md)`. Link to files, not anchors (the strict build validates anchors; only use one if you've checked the slug).
+- **Cross-topic**: the owner file covers a concept in full; another file may overlap briefly from its own angle and links to the owner: `see [security.md](security.md)` (rules in Topic ownership). Link to files, not anchors (the strict build validates anchors; only use one if you've checked the slug).
 - Suggested size: 5–10 sections, 3–8 concepts each. Shorter is better if nothing is lost.
 
 ### What to include
@@ -72,11 +72,11 @@ Keep facts that a working engineer knew once but loses without daily use:
 - Generic advice ("write tests", "use least privilege") without a concrete mechanism.
 - History and trivia that nobody asks about (e.g. "what is a zero-day").
 
-## Topic ownership (avoid duplicates)
+## Topic ownership
 
-Each concept lives in exactly one file. Other files link to it.
+Each concept has one owner file that covers it in full. Other files may overlap where the concept matters to them too: a bullet or a short concept stating what matters from their angle (database says the WAL is only durable after `fsync`; os explains `fsync`), with a link to the owner for the rest. Don't copy the owner's concept wholesale — copies drift apart, and the quiz would ask the same question twice.
 
-| Concept | Owner | Others link from |
+| Concept | Owner | Referenced from |
 |---|---|---|
 | Consistency models, replication theory, consensus, clocks, delivery semantics, sagas, CRDTs | distributed | database, system, backend |
 | Retries, backoff, circuit breakers, backpressure, tail latency | distributed | backend, system |
