@@ -6,7 +6,7 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### Loading a URL
 
-- **DNS** resolves the name → **TCP** handshake (1 RTT) → **TLS 1.3** handshake (1 RTT) → HTTP request → response → the browser parses and renders ([frontend.md](frontend.md)).
+- DNS resolves the name → TCP handshake (1 RTT) → **TLS 1.3** handshake (1 RTT) → HTTP request → response → the browser parses and renders ([frontend.md](frontend.md)).
 - A cold HTTPS request over TCP costs about **3 RTTs** before the first response byte; **HTTP/3** saves one, and resumption with 0-RTT saves more.
 - Every later request reuses the connection, which is why keep-alive and connection pools matter.
 
@@ -19,31 +19,38 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### Handshake and connection queues
 
-- **SYN → SYN-ACK → ACK**: one RTT before any data.
+- SYN → SYN-ACK → ACK: one RTT before any data.
 - The kernel keeps a **SYN queue** (half-open) and an **accept queue** (established, waiting for `accept()`); an overflowing accept queue drops connections under load.
-- A **SYN flood** fills the SYN queue; **SYN cookies** encode state in the sequence number so no queue slot is needed.
+- A SYN flood fills the SYN queue; **SYN cookies** encode state in the sequence number so no queue slot is needed.
 
 ### Teardown and TIME_WAIT
 
-- The side that **closes first** enters **TIME_WAIT** for 2×MSL (**60 s** on Linux) so delayed packets can't corrupt a new connection on the same port pair.
-- Many short-lived outbound connections exhaust **ephemeral ports** (~28k by default) — reuse connections (keep-alive, pooling) instead of tuning the kernel.
+- The side that closes first enters **TIME_WAIT** for 2×MSL (**60 s** on Linux) so delayed packets can't corrupt a new connection on the same port pair.
+- Many short-lived outbound connections exhaust ephemeral ports (~28k by default) — reuse connections (keep-alive, pooling) instead of tuning the kernel.
 - Many connections in **CLOSE_WAIT** mean the application never called `close()` — a bug in your code, not the network.
 
 ### Flow and congestion control
 
-- **Flow control** (receive window) protects the receiver; **congestion control** (congestion window) protects the network.
+- Flow control (receive window) protects the receiver; congestion control (congestion window) protects the network.
 - **Slow start** begins at **10 segments (~14 KB)** and roughly doubles per RTT — why the first 14 KB of a page matter and why new connections are slow.
 - Throughput ≤ window / RTT (**bandwidth-delay product**) — high-latency links need large windows.
-- **CUBIC** (Linux default) backs off on packet loss; **BBR** models bandwidth and RTT instead, doing better on lossy links.
+- CUBIC (Linux default) backs off on packet loss; BBR models bandwidth and RTT instead, doing better on lossy links.
+
+### Keepalive and half-open connections
+
+- **TCP keepalive** probes an idle connection to detect a dead peer (Linux: first probe after **2 hours** by default); HTTP keep-alive only means reusing a connection — unrelated.
+- A peer that crashes or loses the network without sending FIN/RST leaves a half-open connection, invisible until you write or probe.
+- Keep the client's idle timeout **shorter than the server's or load balancer's**, or requests land on connections the other side just closed (sporadic 502s and resets).
 
 ### Nagle and delayed ACKs
 
-- **Nagle's algorithm** holds small writes until earlier data is acknowledged; combined with the receiver's **delayed ACK** it adds up to **~40 ms** stalls for request-response traffic.
+- **Nagle's algorithm** holds small writes until earlier data is acknowledged; combined with the receiver's delayed ACK it adds up to **~40 ms** stalls for request-response traffic.
 - Set **`TCP_NODELAY`** for latency-sensitive protocols (most RPC libraries do).
 
 ### Head-of-line blocking
 
 - TCP delivers bytes in order, so one lost packet stalls everything behind it — even data for unrelated HTTP/2 streams.
+- HTTP/1.1 blocks at the request level, HTTP/2 fixes that but not TCP's, and **QUIC** fixes both with per-stream loss recovery.
 
 ### UDP
 
@@ -65,9 +72,9 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### HTTP/3 and QUIC
 
-- **QUIC** runs over UDP with TLS 1.3 built in: **1-RTT** setup (0-RTT on resumption) and loss recovery **per stream**, so no cross-stream head-of-line blocking.
+- QUIC runs over UDP with TLS 1.3 built in: **1-RTT** setup (0-RTT on resumption) and loss recovery **per stream**, so no cross-stream head-of-line blocking.
 - **Connection migration**: a connection ID survives an IP change (Wi-Fi → cellular).
-- Clients discover it via the `Alt-Svc` header or a DNS **HTTPS** record; many networks block UDP, so browsers fall back to TCP.
+- Clients discover it via the `Alt-Svc` header or a DNS HTTPS record; many networks block UDP, so browsers fall back to TCP.
 
 ### WebSocket handshake
 
@@ -78,12 +85,13 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### Resolution path
 
-- Stub resolver → **recursive resolver** (ISP, 1.1.1.1, VPC resolver) → root → TLD → **authoritative** server; each answer is cached for its **TTL** at every layer.
+- Stub resolver → **recursive resolver** (ISP, 1.1.1.1, VPC resolver) → root → TLD → authoritative server; each answer is cached for its **TTL** at every layer.
 - Failed lookups are cached too (**negative caching**, from the SOA record).
 
 ### Record types
 
-- **A/AAAA** (IPv4/IPv6), **CNAME** (alias — not allowed at the zone apex), **MX**, **NS**, **TXT** (SPF, DKIM, DMARC, domain verification), **SRV**, **CAA** (which CAs may issue certificates), **HTTPS/SVCB** (protocol hints such as HTTP/3).
+- A/AAAA (IPv4/IPv6), **CNAME** (alias — **not allowed at the zone apex**), MX, NS, SRV.
+- TXT carries SPF, DKIM, DMARC, and domain verification; **CAA** limits which CAs may issue certificates; HTTPS/SVCB advertise protocol hints such as HTTP/3.
 
 ### TTL trade-offs
 
@@ -92,8 +100,8 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### Transport and privacy
 
-- UDP port 53 by default, **TCP** for large responses (answers above ~**1232 bytes** with EDNS get truncated and retried over TCP).
-- **DoT**/**DoH** encrypt queries to the resolver; **DNSSEC** signs records for authenticity but doesn't encrypt them.
+- UDP port 53 by default, TCP for large responses (answers above ~**1232 bytes** with EDNS get truncated and retried over TCP).
+- DoT/DoH encrypt queries to the resolver; **DNSSEC** signs records for authenticity but doesn't encrypt them.
 
 ## IP and routing
 
@@ -109,7 +117,7 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### MTU and fragmentation
 
-- Ethernet **MTU 1500** → TCP **MSS 1460**; tunnels (VPN, VXLAN) shrink it.
+- Ethernet **MTU 1500** → TCP MSS 1460; tunnels (VPN, VXLAN) shrink it.
 - **Path MTU discovery** needs ICMP "fragmentation needed" messages; firewalls that drop ICMP cause **black holes** — small requests work, large ones hang.
 
 ### Anycast and BGP
@@ -119,4 +127,5 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### IPv6
 
-- 128-bit addresses, no NAT needed, **SLAAC** self-configuration; dual-stack clients prefer IPv6 and race both (**Happy Eyeballs**) to avoid slow fallbacks.
+- 128-bit addresses, no NAT needed; hosts configure themselves with **SLAAC**, and a subnet is normally a `/64`.
+- Dual-stack clients prefer IPv6 but race both families (**Happy Eyeballs**) so a broken path doesn't stall connections.

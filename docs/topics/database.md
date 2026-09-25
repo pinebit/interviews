@@ -56,8 +56,8 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### PostgreSQL isolation
 
-- **Default: Read Committed**; Repeatable Read is **snapshot isolation** — no phantoms, and a concurrent update of the same row **aborts** (no lost update), but write skew is possible.
-- **Serializable** is **SSI**: it prevents write skew by aborting with a serialization error, so the app must **retry**.
+- **Default: Read Committed**; Repeatable Read is **snapshot isolation** — no phantoms, and a concurrent update of the same row aborts (no lost update), but write skew is possible.
+- Serializable is **SSI**: it prevents write skew by aborting with a serialization error, so the app must retry.
 
 ### MySQL InnoDB isolation
 
@@ -68,18 +68,19 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### PostgreSQL MVCC
 
-- Readers read a **snapshot** and never block writers, or vice versa; writers still lock rows against each other.
-- Old row versions stay in the table, tagged **`xmin`/`xmax`**; **VACUUM** reclaims them, and a long-running transaction blocks it, causing **bloat**.
+- Readers read a snapshot and never block writers, or vice versa; writers still lock rows against each other.
+- Old row versions stay in the table, tagged **`xmin`/`xmax`**; **VACUUM** reclaims them, and a long-running transaction blocks it, causing bloat.
 - **XID wraparound** (32-bit transaction IDs) forces aggressive anti-wraparound vacuuming.
-- **HOT updates** skip index maintenance when no indexed column changed and the page has room.
+- HOT updates skip index maintenance when no indexed column changed and the page has room.
 
 ### InnoDB MVCC
 
 - Updates happen in place; older versions are rebuilt from the **undo log**, and a long transaction makes undo history grow.
 
-### Row locks and queue tables
+### Row locks, queue tables, advisory locks
 
 - `SELECT ... FOR UPDATE` locks the rows it returns; **`SKIP LOCKED`** lets workers claim different rows of a queue table without blocking.
+- PostgreSQL **advisory locks** are app-defined locks on a number, not a row — for leader election or job dedup without a table to lock.
 
 ### Optimistic locking
 
@@ -95,10 +96,6 @@ What experienced database engineers forget before an interview, grouped by subto
 
 - Most `ALTER TABLE` forms take an **`ACCESS EXCLUSIVE`** lock. If it waits behind a long query, **every later query queues behind it** — a brief outage from a "fast" migration.
 - Set **`lock_timeout`** (a few seconds) on migrations and retry; rollout patterns in [devops.md](devops.md).
-
-### Advisory locks
-
-- PostgreSQL **advisory locks** are app-defined locks on a number, not a row — for leader election or job dedup without a table to lock.
 
 ## Storage engines and durability
 
@@ -120,7 +117,7 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Backups and PITR
 
-- **Logical** backups (`pg_dump`): portable, slow to restore at scale. **Physical** (`pg_basebackup`, snapshots): fast restore, same major version.
+- Logical backups (`pg_dump`): portable, slow to restore at scale. Physical (`pg_basebackup`, snapshots): fast restore, same major version.
 - **PITR** = physical base backup + WAL replayed to a chosen moment. Replicas are **not backups** — they replicate mistakes too.
 
 ## Query execution and tuning
@@ -156,7 +153,7 @@ What experienced database engineers forget before an interview, grouped by subto
 ### Window functions
 
 - `fn() OVER (PARTITION BY ... ORDER BY ...)` computes per row without collapsing rows.
-- **`ROW_NUMBER`** 1,2,3; **`RANK`** 1,1,3 (gaps); **`DENSE_RANK`** 1,1,2.
+- `ROW_NUMBER` 1,2,3; **`RANK`** 1,1,3 (gaps); **`DENSE_RANK`** 1,1,2.
 - The default frame with `ORDER BY` is **`RANGE ... CURRENT ROW`**, which includes all peer rows with equal sort keys — use `ROWS` for a true running total.
 
 ### CTE materialization
@@ -174,17 +171,17 @@ What experienced database engineers forget before an interview, grouped by subto
 
 - Commands execute on **one thread**, so each command (and Lua script or `MULTI` block) is atomic; a slow command (`KEYS *`, big `SMEMBERS`) blocks everyone.
 - Structures: strings, hashes, lists, sets, **sorted sets** (skip list + hash — leaderboards, rate limiters), streams, HyperLogLog.
-- **Redis Cluster** splits keys into **16,384 hash slots**; multi-key operations need the same slot, forced with **hash tags** (`{user42}:cart`).
+- Redis Cluster splits keys into **16,384 hash slots**; multi-key operations need the same slot, forced with hash tags (`{user42}:cart`).
 
 ### Redis persistence and licensing
 
-- **RDB**: periodic fork + snapshot (copy-on-write), loses writes since the last one. **AOF**: logs every write; `appendfsync everysec` (default) loses up to **~1 s**.
+- RDB: periodic fork + snapshot (copy-on-write), loses writes since the last one. AOF: logs every write; `appendfsync everysec` (default) loses up to **~1 s**.
 - Replication is **asynchronous** — failover can drop acknowledged writes.
-- The 2024 license change led to the **Valkey** fork (Linux Foundation); **Redis 8** (2025) added AGPLv3 as an option.
+- The 2024 license change led to the **Valkey** fork (Linux Foundation); Redis 8 (2025) added AGPLv3 as an option.
 
 ### Wide-column key design (Cassandra, DynamoDB)
 
-- The **partition key** picks the node; the **sort/clustering key** orders rows inside the partition — a query must supply the partition key.
+- The **partition key** picks the node; the sort/clustering key orders rows inside the partition — a query must supply the partition key.
 - Model **tables per query** (denormalized), not per entity; unbounded partitions (all events of a popular user) become hot and huge — add a time bucket to the key.
 - Deletes write **tombstones**, which slow reads until compaction purges them.
 
@@ -198,12 +195,12 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Normalization
 
-- **1NF** atomic values → **2NF** no partial-key dependency → **3NF/BCNF** no dependency on non-key columns: each fact stored once.
+- 1NF atomic values → 2NF no partial-key dependency → **3NF/BCNF** no dependency on non-key columns: each fact stored once.
 - **Denormalize** measured hot paths only (copied columns, counters, materialized views), accepting harder writes.
 
 ### Surrogate keys
 
-- **Auto-increment bigint**: compact and ordered, but reveals counts and needs one sequence.
+- Auto-increment bigint: compact and ordered, but reveals counts and needs one sequence.
 - **UUIDv4** scatters inserts across the B-tree; **UUIDv7** is time-ordered and native via **`uuidv7()` since PostgreSQL 18** — ID schemes in [distributed.md](distributed.md).
 
 ### Constraints and soft deletes
@@ -221,13 +218,13 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Table partitioning
 
-- **Range** (most common, by date), **list**, or **hash**; **partition pruning** skips irrelevant partitions.
+- **Range** (most common, by date), list, or hash; **partition pruning** skips irrelevant partitions.
 - Dropping an old partition is instant, unlike a bloating bulk `DELETE`; PostgreSQL unique constraints must include the partition key.
 
 ### Connection pooling
 
 - Each PostgreSQL connection is a **process** (a few MB), so thousands of direct connections hurt — pool them.
-- PgBouncer **session mode** keeps `SET` and advisory locks; **transaction mode** scales further but loses session state; prepared statements work in it **since PgBouncer 1.21**.
+- PgBouncer session mode keeps `SET` and advisory locks; **transaction mode** scales further but loses session state; prepared statements work in it **since PgBouncer 1.21**.
 
 ### OLTP vs OLAP
 

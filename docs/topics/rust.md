@@ -11,7 +11,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### Borrow rules and NLL
 
-- Many `&T` **or** one `&mut T` at a time — never both for overlapping uses.
+- Many `&T` or one `&mut T` at a time — never both for overlapping uses.
 - **Non-lexical lifetimes**: a borrow ends at its **last use**, not at the end of the block.
 - **Reborrowing** (`&mut *r`, implicit when passing `r`) makes a shorter borrow, so you can call several `&mut self` methods in a row.
 
@@ -37,7 +37,8 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### "Does not live long enough"
 
-- Usually a temporary dropped while still borrowed, or a struct outliving a reference it holds — find where the referent is actually owned.
+- Usually a **temporary** dropped at the end of the statement while still borrowed — bind it to a variable first.
+- Or a struct outliving a reference it holds — find where the referent is actually owned, or store owned data instead.
 
 ## Traits and generics
 
@@ -55,7 +56,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Associated types vs type parameters
 
 - **Associated types** (`Iterator::Item`) fix one type per impl; **type parameters** allow many impls for one type (`From<A>`, `From<B>`).
-- **GATs** (**1.65**) let an associated type be generic, e.g. over a lifetime — the basis of lending iterators.
+- **GATs** (1.65) let an associated type be generic, e.g. over a lifetime — the basis of lending iterators.
 
 ### `Sized` and `impl Trait`
 
@@ -64,7 +65,8 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### Async functions in traits
 
-- **Async fn in traits** (**1.75**) desugars to a method returning `impl Future`; `dyn` dispatch over them still needs boxing or the `async-trait` crate.
+- **Async fn in traits** (**1.75**) desugars to a method returning `impl Future`.
+- Callers can't require that future to be `Send` without help (the `trait-variant` crate), and `dyn` dispatch still needs boxing or `async-trait`.
 
 ## Closures, iterators, strings
 
@@ -93,16 +95,21 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### Box, Rc, Arc, Cow
 
-- **`Box<T>`**: single owner on the heap. **`Rc<T>`**: shared, non-atomic count, one thread. **`Arc<T>`**: atomic count, cross-thread.
-- An `Rc`/`Arc` cycle **leaks**; break it with **`Weak<T>`**.
-- **`Cow<T>`** borrows until a mutation forces an owned copy.
+- `Box<T>`: single owner on the heap. **`Rc<T>`**: shared, non-atomic count, one thread. **`Arc<T>`**: atomic count, cross-thread.
+- An `Rc`/`Arc` cycle leaks; break it with **`Weak<T>`**.
+- `Cow<T>` borrows until a mutation forces an owned copy.
 
 ### RAII, drop order, leaking
 
 - **RAII**: resources (files, locks, sockets) are released in `Drop` when the owner goes out of scope — no `finally` needed.
-
-- Locals drop in **reverse declaration order**; struct fields drop in **declaration order**.
+- Locals drop in **reverse declaration order**; struct fields drop in declaration order.
 - **`mem::forget`** is safe: leaking memory isn't undefined behavior in Rust.
+
+### Deref coercion, AsRef, Borrow
+
+- **Deref coercion** converts `&String` → `&str`, `&Vec<T>` → `&[T]`, `&Box<T>` → `&T` automatically at calls and method lookups.
+- **`AsRef<T>`** is a cheap reference conversion for flexible parameters: `fn open<P: AsRef<Path>>(p: P)`.
+- **`Borrow<T>`** also promises identical `Eq`/`Hash`/`Ord`, which is why `HashMap<String, V>::get` accepts a `&str`.
 
 ### Pin and Unpin
 
@@ -140,7 +147,8 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### Atomics and memory ordering
 
-- **Relaxed**: atomicity only. **Release** store + **Acquire** load: happens-before between the two threads. **SeqCst**: one global order, strongest and slowest.
+- Relaxed: atomicity only. **Release** store + **Acquire** load: happens-before between the two threads. **SeqCst**: one global order, strongest and slowest.
+- x86 is strongly ordered, so a too-weak ordering often works there and fails only on ARM.
 
 ## Async
 
@@ -149,13 +157,16 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - Futures are **lazy** — nothing runs until an executor (e.g. **Tokio**) polls them.
 - Holding a non-`Send` guard across `.await` makes the future non-`Send`, so it can't be spawned on a multi-threaded runtime.
 
-### Blocking in async code
+### Blocking and locks in async code
 
 - A blocking call inside async code stalls the worker thread and every task on it — move it to **`spawn_blocking`**.
+- A `std::sync::Mutex` is fine in async code if it's **never held across `.await`** (and it's faster).
+- Use **`tokio::sync::Mutex`** only when the guard must live across an `.await`.
 
 ### Cancellation is drop
 
-- Dropping a future cancels it at its current `.await`, with no signal — **cancel safety** in `select!` means losing a branch mid-await leaves no half-done state.
+- Dropping a future cancels it at its current `.await`, with no signal and no chance to run async cleanup.
+- **Cancel safety**: in `select!`, a losing branch is dropped mid-await — `read_line` into a buffer can lose data, `recv()` on a channel can't.
 
 ### Async closures
 
@@ -188,5 +199,5 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Lock files and editions
 
 - Commit **`Cargo.lock`** for binaries; since 2023, Cargo's guidance is to commit it for libraries too, as a CI baseline (dependents ignore it).
-- **Editions** are opt-in, per-crate language changes; **edition 2024** is available **since Rust 1.85**.
-- Edition 2024 enables **let chains** (`if let Some(x) = a && x > 0`, **1.88**) and makes `impl Trait` in return position capture all in-scope lifetimes by default.
+- Editions are opt-in, per-crate language changes; **edition 2024** is available since Rust 1.85.
+- Edition 2024 enables **let chains** (`if let Some(x) = a && x > 0`, 1.88) and makes `impl Trait` in return position capture all in-scope lifetimes by default.

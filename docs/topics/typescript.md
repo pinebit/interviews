@@ -25,13 +25,13 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Variance annotations
 
-- Generic types are checked by **structure**, so variance is inferred; **`in`**/**`out`** annotations (`interface Producer<out T>`, **4.7**) declare contravariance/covariance explicitly — faster checks and clearer errors.
+- Generic types are checked by structure, so variance is inferred; **`in`**/**`out`** annotations (`interface Producer<out T>`, 4.7) declare contravariance/covariance explicitly — faster checks and clearer errors.
 - Arrays are treated **covariantly** (`Dog[]` assignable to `Animal[]`) even though writes make that unsound.
 
 ### Method bivariance
 
-- Under `strictFunctionTypes`, **function-typed properties** (`f: (x: T) => void`) check parameters **contravariantly**.
-- **Method shorthand** (`f(x: T): void`) stays **bivariant** on purpose — unsound, but keeps common override patterns compiling.
+- Under `strictFunctionTypes`, function-typed properties (`f: (x: T) => void`) check parameters **contravariantly**.
+- Method shorthand (`f(x: T): void`) stays **bivariant** on purpose — unsound, but keeps common override patterns compiling.
 
 ## Narrowing
 
@@ -43,7 +43,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### Custom type guards
 
 - A **type predicate** (`x is Fish`) or an **`asserts x is T`** function packages narrowing the compiler can't infer.
-- **Inferred type predicates** (**5.5**): a boolean-returning function that already narrows gets `x is T` automatically, e.g. `arr.filter(x => x !== undefined)`.
+- **Inferred type predicates** (5.5): a boolean-returning function that already narrows gets `x is T` automatically, e.g. `arr.filter(x => x !== undefined)`.
 
 ### Exhaustiveness with `never`
 
@@ -52,7 +52,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### `as` vs `satisfies` vs `!`
 
 - **`x as T`** is an unchecked assertion — it only rejects conversions between unrelated types (bypass: `as unknown as T`).
-- **`satisfies T`** checks without changing the inferred type; **`x!`** strips `null`/`undefined` with no runtime check.
+- **`satisfies T`** (4.9) checks without changing the inferred type; **`x!`** strips `null`/`undefined` with no runtime check.
 
 ## Type-level programming
 
@@ -68,9 +68,14 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Inference controls
 
-- **`satisfies`** (**4.9**) checks a value against a type without widening its inferred type.
-- **`const` type parameters** (**5.0**) infer literal types without the caller writing `as const`.
-- **`NoInfer<T>`** (**5.4**) excludes a position from inference, so a default argument can't widen `T`.
+- **`const` type parameters** (5.0) infer literal types without the caller writing `as const`.
+- **`NoInfer<T>`** (5.4) excludes a position from inference, so a default argument can't widen `T`.
+
+### Utility types on unions
+
+- **`Omit` and `Pick` aren't distributive**: `Omit<A | B, 'id'>` keeps only keys common to both, collapsing the union.
+- Write a distributive version: `type DistOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never`.
+- `keyof (A | B)` is only the shared keys; `Partial` and `Readonly` are **shallow**.
 
 ### Branded types
 
@@ -97,6 +102,13 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### Module resolution
 
 - **`moduleResolution: bundler`** mirrors bundlers (extensionless imports allowed); **`nodenext`** mirrors Node exactly, requiring file extensions in ESM.
+- `node10` (the old `node`) ignores `package.json` `exports` and is deprecated in 6.0.
+
+### TypeScript 6.0 defaults
+
+- **TypeScript 6.0** (March 2026), the last JS-based release, turns **`strict` on by default** and defaults `module` to `esnext` and `target` to `es2025`.
+- **`types` defaults to `[]`**: global `@types` packages are no longer auto-included — add `"types": ["node"]` or get "Cannot find name 'process'".
+- Deprecates `target: es5`, `moduleResolution: node10`, `baseUrl`, `outFile`, and AMD/UMD/SystemJS output; 7.0 removes them.
 
 ### TypeScript 7 native compiler
 
@@ -107,7 +119,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### The `strict` family
 
-- **`strict: true`** enables `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, and more — the floor for new code.
+- **`strict`** enables `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, and more — on by default since 6.0.
 - Without **`strictNullChecks`**, `null`/`undefined` are assignable to every type.
 
 ### Flags outside `strict`
@@ -136,7 +148,8 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Overloads
 
-- Several **overload signatures** followed by one hidden implementation signature; prefer generics or a union parameter when they're precise enough.
+- Several **overload signatures** followed by one implementation signature that callers can't see.
+- Resolution picks the **first matching** signature top-down — list specific before general; prefer generics or a union parameter when they're precise enough.
 
 ### Readonly and `as const`
 

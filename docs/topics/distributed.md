@@ -6,9 +6,9 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### CAP and PACELC
 
-- During a **network partition**, choose **Consistency** (reject or block — etcd, ZooKeeper) or **Availability** (serve possibly stale data — Cassandra, DynamoDB default).
-- CAP's "C" is **linearizability**, not ACID's "C" (application invariants).
-- **PACELC**: if Partitioned, A vs C; **Else**, **Latency vs Consistency** — the everyday cost when nothing is broken.
+- During a **network partition**, choose Consistency (reject or block — etcd, ZooKeeper) or Availability (serve possibly stale data — Cassandra, DynamoDB default).
+- CAP's "C" is linearizability, not ACID's "C" (application invariants).
+- **PACELC**: if Partitioned, A vs C; Else, **Latency vs Consistency** — the everyday cost when nothing is broken.
 
 ### FLP and Two Generals
 
@@ -17,23 +17,21 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Byzantine faults
 
-- Nodes that lie need **`3f + 1`** nodes to tolerate `f` faults (vs **`2f + 1`** for crash faults); classic algorithm **PBFT**. Most internal systems assume crash faults only.
+- Tolerating `f` nodes that lie needs **`3f + 1`** nodes, vs `2f + 1` for crash faults; the classic algorithm is **PBFT**.
+- Most internal systems assume crash faults only; blockchains must assume Byzantine ones.
 
 ## Consistency models
 
 ### Consistency hierarchy
 
-- From strongest: **strict serializable** > **linearizable** > **sequential** > **causal** > **eventual**.
+- From strongest: strict serializable > linearizable > sequential > causal > eventual.
 - **Linearizability**: single-object recency — once a write completes, every later read (in real time) sees it.
 - **Serializability**: multi-object transaction isolation — equivalent to *some* serial order, not necessarily real-time order.
-
-### Strict serializability
-
-- Serializability + real-time order: transactions behave like linearizable operations (Spanner, FoundationDB). CockroachDB is serializable but linearizable only **per key**.
+- **Strict serializability** adds real-time order (Spanner, FoundationDB); CockroachDB is serializable but linearizable only per key.
 
 ### Session guarantees
 
-- **Read-your-writes**, **monotonic reads**, **monotonic writes**, **writes-follow-reads** — per-client guarantees layered on eventual consistency.
+- **Read-your-writes**, **monotonic reads**, **monotonic writes**, writes-follow-reads — per-client guarantees layered on eventual consistency.
 - Typical implementations: sticky routing to one replica, or reading from a replica that has caught up to the client's last-seen version.
 
 ## Replication
@@ -41,7 +39,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Single-leader replication
 
 - All writes go to one leader; **sync** followers are durable but add latency, **async** followers are fast but lose recent writes on failover.
-- **Semi-sync** waits for at least one follower.
+- Semi-sync waits for at least one follower.
 - **Replication lag** breaks read-your-writes: a user can't see their own update right after writing.
 
 ### Multi-leader and leaderless
@@ -64,11 +62,12 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Hash vs range partitioning
 
 - **Hash** spreads load evenly but loses range scans; **range** keeps keys sorted but sequential keys (timestamps) create hot spots.
+- Compound keys combine both: hash the first component to pick a partition, keep rows sorted by the rest (Cassandra partition + clustering key).
 
 ### Consistent and rendezvous hashing
 
 - **Consistent hashing**: nodes and keys on a ring; a key belongs to the next node clockwise, so adding a node moves ~**`1/N`** of keys. **Virtual nodes** smooth the load.
-- **Rendezvous hashing**: owner = node with the highest `hash(node, key)` — no ring, same minimal movement.
+- Rendezvous hashing: owner = node with the highest `hash(node, key)` — no ring, same minimal movement.
 
 ### Hot keys and secondary indexes
 
@@ -84,8 +83,8 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Raft
 
-- **Leader election**: randomized timeouts avoid split votes; one vote per node per **term**.
-- **Log replication**: an entry commits once a **majority** stores it.
+- **Leader election**: randomized timeouts avoid split votes; one vote per node per term.
+- Log replication: an entry commits once a **majority** stores it.
 - **Election restriction**: only a candidate with an up-to-date log can win, so committed entries survive.
 
 ### Raft reads and membership
@@ -95,29 +94,27 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Paxos
 
-- Two phases — **prepare/promise**, then **accept/accepted** — across proposers and acceptors; same guarantees as Raft, harder to implement (Multi-Paxos adds a stable leader).
+- Two phases across proposers and acceptors: **prepare/promise**, then **accept/accepted**.
+- Same safety as Raft but harder to implement; **Multi-Paxos** adds a stable leader to skip the first phase.
 
 ### Leases and fencing tokens
 
-- A **lease** is a lock with a TTL; if the holder dies, it expires and someone else takes over.
+- A lease is a lock with a TTL; if the holder dies, it expires and someone else takes over.
 - A holder paused past expiry (long GC) still thinks it's the leader — **split brain**. **Fencing tokens** (increasing per lease, checked by the storage) reject its stale writes.
 - **Redlock** depends on timing assumptions; use a consensus store (etcd, ZooKeeper) when correctness matters.
 
 ## Time, ordering, and IDs
 
-### Physical clocks
+### Physical clocks and TrueTime
 
-- Clocks drift and NTP can step them backward, so wall-clock timestamps can't order events across nodes — last-write-wins silently loses data.
+- Clocks drift and NTP can step them backward, so wall-clock timestamps can't order events across nodes — **last-write-wins** silently loses data.
+- Spanner's **TrueTime** returns an uncertainty interval; a commit **waits out** the uncertainty (~ms) before becoming visible, giving external consistency.
 
 ### Logical clocks
 
 - **Lamport clock**: increment per event; on receive, `max(local, received) + 1`. A total order consistent with causality, but can't detect concurrency.
-- **Vector clock**: one counter per node; comparing two vectors tells **happened-before** from **concurrent**.
-- **Hybrid logical clock (HLC)**: physical time + logical counter — causal and close to wall time (CockroachDB).
-
-### TrueTime
-
-- Spanner's **TrueTime** returns an uncertainty interval; a commit **waits out** the uncertainty (~ms) before becoming visible, giving external consistency.
+- **Vector clock**: one counter per node; comparing two vectors tells **happened-before** from concurrent.
+- Hybrid logical clock (HLC): physical time + logical counter — causal and close to wall time (CockroachDB).
 
 ### Distributed IDs
 
@@ -132,13 +129,13 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Two-phase commit
 
-- Coordinator asks participants to **prepare** (vote and hold locks), then **commit** or **abort**.
+- Coordinator asks participants to prepare (vote and hold locks), then commit or abort.
 - Atomic but **blocking**: if the coordinator dies after prepare, participants hold locks until it returns. **3PC** avoids that only without partitions, so it's rarely used.
 
 ### Sagas
 
 - A chain of local transactions, each with a **compensating action**; eventual consistency, **no isolation** (others see intermediate states).
-- **Orchestration** (a central coordinator) vs **choreography** (services react to each other's events).
+- **Orchestration** (a central coordinator) vs choreography (services react to each other's events).
 
 ### Effectively-once processing
 
@@ -155,7 +152,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### CRDTs
 
 - Merges are **commutative, associative, idempotent**, so replicas converge without coordination.
-- **G-Counter** (per-node counts, summed), **PN-Counter** (two G-Counters), **OR-Set** (add wins over concurrent remove), **LWW-Register**.
+- **G-Counter** (per-node counts, summed), PN-Counter (two G-Counters), **OR-Set** (add wins over concurrent remove), LWW-Register.
 
 ### OT vs CRDT for collaborative editing
 
@@ -166,13 +163,14 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Timeouts and retries
 
-- Put a **timeout** on every remote call.
+- Put a timeout on every remote call.
 - Retry only **idempotent** operations, with **exponential backoff + jitter** so retries don't synchronize.
 - A **retry budget** (e.g. retries ≤ 10% of requests) stops retries from multiplying load during an outage.
 
 ### Circuit breakers
 
 - **Closed** (normal) → **open** after an error threshold (fail fast) → **half-open** (let a probe through, then close or reopen).
+- Keep one breaker per dependency and pair it with a fallback (cached or default response).
 
 ### Bulkheads, backpressure, load shedding
 
@@ -215,13 +213,13 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 - Each partition has a leader and followers; the **ISR** (in-sync replicas) are followers caught up within `replica.lag.time.max.ms`.
 - **`acks=all`** + **`min.insync.replicas=2`** (with replication factor 3) acknowledges a write only once 2 replicas have it — survives one broker loss without losing acknowledged data.
-- **`unclean.leader.election.enable=false`** (default) refuses to elect an out-of-sync replica, choosing unavailability over data loss.
+- `unclean.leader.election.enable=false` (default) refuses to elect an out-of-sync replica, choosing unavailability over data loss.
 
 ### Kafka rebalancing, compaction, KRaft
 
-- A **rebalance** reassigns partitions when consumers join or leave; the **KIP-848** consumer protocol (GA in **Kafka 4.0**) makes it incremental and broker-driven instead of stop-the-world.
+- A rebalance reassigns partitions when consumers join or leave; the **KIP-848** consumer protocol (GA in Kafka 4.0) makes it incremental and broker-driven instead of stop-the-world.
 - **Log compaction** keeps only the latest record per key (a delete = `null` tombstone) — for changelogs and state restoration.
-- **Kafka 4.0 (March 2025) removed ZooKeeper**: metadata lives in a Raft quorum of controllers (**KRaft**).
+- **Kafka 4.0 (March 2025) removed ZooKeeper**: metadata lives in a Raft quorum of controllers (KRaft).
 
 ### Event sourcing and CQRS
 
