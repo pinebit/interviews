@@ -9,7 +9,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - CPython compiles to bytecode run by a stack-based VM; the **GIL** lets only one thread execute bytecode at a time, keeping refcounting safe without per-object locks.
 - The GIL is released during blocking I/O and by some C extensions, so threads still help I/O-bound work; **CPU-bound** work needs processes or a GIL-releasing extension.
 - A running thread is asked to drop the GIL every **5 ms** (`sys.getswitchinterval()`), which is why CPU-bound threads also slow I/O threads.
-- The GIL makes single bytecodes atomic, not whole statements — `x += 1` on a shared value still races.
+- The GIL doesn't make statements atomic — `x += 1` on a shared value is several bytecodes and still races; use a `Lock`.
 
 ### Free threading and subinterpreters
 
@@ -37,7 +37,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - **`__slots__`** replaces the per-instance `__dict__` with fixed storage — less memory per instance, no arbitrary new attributes.
 - **`weakref`** holds a reference that doesn't keep the object alive — for caches and observers.
-- **`__del__`** runs at refcount zero, or only at the next GC pass if the object is in a cycle (collectable since 3.4, PEP 442); use `with` or `weakref.finalize` for deterministic cleanup.
+- **`__del__`** runs at refcount zero, or only at the next GC pass if the object is in a cycle (collectable since 3.4, PEP 442); use `with` for deterministic cleanup (`weakref.finalize` is a safer `__del__`, not more deterministic).
 
 ## Built-in data structures
 
@@ -76,7 +76,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### asyncio event loop
 
-- One thread runs the loop: it polls ready I/O (via `selectors` — epoll/kqueue), then runs ready callbacks; a coroutine only yields control at an **`await`** on something not yet ready.
+- One thread runs the loop: it polls ready I/O (epoll/kqueue via `selectors` on Unix; IOCP proactor on Windows since 3.8), then runs ready callbacks; a coroutine only yields control at an **`await`** on something not yet ready.
 - `asyncio.create_task` schedules a coroutine; calling a coroutine function without awaiting or scheduling it **does nothing**.
 - Keep a reference to created tasks — the loop holds only weak references, so an unreferenced task can be **garbage-collected mid-run**.
 
@@ -84,7 +84,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - **`TaskGroup`** (3.11) is structured concurrency: one failure cancels the siblings and waits for them; `gather` doesn't cancel the others by default.
 - A blocking call in a coroutine (`time.sleep`, sync file I/O) **stalls the whole event loop** — use async libraries or `asyncio.to_thread`.
-- Cancellation raises **`CancelledError`** at the next `await`; cleanup in `finally` must re-raise it, never swallow it.
+- Cancellation raises **`CancelledError`** at the next `await`; `finally` cleanup propagates it automatically, but an `except` that catches it must re-raise.
 
 ## Gotchas
 
@@ -127,7 +127,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### Descriptors
 
 - An object with `__get__`/`__set__`/`__delete__` on a class attribute is a **descriptor**; `property`, bound methods, `classmethod`, and `staticmethod` are all built on it.
-- **Data descriptors** (define `__set__`) beat the instance `__dict__`; non-data descriptors (only `__get__`, e.g. functions) lose to it.
+- **Data descriptors** (define `__set__` or `__delete__`) beat the instance `__dict__`; non-data descriptors (only `__get__`, e.g. functions) lose to it.
 
 ### Class creation hooks
 
@@ -137,7 +137,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### Equality and hashing
 
 - Defining **`__eq__`** without `__hash__` sets `__hash__ = None`, making instances unhashable.
-- `@dataclass(frozen=True)` makes instances immutable and hashable; `slots=True` (**3.10**) adds `__slots__`.
+- `@dataclass(frozen=True)` blocks field reassignment (shallow — a list field stays mutable) and generates `__hash__`, which raises `TypeError` on an unhashable field; `slots=True` (**3.10**) adds `__slots__`.
 
 ## Functions and iteration
 
@@ -153,7 +153,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### functools.cache pitfalls
 
-- **`@cache`** (3.9) is `lru_cache(maxsize=None)` — unbounded, so it grows forever on unbounded inputs; set a `maxsize`.
+- **`@cache`** (3.9) is `lru_cache(maxsize=None)` — unbounded, so it grows forever on unbounded inputs; switch to `lru_cache(maxsize=N)` to bound it.
 - On a method it keys on `self` and **keeps every instance alive**; use `cached_property` or a per-instance cache.
 - Arguments must be hashable, and a returned mutable object is shared by every caller.
 

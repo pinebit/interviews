@@ -12,9 +12,9 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Back-of-envelope conversions
 
-- 1 day ≈ 86,400 s ≈ 10⁵ s, so **1M requests/day ≈ 12 QPS**; peak ≈ 2–3× average.
+- 1 day ≈ 86,400 s ≈ 10⁵ s, so **1M requests/day ≈ 12 QPS**; assume peak ≈ 2–3× average unless told otherwise.
 - 1 KB × 1M items = 1 GB; 1 KB × 1B = 1 TB.
-- A well-indexed PostgreSQL box handles roughly **10k+ simple queries/s**; Redis ~100k ops/s per core.
+- Ballpark capacity (varies with workload): a well-indexed PostgreSQL box handles **10k+ simple queries/s**; Redis ~100k ops/s per core.
 
 ## Traffic and edge
 
@@ -34,7 +34,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 - **Reverse proxy** (Nginx, Envoy): TLS termination, load balancing, caching in front of servers.
 - **API gateway**: auth, rate limiting, routing, aggregation for north–south traffic; a BFF is one gateway per client type.
-- **Service mesh** (Istio, Linkerd): sidecar proxies handle east–west traffic — mTLS, retries, telemetry without app changes.
+- **Service mesh** (Istio, Linkerd): sidecar proxies (or per-node proxies in Istio ambient mode) handle east–west traffic — mTLS, retries, telemetry without app changes.
 
 ### Real-time delivery to clients
 
@@ -43,7 +43,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 | Short polling | client pulls | simple, wasteful, latency = interval |
 | Long polling | client pulls, server holds | works everywhere, one request per message |
 | **SSE** | server → client | plain HTTP, auto-reconnect with `Last-Event-ID`, text only |
-| **WebSocket** | both ways | stateful connections — needs sticky routing and a connection registry |
+| **WebSocket** | both ways | stateful connections — needs a connection registry to find the server holding a user |
 
 - Push to many clients means **stateful** servers: plan for reconnect storms after a deploy (jittered reconnects).
 
@@ -117,7 +117,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### Distributed rate limiting
 
 - Enforce at the gateway, keyed by user, API key, or IP; reject with **429** and `Retry-After`.
-- Share counters in **Redis** (atomic `INCR` + expiry, or a Lua script) so every server sees one limit.
+- Share counters in **Redis** so every server sees one limit; wrap `INCR` + `EXPIRE` in `MULTI` or a Lua script, or a crash between them leaves a counter with no TTL.
 - A local per-instance limiter skips the round trip but is only approximate (limit ÷ instances).
 
 ## Reliability and operations
@@ -125,7 +125,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### Availability math
 
 - Components in **series** multiply: 99.9% × 99.9% ≈ 99.8%.
-- Redundant components in **parallel** fail only together: 1 − 0.001² ≈ 99.9999%, if failures are independent.
+- Redundant components in **parallel** fail only together: 1 − 0.001² ≈ 99.9999%.
+- Both formulas assume **independent failures**; a shared zone or dependency wipes out most of the parallel redundancy gain.
 - RPO (acceptable data loss) and RTO (acceptable recovery time) drive backup and failover design; active-passive vs active-active.
 
 ### SLIs, SLOs, error budgets
@@ -167,7 +168,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Geospatial indexes
 
-- **Geohash** encodes lat/lon as a string where nearby points share a prefix; query a cell and its **8 neighbors**, since close points can straddle a boundary.
+- **Geohash** encodes lat/lon as a string: a shared prefix means nearby, but close points can straddle a cell boundary and share none.
+- Pick a precision whose cell is at least the search radius, then query the cell and its **8 neighbors**.
 - A **quadtree** subdivides dense areas further, adapting to uneven density; Google S2 and Uber H3 use hierarchical cells the same way.
 
 ## Classic designs: user-facing
@@ -176,7 +178,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 - Read-heavy (~100:1); **base62** in 7 characters gives ~3.5 trillion keys.
 - Keys from hash + collision check, a counter encoded in base62 (predictable unless shuffled), or a pre-generated key pool.
-- **301** is cached by browsers (less load); 302 hits you on every click (analytics). Collect analytics asynchronously.
+- **301** is cached by browsers by default (less load, lost clicks); 302 isn't cached without explicit freshness headers, so every click hits you (analytics). Collect analytics asynchronously.
 
 ### News feed
 
@@ -239,7 +241,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Leaderboard
 
-- A Redis **sorted set**: `ZINCRBY` updates a score, `ZREVRANGE` reads the top N, `ZREVRANK` a user's rank — all O(log n).
+- A Redis **sorted set**: `ZINCRBY` updates a score and `ZREVRANK` returns a user's rank in O(log n); `ZRANGE ... REV` reads the top k in O(log n + k).
+- `ZRANGE ... REV` replaces `ZREVRANGE`, deprecated since Redis 6.2.
 - Beyond one node, shard by score range or keep per-shard top-k and merge.
 
 ### Booking and inventory contention

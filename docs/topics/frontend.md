@@ -11,12 +11,12 @@ What experienced frontend engineers forget before an interview, grouped by subto
 | CSR | in the browser after JS loads | slow first paint and SEO, fast later navigation |
 | SSR | on the server, per request | fresh and SEO-friendly, higher server load |
 | SSG | at build time | fastest and cheapest, stale until rebuild |
-| ISR | like SSG, regenerated on a schedule or on demand | near-CDN speed, bounded staleness |
+| ISR | like SSG, regenerated in the background after a revalidate interval or on demand | near-CDN speed; serves stale until regeneration succeeds |
 
 ### Streaming SSR and hydration
 
 - **Streaming SSR** flushes HTML in chunks, so the shell paints before slow data-dependent sections resolve.
-- **Hydration** attaches listeners and state to server HTML instead of re-rendering it.
+- **Hydration** runs the render on the client and attaches listeners to the server HTML, reusing the DOM instead of recreating it.
 - A **hydration mismatch** comes from render output that differs between server and client — `Date.now()`, `Math.random()`, `window` checks during render.
 
 ### Islands and Server Components
@@ -93,7 +93,7 @@ What experienced frontend engineers forget before an interview, grouped by subto
 ### Bundle size
 
 - **Code splitting** by route or with dynamic `import()` keeps the first bundle to what the first screen needs.
-- **Tree shaking** needs ES modules and side-effect-free code (`"sideEffects": false`).
+- **Tree shaking** needs ES modules; `"sideEffects": false` also lets the bundler drop unused modules whole — list CSS and polyfill files as exceptions.
 
 ### Images
 
@@ -160,7 +160,7 @@ What experienced frontend engineers forget before an interview, grouped by subto
 ### Strict Mode double invocation
 
 - In development, **Strict Mode** double-calls render functions to expose impure rendering.
-- It also mounts → unmounts → remounts each component to expose effects with **missing cleanup**; production runs once.
+- It also runs an extra effect setup → cleanup → setup cycle on mount (state kept) to expose **missing cleanup**; production skips it.
 
 ## React hooks pitfalls
 

@@ -63,7 +63,8 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### Node components
 
 - **kubelet** runs the node's Pods through the container runtime (CRI) and reports status.
-- **kube-proxy** (iptables/IPVS) or an **eBPF** CNI such as Cilium implements Service virtual IPs.
+- **kube-proxy** or an **eBPF** CNI such as Cilium implements Service virtual IPs.
+- kube-proxy modes: iptables (default), nftables (GA in 1.33), IPVS (deprecated since 1.35).
 
 ## Kubernetes workloads
 
@@ -90,7 +91,8 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### PodDisruptionBudgets
 
-- A **PDB** (`minAvailable` or `maxUnavailable`) limits **voluntary** disruptions — node drains, upgrades, autoscaler scale-down — not crashes.
+- A **PDB** (`minAvailable` or `maxUnavailable`) limits only disruptions that go through the **Eviction API** — node drains, autoscaler scale-down.
+- It doesn't stop crashes, direct Pod deletes, or Deployment rolling updates (those follow `maxUnavailable`).
 - A PDB that allows zero disruptions blocks node drains forever.
 
 ### Persistent volumes
@@ -127,7 +129,8 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Requests, limits, QoS
 
-- Requests drive scheduling; limits cap usage — over the CPU limit the container is **throttled**, over the memory limit it's **OOMKilled**.
+- Requests drive scheduling; limits cap usage — over the CPU limit the container is **throttled**.
+- At the memory limit the kernel reclaims (page cache) first and **OOMKills** only if usage still can't stay under it.
 - Requests vs limits set the QoS class (Guaranteed / Burstable / BestEffort), which decides eviction order under node pressure.
 - In-place Pod resize (GA in **1.35**) changes CPU/memory requests without restarting the Pod.
 
@@ -138,8 +141,9 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Graceful Pod shutdown
 
-- On deletion the Pod is removed from endpoints and gets `SIGTERM` at the same time, so it may still receive traffic briefly — a short **`preStop`** sleep covers that race.
-- After **`terminationGracePeriodSeconds`** (default **30 s**) the kubelet sends `SIGKILL`; app-side steps are in [backend.md](backend.md).
+- On deletion, endpoint updates (EndpointSlice marks the Pod terminating, not ready) and the kubelet's shutdown run concurrently, so the Pod may still receive traffic briefly.
+- The kubelet runs **`preStop`** first, then sends `SIGTERM` — a short `preStop` sleep covers that race.
+- **`terminationGracePeriodSeconds`** (default **30 s**) covers `preStop` plus shutdown; then the kubelet sends `SIGKILL`. App-side steps are in [backend.md](backend.md).
 
 ### ConfigMaps and Secrets
 
@@ -178,7 +182,7 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 - **`moved`** blocks record a renamed address, so the plan doesn't destroy and recreate it.
 - **`import`** blocks (1.5) adopt existing resources into state.
-- **`removed`** blocks (1.7) forget a resource without destroying it.
+- **`removed`** blocks (1.7) drop a resource from config; the default destroys it — only `lifecycle { destroy = false }` keeps the real object.
 
 ### Modules, workspaces, licensing
 
@@ -197,4 +201,4 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 ### Pull-based reconciliation
 
 - A controller (**Argo CD**, **Flux**) watches a Git repo of desired state and reconciles the cluster — the cluster pulls, so CI needs no cluster credentials.
-- Manual `kubectl` changes are drift and get reverted on the next sync; emergency fixes must land in Git too.
+- Manual `kubectl` changes are drift: Flux reapplies every interval, Argo CD reverts them only with **`selfHeal`** on; emergency fixes must land in Git too.

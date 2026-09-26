@@ -6,8 +6,8 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 
 ### Scheduler (GMP)
 
-- Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps, defaults to CPU count.
-- **Since Go 1.25**, the default `GOMAXPROCS` respects the cgroup CPU limit and updates when it changes; before that it used the host CPU count, hence `automaxprocs`.
+- Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps.
+- Default = min(logical CPUs, affinity mask); **since Go 1.25** also capped by the cgroup CPU limit (rounded up, floor 2) and updated when it changes — before that, containers needed `automaxprocs`.
 - Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the netpoller and doesn't hold a thread.
 - Preemption is asynchronous (signal-based) since Go 1.14, so tight loops no longer starve the scheduler.
 - Goroutines start with a **2 KB** stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
@@ -17,10 +17,10 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 | Operation | nil channel | closed channel |
 |---|---|---|
 | send | blocks forever | **panics** |
-| receive | blocks forever | zero value, `ok == false` |
+| receive | blocks forever | buffered values first, then zero value, `ok == false` |
 | close | panics | **panics** |
 
-Only the sender should close a channel; `for range ch` ends when it closes.
+Only the sender should close a channel; `for range ch` ends once it's closed and drained.
 
 ### select
 
@@ -83,7 +83,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 ### Struct layout and padding
 
-- Fields are aligned to their size, so `struct{ a bool; b int64; c bool }` takes **24 bytes** while `{b int64; a, c bool}` takes **16** — order fields largest first in hot, numerous structs.
+- Fields are aligned to their type's alignment, so on 64-bit `struct{ a bool; b int64; c bool }` takes **24 bytes** while `{b int64; a, c bool}` takes **16** — order fields largest first in hot, numerous structs.
 - An empty struct (`struct{}`) is **zero bytes** — used for sets (`map[K]struct{}`) and signal channels.
 
 ### Cleanups, weak pointers, interning
@@ -104,7 +104,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 ### Maps
 
 - Hash table; implemented as **Swiss tables since Go 1.24** (faster, but iteration order was already randomized and remains so).
-- Concurrent write (or write + read) is a **fatal, unrecoverable** error, not a panic you can `recover`.
+- Concurrent write (or write + read) is a race; the runtime detects it best-effort, and then it's a **fatal, unrecoverable** error, not a panic you can `recover`.
 - Maps never shrink after deletions; `clear(m)` (**1.21**) empties one without reallocating the header.
 - Map values aren't addressable: `&m[k]` and `m[k].field = x` don't compile for struct values.
 
@@ -119,7 +119,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 ### Interface internals
 
 - An interface value is a **(type, value)** pair; it is `nil` only when both are nil — a nil `*T` stored in an `error` is **not** `== nil`.
-- Comparing two interface values **panics** if their dynamic type is not comparable (e.g. holds a slice).
+- Comparing two interface values **panics** if both hold the same non-comparable dynamic type (e.g. `[]int`); different dynamic types just compare unequal.
 - Compile-time satisfaction check: `var _ io.Reader = (*MyReader)(nil)`.
 
 ### Method sets and embedding
@@ -137,7 +137,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 ### Iterators and loop variables
 
 - **Range-over-func** iterators (`iter.Seq`, `iter.Seq2`, **1.23**) let `range` work over a function, powering the `slices`/`maps` iterator helpers.
-- **Since Go 1.22**, each loop iteration gets its own variable — the classic closure-capture-in-loop bug requires `go 1.21` or earlier semantics to reproduce.
+- **Since Go 1.22**, each iteration gets its own copy of variables declared by the loop (`:=`) — the classic closure-capture bug needs `go 1.21` semantics or a reused outer variable (`for i = 0; ...`).
 
 ### Newer language features
 
@@ -193,7 +193,7 @@ Only the sender should close a channel; `for range ch` ends when it closes.
 
 ### Compatibility and GODEBUG
 
-- Behavior changes ship behind **`GODEBUG`** settings whose defaults follow the main module's **`go` line** — upgrading the toolchain alone doesn't change semantics.
+- Potentially breaking changes ship behind **`GODEBUG`** settings whose defaults follow the main module's **`go` line**, so a toolchain upgrade alone keeps their old behavior (other runtime and performance changes still apply).
 - Override per program with `//go:debug` directives or the `GODEBUG` environment variable.
 
 ## Testing and profiling

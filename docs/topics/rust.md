@@ -19,7 +19,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 | Type | Checked | Thread-safe | Note |
 |---|---|---|---|
-| `Cell<T>` | none needed | no | copy/replace in and out, never hands out references |
+| `Cell<T>` | none needed | no | copy/replace in and out; no references through `&Cell` |
 | `RefCell<T>` | runtime | no | a conflicting borrow **panics** |
 | `OnceCell`/`OnceLock` | write once | `OnceLock` yes | lazy initialization |
 | `Mutex`/`RwLock` | runtime (lock) | yes | can be poisoned |
@@ -32,7 +32,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### `'static` and HRTBs
 
-- **`T: 'static`** means "holds no non-static borrows" — **owned data satisfies it**; it doesn't mean "lives forever". `&'static T` is the forever reference.
+- **`T: 'static`** means "holds no non-static borrows" — **`String`, `Vec<u8>` satisfy it**, `Box<&'a str>` doesn't; it doesn't mean "lives forever". `&'static T` is the forever reference.
 - **HRTB** (`for<'a> Fn(&'a T)`) says "works for every lifetime", needed when the reference is only created inside the callee.
 
 ### "Does not live long enough"
@@ -45,7 +45,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Static vs dynamic dispatch
 
 - **Generics** are monomorphized: one copy per type, zero-cost calls, bigger binary.
-- **`dyn Trait`** is a fat pointer (data + vtable): one copy, an indirect call, heterogeneous collections.
+- **`dyn Trait`** is unsized; `&dyn`/`Box<dyn>` is a fat pointer (data + vtable): one copy, an indirect call, heterogeneous collections.
 - **Dyn compatibility** (formerly "object safety"): roughly, no methods returning `Self` by value and no generic methods.
 
 ### Coherence: orphan rule and blanket impls
@@ -74,8 +74,8 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 | Trait | Captured state | Callable |
 |---|---|---|
-| `Fn` | borrowed immutably | many times, concurrently |
-| `FnMut` | borrowed mutably | many times, not concurrently |
+| `Fn` | borrowed immutably | many times, via `&self` (concurrently only if `Sync`) |
+| `FnMut` | borrowed mutably | many times, via `&mut self` |
 | `FnOnce` | moved out / consumed | once |
 
 - Every `Fn` is also `FnMut` and `FnOnce`; take the **loosest** bound your code allows (`FnOnce` if you call it once), so callers can pass more kinds of closures.
@@ -133,7 +133,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Send and Sync
 
 - **`Send`**: ownership can move to another thread. **`Sync`**: `&T` can be shared (`T: Sync` ⇔ `&T: Send`).
-- `Rc` is neither; `RefCell` is `Send` but not `Sync`; **`MutexGuard` is not `Send`** — it must be released on the locking thread.
+- `Rc` is neither; `RefCell<T>` is `Send` if `T: Send`, never `Sync`; **`MutexGuard` is not `Send`** — it must be released on the locking thread.
 
 ### Mutex poisoning and scoped threads
 
@@ -147,7 +147,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 ### Atomics and memory ordering
 
-- Relaxed: atomicity only. **Release** store + **Acquire** load: happens-before between the two threads. **SeqCst**: one global order, strongest and slowest.
+- Relaxed: atomicity only. **Release** store + an **Acquire** load that reads its value: happens-before between the two threads. **SeqCst**: one global order, strongest and slowest.
 - x86 is strongly ordered, so a too-weak ordering often works there and fails only on ARM.
 
 ## Async
@@ -166,6 +166,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Cancellation is drop
 
 - Dropping a future cancels it at its current `.await`, with no signal and no chance to run async cleanup.
+- Dropping a Tokio `JoinHandle` **detaches** the spawned task instead — cancel with `abort()`.
 - **Cancel safety**: in `select!`, a losing branch is dropped mid-await — `read_line` into a buffer can lose data, `recv()` on a channel can't.
 
 ### Async closures
@@ -189,7 +190,7 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Macro kinds and hygiene
 
 - **`macro_rules!`** pattern-matches token trees; **procedural macros** (derive, attribute, function-like) run code on a `TokenStream` at compile time.
-- **Hygiene**: identifiers created inside a macro don't collide with the caller's, unlike C textual macros.
+- **Hygiene**: `macro_rules!` locals and labels don't collide with the caller's (mixed-site); items and proc-macro output are unhygienic.
 
 ### Features and workspaces
 

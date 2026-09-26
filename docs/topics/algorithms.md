@@ -42,7 +42,7 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 
 ### Monotonic stacks
 
-- **Next greater/smaller element**: pop indices the new value makes obsolete; the remaining top is the answer.
+- **Next greater/smaller element**, scanning left to right: the new value is the answer for every index it pops.
 - Each index is pushed and popped once, so the scan is **O(n)**; pick strict vs non-strict comparison for duplicates.
 
 ### Monotonic deque
@@ -70,7 +70,7 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 ### Rolling hash (Rabin-Karp)
 
 - A **polynomial rolling hash** updates a window's hash in O(1) as it slides, so search is O(n + m) expected.
-- Verify matches (or use two moduli) because collisions happen; also finds duplicate substrings via binary search on length.
+- Collisions happen: **verify each match** for exact results — two moduli only make collisions rarer; also finds duplicate substrings via binary search on length.
 
 ## Sorting and selection
 
@@ -149,7 +149,7 @@ Standard array implementations; variants differ in stability and space.
 
 | Edge weights | Algorithm | Time with adjacency lists | Caveat |
 |---|---|---|---|
-| all equal | BFS | O(V+E) | counts edges |
+| all equal, positive | BFS | O(V+E) | counts edges |
 | nonnegative | Dijkstra + binary heap | O((V+E) log V) | negative edges invalidate greedy settlement |
 | negative allowed | Bellman-Ford | O(VE) | detects reachable negative cycles |
 | DAG, any weights | topological relaxation | O(V+E) | needs acyclic graph |
@@ -201,10 +201,11 @@ Standard array implementations; variants differ in stability and space.
 
 ### Bit manipulation
 
-- `x & (x − 1)` clears the lowest set bit (zero result = power of two); **`x & −x`** isolates it.
+- `x & (x − 1)` clears the lowest set bit, so `x > 0 && (x & (x − 1)) == 0` tests a power of two; **`x & −x`** isolates it.
 - XOR of all elements cancels pairs — finds the single unpaired number in O(1) space.
 
 ### Recognizing NP-hard problems
 
 - Traveling salesman, subset sum, knapsack, graph coloring, SAT, Hamiltonian path, and set cover are **NP-hard** in general.
-- Exact answers then need exponential search or pseudopolynomial DP on small numbers; otherwise use a greedy or **approximation** algorithm and say so.
+- No polynomial algorithm is known (none exists unless P = NP); exact answers use exponential search with pruning, or pseudopolynomial DP when numbers are small (subset sum, knapsack only).
+- Otherwise use heuristics or an **approximation** algorithm where a guarantee exists (greedy set cover: H(n) ≤ ln n + 1); general TSP and coloring have no good ratio unless P = NP.

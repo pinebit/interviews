@@ -73,7 +73,8 @@ What experienced engineers forget about application security before an interview
 
 ### Password storage
 
-- Use a slow, memory-hard hash: **argon2id**, scrypt, or bcrypt — never a fast hash like SHA-256; store algorithm and parameters with the hash.
+- Use a slow, memory-hard hash — **argon2id**, else scrypt — never a fast hash like SHA-256; store algorithm and parameters with the hash.
+- bcrypt is for legacy systems only: not memory-hard, and input is capped at 72 bytes (some libraries truncate silently, others reject — Python `bcrypt` 5.0+).
 - A unique **salt** per password defeats rainbow tables; a **pepper** (server-side secret stored elsewhere) helps if only the database leaks.
 
 ### Password policy (NIST SP 800-63B)
@@ -89,7 +90,7 @@ What experienced engineers forget about application security before an interview
 ### MFA strength
 
 - Phishing resistance: **WebAuthn/passkeys** > TOTP app > SMS (SIM swap).
-- A passkey's private key never leaves the device and its signature covers the **origin**, so a lookalike domain gets nothing usable.
+- A passkey's private key never reaches the server (synced passkeys copy it end-to-end encrypted between the user's devices), and its signature covers the **origin**, so a lookalike domain gets nothing usable.
 
 ### Cookie flags
 
@@ -192,7 +193,7 @@ What experienced engineers forget about application security before an interview
 ### TLS 1.3 handshake
 
 - **1-RTT** full handshake: key shares go in the first flight.
-- Optional **0-RTT** resumption data can be **replayed** — only safe for idempotent requests.
+- Optional **0-RTT** resumption data can be **replayed** — accept it only for requests safe to repeat (idempotent and cheap); HTTP servers can answer `425 Too Early`.
 
 ### Post-quantum key exchange
 
