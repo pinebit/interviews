@@ -43,7 +43,7 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 ### Route 53 routing
 
 - Policies: simple, **weighted** (canary), latency, **failover** (with health checks), geolocation, geoproximity, multivalue.
-- **Alias records** work at the zone apex (`example.com` → ALB/CloudFront), where a CNAME isn't allowed, and are free to query.
+- **Alias records** work at the zone apex (`example.com` → ALB/CloudFront), where a CNAME isn't allowed; queries are free when the target is an AWS resource, but billed when it is a plain record in the same zone.
 
 ## Compute
 
@@ -70,8 +70,9 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### API Gateway vs ALB
 
-- **API Gateway**: auth, throttling, usage plans, request validation; integration timeout **29 s** by default (raisable for Regional REST APIs).
-- **ALB** in front of Lambda or containers is cheaper at high request volume but has none of the API-management features.
+- API Gateway REST API: auth, throttling, usage plans, request validation; integration timeout **29 s** by default (raisable for Regional and private APIs).
+- **HTTP API**: cheaper, JWT/Lambda/IAM authorizers and throttling, but no usage plans or request validation; integration timeout max **30 s**.
+- ALB in front of Lambda or containers can authenticate via OIDC/Cognito but has no throttling, usage plans, or validation; LCU pricing is usually cheaper at sustained high volume.
 
 ### ECS service mechanics
 
@@ -104,7 +105,8 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Aurora storage
 
-- The storage volume keeps **6 copies across 3 AZs**; a write needs **4 of 6**, a read **3 of 6** — it survives losing an AZ plus one more copy for reads.
+- The storage volume keeps **6 copies across 3 AZs**; a write needs **4 of 6**, so writes survive losing an AZ; the **3-of-6** read quorum survives an AZ plus one more copy.
+- Normal reads go to one storage node known to be current; quorum reads are only needed during recovery.
 - Up to 15 replicas share the same storage volume, so replica lag is usually well under 100 ms and failover doesn't copy data.
 
 ### DynamoDB partitions and indexes
@@ -122,8 +124,8 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### Lambda with SQS
 
-- Lambda **polls** SQS and invokes the function with a batch; by default, one failed record makes the whole batch visible again after the visibility timeout. Enable **partial batch responses** to retry only failed records.
-- Set the queue visibility timeout at least as long as the function timeout; configure the **DLQ on the SQS queue**, not the Lambda asynchronous-failure destination.
+- Lambda polls SQS and invokes the function with a batch; by default, one failed record makes the whole batch visible again after the visibility timeout. Enable **partial batch responses** to retry only failed records.
+- Set the queue visibility timeout to **6× the function timeout** plus the batching window (Lambda rejects anything below 1×); configure the **DLQ on the SQS queue**, not the Lambda asynchronous-failure destination.
 
 ### Routing and orchestration
 

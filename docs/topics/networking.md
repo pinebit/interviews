@@ -50,7 +50,7 @@ What experienced engineers forget about networking before an interview, grouped 
 ### Head-of-line blocking
 
 - TCP delivers bytes in order, so one lost packet stalls everything behind it — even data for unrelated HTTP/2 streams.
-- HTTP/1.1 blocks at the request level, HTTP/2 fixes that but not TCP's, and **QUIC** fixes both with per-stream loss recovery.
+- HTTP/1.1 blocks at the request level, HTTP/2 fixes that but not TCP's, and **QUIC** fixes both: streams are delivered independently, so a lost packet stalls only the streams whose data it carried.
 
 ### UDP
 
@@ -72,7 +72,7 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### HTTP/3 and QUIC
 
-- QUIC runs over UDP with TLS 1.3 built in: **1-RTT** setup (0-RTT on resumption) and loss recovery **per stream**, so no cross-stream head-of-line blocking.
+- QUIC runs over UDP with TLS 1.3 built in: **1-RTT** setup (0-RTT on resumption) and independent stream delivery, so no cross-stream head-of-line blocking; loss detection and congestion control stay per connection.
 - **Connection migration**: a connection ID survives an IP change (Wi-Fi → cellular).
 - Clients discover it via the `Alt-Svc` header or a DNS HTTPS record; many networks block UDP, so browsers fall back to TCP.
 
@@ -100,7 +100,7 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### Transport and privacy
 
-- UDP port 53 by default, TCP for large responses (answers above ~**1232 bytes** with EDNS get truncated and retried over TCP).
+- UDP port 53 by default, TCP for large responses: an answer bigger than the client's advertised EDNS buffer size (commonly **1232 bytes**, to avoid fragmentation) is truncated and retried over TCP.
 - DoT/DoH encrypt queries to the resolver; **DNSSEC** signs records for authenticity but doesn't encrypt them.
 
 ## IP and routing
@@ -112,18 +112,18 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### NAT
 
-- NAT rewrites source IP and port and tracks each flow in a **connection-tracking table** — inbound connections can't be initiated from outside.
+- NAT rewrites source IP and port and tracks each flow in a **connection-tracking table** — unsolicited inbound connections are dropped unless a port forward or static mapping exists.
 - One public IP offers at most ~64k source ports **per destination IP:port** (AWS NAT gateway: **55k**), so heavy traffic to one endpoint exhausts it; a full conntrack table drops new connections.
 
 ### MTU and fragmentation
 
-- Ethernet **MTU 1500** → TCP MSS 1460; tunnels (VPN, VXLAN) shrink it.
+- Ethernet **MTU 1500** → TCP MSS 1460 over IPv4 (1440 over IPv6); tunnels (VPN, VXLAN) shrink it.
 - **Path MTU discovery** needs ICMP "fragmentation needed" messages; firewalls that drop ICMP cause **black holes** — small requests work, large ones hang.
 
 ### Anycast and BGP
 
 - **BGP** exchanges routes between autonomous systems; a bad announcement or withdrawal can take a whole company offline (Facebook, October 2021).
-- **Anycast** announces one IP from many locations and BGP delivers each client to the nearest — CDNs, public DNS resolvers, DDoS absorption.
+- **Anycast** announces one IP from many locations and BGP delivers each client to the nearest by routing policy (usually, not always, the lowest-latency) — CDNs, public DNS resolvers, DDoS absorption.
 
 ### IPv6
 

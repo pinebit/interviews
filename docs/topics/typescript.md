@@ -87,7 +87,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### Type erasure
 
 - Types, interfaces, and type-only imports are erased — **zero runtime footprint**.
-- Exceptions that emit runtime code: **all `enum`s**, `namespace`s with values, parameter properties, and legacy decorators.
+- Exceptions that emit runtime code: **`enum`s** (a `const enum` is inlined instead), `namespace`s with values, parameter properties, and legacy decorators.
 
 ### Transpile-only builds
 
@@ -97,7 +97,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### Node type stripping
 
 - Node runs `.ts` files by stripping types, on by default **since Node 22.18 / 23.6**.
-- **`erasableSyntaxOnly`** (**5.8**) forbids syntax that can't simply be erased (enums, parameter properties, value namespaces), guaranteeing a file runs there.
+- **`erasableSyntaxOnly`** (**5.8**) forbids syntax that can't simply be erased (enums, parameter properties, value namespaces); Node still ignores tsconfig (`paths`, JSX) and needs explicit `.ts` import extensions.
 
 ### Module resolution
 
@@ -120,7 +120,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### The `strict` family
 
 - **`strict`** enables `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, and more — on by default since 6.0.
-- Without **`strictNullChecks`**, `null`/`undefined` are assignable to every type.
+- Without **`strictNullChecks`**, `null`/`undefined` are assignable to every type except `never`.
 
 ### Flags outside `strict`
 
@@ -153,5 +153,5 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Readonly and `as const`
 
-- `readonly T[]` blocks `push`/`splice` at compile time; **`as const`** narrows a literal to its most specific type and makes it deeply `readonly`.
+- `readonly T[]` blocks `push`/`splice` at compile time; **`as const`** narrows a literal to its most specific type and makes it deeply `readonly` — but not arrays/objects it only references.
 - Both are compile-time only — nothing is frozen at runtime.

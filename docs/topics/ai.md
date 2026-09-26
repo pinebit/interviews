@@ -18,7 +18,7 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 ### Mixture of experts
 
 - An **MoE** layer routes each token to a few of many expert feed-forward networks, so **active parameters** per token are a fraction of the total.
-- Compute follows active parameters, but GPUs must hold **all** weights; uneven routing complicates serving.
+- Compute follows active parameters, but memory follows **total** parameters (offloading experts to CPU saves GPU memory, at a speed cost); uneven routing complicates serving.
 
 ### Reasoning models
 
@@ -38,7 +38,7 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Structured output
 
-- **Constrained decoding** masks tokens so output always matches a JSON schema or grammar.
+- **Constrained decoding** masks tokens so output matches a JSON schema or grammar — except when cut off by the token limit or replaced by a refusal.
 - It guarantees **shape, not correctness** — still validate values in code.
 
 ### Tool calling
@@ -84,7 +84,7 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 ### Embeddings and similarity
 
 - An embedding maps text to a vector; similarity is usually **cosine** — on normalized vectors that's just the dot product.
-- Query and documents must use the **same embedding model**; changing models means re-embedding the corpus.
+- Query and documents must share one **embedding space** (same model, or jointly trained query/passage encoders as in DPR); changing models means re-embedding the corpus.
 
 ### Vector index types
 
@@ -165,7 +165,7 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 ### Model Context Protocol
 
 - **MCP** standardizes how apps discover and call tools, read resources, and fetch prompts — JSON-RPC 2.0 over stdio (local) or **Streamable HTTP** (remote, replaced HTTP+SSE in 2025).
-- Remote servers authorize with **OAuth 2.1**; MCP doesn't replace per-action authorization or business validation.
+- Authorization is optional; HTTP servers that support it use **OAuth 2.1**. MCP doesn't replace per-action authorization or business validation.
 
 ### Browser automation as a fallback
 

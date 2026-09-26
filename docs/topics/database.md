@@ -11,8 +11,9 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Composite indexes
 
-- **Leftmost-prefix rule**: `(a, b, c)` serves `a`, `a,b`, `a,b,c` — not `b` alone.
-- Put **equality columns first, range columns last**; the column after a range condition can't be used for seeking.
+- **Leftmost-prefix rule**: `(a, b, c)` seeks efficiently on `a`, `a,b`, `a,b,c` — not on `b` alone.
+- **Skip scan** (MySQL 8.0.13+, PostgreSQL 18+) serves `b` alone by probing each distinct `a`; cheap only when `a` has few values.
+- Put **equality columns first, range columns last**; columns after a range condition only filter inside the scanned range (unless skip scan applies).
 
 ### Covering indexes
 
@@ -68,7 +69,7 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### PostgreSQL MVCC
 
-- Readers read a snapshot and never block writers, or vice versa; writers still lock rows against each other.
+- Plain `SELECT`s read a snapshot and neither block nor wait for row writes; writers (and `FOR UPDATE`) still lock rows against each other.
 - Old row versions stay in the table, tagged **`xmin`/`xmax`**; **VACUUM** reclaims them, and a long-running transaction blocks it, causing bloat.
 - **XID wraparound** (32-bit transaction IDs) forces aggressive anti-wraparound vacuuming.
 - HOT updates skip index maintenance when no indexed column changed and the page has room.
@@ -84,7 +85,7 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Optimistic locking
 
-- Add a `version` column and `UPDATE ... WHERE id = ? AND version = ?`; zero rows updated means someone else won — reload and retry.
+- Add a `version` column: `UPDATE ... SET version = version + 1 WHERE id = ? AND version = ?`; zero rows updated means someone else won — reload and retry.
 - Best when conflicts are rare; pessimistic locks when they're frequent.
 
 ### Deadlocks
@@ -112,8 +113,9 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Write-ahead log
 
-- Commits append to the **WAL** and `fsync` it before data pages change; pages are written lazily at **checkpoints**.
-- Crash recovery replays the log (ARIES-style redo/undo); **group commit** batches many commits into one fsync.
+- A commit is durable once its **WAL** record is fsynced; dirty data pages are flushed later (**checkpoints**, background writer), never before their WAL.
+- Crash recovery replays WAL from the last checkpoint: PostgreSQL only redoes (uncommitted rows stay invisible by commit status); InnoDB redoes, then rolls back with undo.
+- **Group commit** batches many commits into one fsync.
 
 ### Backups and PITR
 
@@ -148,7 +150,7 @@ What experienced database engineers forget before an interview, grouped by subto
 
 - Any comparison with NULL — even **`NULL = NULL`** — is UNKNOWN, and `WHERE` drops it; use `IS [NOT] NULL` or `IS [NOT] DISTINCT FROM`.
 - **`NOT IN` with a NULL in the list returns no rows** — use `NOT EXISTS`.
-- `COUNT(*)` counts rows; `COUNT(col)` and other aggregates skip NULLs.
+- `COUNT(*)` counts rows; `COUNT(col)`, `SUM`, `AVG`, `MIN`/`MAX` skip NULLs, but `array_agg`/`json_agg` keep them.
 
 ### Window functions
 
@@ -181,7 +183,7 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Wide-column key design (Cassandra, DynamoDB)
 
-- The **partition key** picks the node; the sort/clustering key orders rows inside the partition — a query must supply the partition key.
+- The **partition key** picks the node; the sort/clustering key orders rows inside the partition — an efficient query must supply the partition key; otherwise it's a full scan (DynamoDB `Scan`, Cassandra `ALLOW FILTERING`) or a secondary index.
 - Model **tables per query** (denormalized), not per entity; unbounded partitions (all events of a popular user) become hot and huge — add a time bucket to the key.
 - Deletes write **tombstones**, which slow reads until compaction purges them.
 
@@ -195,7 +197,8 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### Normalization
 
-- 1NF atomic values → 2NF no partial-key dependency → **3NF/BCNF** no dependency on non-key columns: each fact stored once.
+- 1NF atomic values → 2NF no partial-key dependency → **3NF** no transitive dependency through non-key columns: each fact stored once.
+- **BCNF** is stricter: every nontrivial dependency's determinant is a superkey; 3NF still allows it when the dependent column is part of a candidate key.
 - **Denormalize** measured hot paths only (copied columns, counters, materialized views), accepting harder writes.
 
 ### Surrogate keys
@@ -206,7 +209,7 @@ What experienced database engineers forget before an interview, grouped by subto
 ### Constraints and soft deletes
 
 - `FOREIGN KEY`, `CHECK`, and `UNIQUE` are the last line of defense — application checks alone race.
-- **Soft deletes** (`deleted_at`) plus a partial unique index keep history and undo.
+- **Soft deletes** (`deleted_at`) keep deleted rows for undo and audit; a partial unique index (`WHERE deleted_at IS NULL`) frees the value for reuse, so an undelete can then conflict.
 
 ## Scaling
 
@@ -219,12 +222,13 @@ What experienced database engineers forget before an interview, grouped by subto
 ### Table partitioning
 
 - **Range** (most common, by date), list, or hash; **partition pruning** skips irrelevant partitions.
-- Dropping an old partition is instant, unlike a bloating bulk `DELETE`; PostgreSQL unique constraints must include the partition key.
+- Dropping an old partition is a cheap metadata change, unlike a bloating bulk `DELETE`, but takes an `ACCESS EXCLUSIVE` lock on the parent — `DETACH PARTITION CONCURRENTLY` (PostgreSQL 14+) first avoids that.
+- PostgreSQL unique constraints must include the partition key.
 
 ### Connection pooling
 
 - Each PostgreSQL connection is a **process** (a few MB), so thousands of direct connections hurt — pool them.
-- PgBouncer session mode keeps `SET` and advisory locks; **transaction mode** scales further but loses session state; prepared statements work in it **since PgBouncer 1.21**.
+- PgBouncer session mode keeps `SET` and advisory locks; **transaction mode** scales further but loses session state; protocol-level prepared statements work in it **since PgBouncer 1.21** when `max_prepared_statements` > 0 (default 0 before 1.24, now 200); SQL `PREPARE` still doesn't.
 
 ### OLTP vs OLAP
 

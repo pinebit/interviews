@@ -7,7 +7,7 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 ### Account model
 
 - **EOA** (controlled by a secp256k1 key) vs **contract account** (controlled by its code); only EOAs originate transactions.
-- The **nonce** counts an EOA's sent transactions — it prevents replay and orders them.
+- The **nonce** orders an EOA's transactions and prevents replay; an EIP-7702 authorization also increments it, even in someone else's transaction.
 - A stuck transaction blocks every later nonce until replaced by one with the same nonce and a higher fee.
 
 ### Address derivation
@@ -58,7 +58,7 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 ### Execution model
 
-- Stack-based, **256-bit words**, stack depth 1024 — only the top **16** items are reachable, the source of "stack too deep".
+- Stack-based, **256-bit words**, stack depth 1024 — `DUP` reaches only the top **16** items (`SWAP16` the 17th), the source of "stack too deep".
 - Memory expansion cost is **quadratic** in size; storage is the most expensive resource, priced per 32-byte slot.
 - `DELEGATECALL` runs another contract's code on the caller's storage; any call forwards at most 63/64 of the remaining gas (EIP-150) — see [solidity.md](solidity.md).
 
@@ -86,9 +86,9 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 ### EIP-712 and permits
 
-- **EIP-712** signs typed data with a domain separator (name, version, chainId, contract) — readable in wallets, not replayable across contracts or chains.
+- **EIP-712** signs typed data with a domain separator (name, version, chainId, contract) — readable in wallets; stops cross-chain/cross-contract replay only if the verifier checks the domain, and same-contract replay still needs a nonce.
 - **ERC-1271** lets contract wallets "sign" via `isValidSignature`.
-- **EIP-2612 `permit`** and Permit2 grant ERC-20 approvals by signature instead of a transaction.
+- **EIP-2612 `permit`** grants an ERC-20 approval by signature, so the owner skips the `approve` transaction (anyone can submit it); Permit2 needs a one-time `approve` to its contract first.
 
 ### Token standards
 

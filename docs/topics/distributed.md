@@ -17,15 +17,16 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Byzantine faults
 
-- Tolerating `f` nodes that lie needs **`3f + 1`** nodes, vs `2f + 1` for crash faults; the classic algorithm is **PBFT**.
+- Under partial synchrony, tolerating `f` nodes that lie needs **`3f + 1`** nodes, vs `2f + 1` for crash faults; the classic algorithm is **PBFT**.
+- The bound depends on the model: with signed messages and a synchronous network, fewer nodes suffice.
 - Most internal systems assume crash faults only; blockchains must assume Byzantine ones.
 
 ## Consistency models
 
 ### Consistency hierarchy
 
-- From strongest: strict serializable > linearizable > sequential > causal > eventual.
-- **Linearizability**: single-object recency — once a write completes, every later read (in real time) sees it.
+- Single-object models, strongest first: linearizable > sequential > causal; eventual only promises convergence, which causal alone doesn't guarantee.
+- **Linearizability**: single-object recency — once a write completes, every later read (in real time) sees it or a newer value.
 - **Serializability**: multi-object transaction isolation — equivalent to *some* serial order, not necessarily real-time order.
 - **Strict serializability** adds real-time order (Spanner, FoundationDB); CockroachDB is serializable but linearizable only per key.
 
@@ -72,7 +73,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Hot keys and secondary indexes
 
 - A single hot key isn't fixed by more partitions — **salt** it into sub-keys and merge on read.
-- **Local** secondary indexes (per partition) need scatter-gather reads; **global** ones are partitioned separately and updated asynchronously.
+- **Local** secondary indexes (per partition) need scatter-gather unless the query fixes the partition key; **global** ones are partitioned by the indexed value, so a write touches several partitions — asynchronous in DynamoDB, transactional in Spanner.
 
 ## Consensus and coordination
 
@@ -84,7 +85,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Raft
 
 - **Leader election**: randomized timeouts avoid split votes; one vote per node per term.
-- Log replication: an entry commits once a **majority** stores it.
+- Log replication: a leader commits an entry once a **majority** stores it — only for current-term entries; older ones commit indirectly with them.
 - **Election restriction**: only a candidate with an up-to-date log can win, so committed entries survive.
 
 ### Raft reads and membership
@@ -112,7 +113,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Logical clocks
 
-- **Lamport clock**: increment per event; on receive, `max(local, received) + 1`. A total order consistent with causality, but can't detect concurrency.
+- **Lamport clock**: increment per event; on receive, `max(local, received) + 1`. With node ID as tie-breaker, a total order consistent with causality, but can't detect concurrency.
 - **Vector clock**: one counter per node; comparing two vectors tells **happened-before** from concurrent.
 - Hybrid logical clock (HLC): physical time + logical counter — causal and close to wall time (CockroachDB).
 
@@ -139,7 +140,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Effectively-once processing
 
-- **Exactly-once = at-least-once delivery + idempotent processing**.
+- **Effectively-once = at-least-once delivery + idempotent processing**: handlers may run repeatedly, but the effect lands once.
 - Publish events atomically with the local write via the **transactional outbox**; dedupe on the consumer via an inbox — both in [backend.md](backend.md).
 
 ## Conflict resolution
@@ -151,7 +152,8 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### CRDTs
 
-- Merges are **commutative, associative, idempotent**, so replicas converge without coordination.
+- State-based: merges are **commutative, associative, idempotent**, so replicas converge without coordination.
+- Op-based: replicas broadcast operations that must commute; delivery must be exactly-once and usually causal.
 - **G-Counter** (per-node counts, summed), PN-Counter (two G-Counters), **OR-Set** (add wins over concurrent remove), LWW-Register.
 
 ### OT vs CRDT for collaborative editing
@@ -179,7 +181,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Tail latency and hedging
 
-- With fan-out to `n` servers each slow with probability `p`, a request is slow with probability **`1 − (1 − p)ⁿ`** — at 100 servers, a 1% tail hits 63% of requests.
+- Waiting on all `n` servers, each independently slow with probability `p`, a request is slow with probability **`1 − (1 − p)ⁿ`** — at 100 servers, a 1% tail hits 63% of requests.
 - **Hedged requests**: send a second copy after ~p95 latency and take the first reply.
 
 ### Failure detection
@@ -211,8 +213,8 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Kafka durability
 
-- Each partition has a leader and followers; the **ISR** (in-sync replicas) are followers caught up within `replica.lag.time.max.ms`.
-- **`acks=all`** + **`min.insync.replicas=2`** (with replication factor 3) acknowledges a write only once 2 replicas have it — survives one broker loss without losing acknowledged data.
+- Each partition has a leader and followers; the **ISR** (in-sync replicas) is the leader plus followers caught up within `replica.lag.time.max.ms`.
+- **`acks=all`** waits for every current ISR member; **`min.insync.replicas=2`** (with replication factor 3) rejects writes when the ISR shrinks below 2 — survives one broker loss without losing acknowledged data.
 - `unclean.leader.election.enable=false` (default) refuses to elect an out-of-sync replica, choosing unavailability over data loss.
 
 ### Kafka rebalancing, compaction, KRaft
@@ -224,5 +226,5 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Event sourcing and CQRS
 
 - **Event sourcing** stores every change as an immutable event and rebuilds state by replay, with snapshots for speed.
-- **CQRS** splits the write model from read models updated asynchronously — reads are eventually consistent.
+- **CQRS** splits the write model from read models; if read models update asynchronously (often from events), reads are eventually consistent.
 - Event schemas must stay readable forever: only add fields, or upcast old events.

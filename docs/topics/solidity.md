@@ -14,13 +14,13 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 
 - Bases are listed **most base-like first**: `contract D is B, C` (both `is A`) linearizes to D → C → B → A (C3, like Python's MRO).
 - **`super`** calls the next contract in the linearization, not the declared parent: in D, `super.f()` inside C calls B even though C only inherits A.
-- Overridable functions need `virtual`; overriding needs `override`, and `override(B, C)` when several bases define it.
+- Overridable functions need `virtual`; overriding needs `override`, and `override(B, C)` when several bases define it; implementing a single interface's function needs no `override` since 0.8.8.
 
 ### Modifiers
 
 - `_` marks where the function body runs; a `return` in the body only leaves the body, so code after `_` still runs **after the return**.
 - Modifiers apply left to right; `_` may run several times, and if it never runs the body is skipped and return values stay at their defaults.
-- Modifier code is **inlined** at every use — move the logic into an internal function to shrink bytecode.
+- Legacy codegen **inlines** modifier code at every use — move the logic into an internal function to shrink bytecode; via-IR emits modifiers as functions.
 - `virtual` modifiers are deprecated since 0.8.31, ahead of 0.9.
 
 ### Libraries and user-defined types
@@ -84,7 +84,7 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 
 ### ABI encoding pitfalls
 
-- A low-level call to an address with **no code succeeds** — check `code.length` first; high-level calls revert instead.
+- A low-level call to an address with **no code succeeds** — check `code.length` first when you expect a contract (precompiles have no code either); high-level calls revert instead.
 - **`abi.encodePacked`** of several dynamic values can collide (`("a","bc")` vs `("ab","c")`) — hash `abi.encode` output for signatures.
 - **`abi.encodeCall`** (0.8.11) type-checks the function and arguments; `abi.encodeWithSignature` silently accepts a typo in the signature string.
 
@@ -152,7 +152,7 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 
 ### Gas optimization patterns
 
-- An `SSTORE` costs **20,000** gas to set a zero slot and 2,900 to change a non-zero one (+2,100 if cold) — see [ethereum.md](ethereum.md).
+- `SSTORE` cost compares the slot's value at transaction start, now, and new: a clean slot (now == start) costs **20,000** gas from zero or 2,900 from non-zero; a dirty slot or a no-op costs 100; +2,100 if cold — see [ethereum.md](ethereum.md).
 - **Pack** small variables that are read and written together into one slot.
 - **`constant`/`immutable`** values are embedded in bytecode — no `SLOAD`.
 - Cache storage reads in local variables inside loops; use `calldata` parameters.
@@ -209,7 +209,7 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 
 ### Revert data bubbling
 
-- A low-level `call` returns `(bool success, bytes memory data)` and **doesn't revert** — always check `success`.
+- A low-level `call` returns `(bool success, bytes memory data)`: a callee revert gives **`success == false`** instead of bubbling up — always check it.
 - Re-throw the callee's error unchanged with assembly: `revert(add(data, 32), mload(data))`.
 - OpenZeppelin's `Address.functionCall` does both.
 

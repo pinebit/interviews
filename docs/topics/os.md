@@ -46,7 +46,7 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### CPU quotas and throttling
 
-- A cgroup CPU limit is a **quota per 100 ms period**: a 1-CPU limit lets 4 threads use 25 ms each, then **throttles** the whole group for the rest of the period — latency spikes while average CPU looks low.
+- A cgroup CPU limit is a **quota per period** (`cpu.max`, default 100 ms): a 1-CPU limit lets 4 threads use 25 ms each, then **throttles** the whole group for the rest of the period — latency spikes while average CPU looks low.
 - Watch `nr_throttled` in `cpu.stat`; match thread-pool sizes (`GOMAXPROCS`, JVM) to the quota.
 
 ### Load average
@@ -58,7 +58,7 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### Virtual memory and the TLB
 
-- Each process sees a private virtual address space mapped to physical frames in **4 KB pages** through page tables.
+- Each process sees a private virtual address space mapped to physical frames in pages (**4 KB** on x86-64; arm64 can use 16 or 64 KB) through page tables.
 - The **TLB** caches translations; **huge pages** (2 MB, 1 GB) cut TLB misses for large heaps — transparent huge pages can also cause latency spikes during compaction, so databases often disable them.
 
 ### Page faults
@@ -69,11 +69,11 @@ What experienced engineers forget about Linux and OS internals before an intervi
 ### Overcommit and the OOM killer
 
 - `malloc` usually succeeds without backing memory; physical pages are allocated **on first touch** (overcommit).
-- When memory runs out, the **OOM killer** kills the process with the highest `oom_score` (tuned by `oom_score_adj`); in a container, hitting the **cgroup limit** triggers an OOM kill inside that cgroup only.
+- When memory runs out, the **OOM killer** kills the process with the highest `oom_score` (tuned by `oom_score_adj`); in a container, a **cgroup limit** that reclaim can't satisfy triggers an OOM kill inside that cgroup only.
 
 ### cgroup memory limits
 
-- cgroup v2 **`memory.max`** is the hard limit: exceeding it OOM-kills inside the cgroup (a Kubernetes memory limit maps here).
+- cgroup v2 **`memory.max`** is the hard limit: at it the kernel reclaims, and OOM-kills inside the cgroup only if reclaim fails (a Kubernetes memory limit maps here).
 - **`memory.high`** is a soft limit: above it the kernel throttles and reclaims aggressively instead of killing.
 - Page cache counts toward the cgroup but is reclaimed first, so watch the **working set** (usage minus inactive file pages), which the kubelet uses for eviction.
 
@@ -103,7 +103,7 @@ What experienced engineers forget about Linux and OS internals before an intervi
 ### File descriptors and inodes
 
 - Everything open — files, sockets, pipes — is a file descriptor; the soft limit is often **1024** (`ulimit -n`), causing "too many open files" on busy servers.
-- A filename points to an inode; deleting an open file frees its space only when the **last descriptor closes** — why `df` and `du` can disagree.
+- A filename points to an inode; deleting a file frees its space only when no hard links, **open descriptors**, or mappings remain — why `df` and `du` can disagree.
 - **Hard links** are extra names for the same inode (same filesystem only); symlinks store a path and can dangle.
 
 ### I/O multiplexing: select, poll, epoll
@@ -147,7 +147,7 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### False sharing
 
-- Cores transfer memory in **64-byte cache lines**; two threads writing different variables on the same line keep invalidating each other's caches.
+- Cores transfer memory in **cache lines** (64 bytes on x86-64, 128 on Apple M-series); two threads writing different variables on the same line keep invalidating each other's caches.
 - Pad or align hot per-thread counters to separate lines.
 
 ## Performance analysis

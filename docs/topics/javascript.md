@@ -59,7 +59,7 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 - Every `number` is a 64-bit double: `0.1 + 0.2 !== 0.3`; compare with a tolerance or use integers (cents).
 - Integers are exact only up to **`Number.MAX_SAFE_INTEGER` = 2⁵³ − 1**; IDs beyond that (Snowflake, tweet IDs) must travel as strings or `BigInt`.
-- Bitwise operators convert to **32-bit** signed integers.
+- Bitwise operators on numbers truncate to **32-bit** signed integers (`>>>` returns unsigned); on `BigInt` they are arbitrary-precision.
 - `Math.sumPrecise(iterable)` (ES2026) adds floats without accumulating rounding error, unlike a naive `reduce`.
 
 ### Typed arrays
@@ -74,13 +74,13 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 | Combinator | Settles when | Use when |
 |---|---|---|
 | `Promise.all` | any rejects, or all fulfill | need every result, fail fast |
-| `Promise.allSettled` | always, tagged fulfilled/rejected | need every outcome |
+| `Promise.allSettled` | all settle (input rejections don't reject it), tagged fulfilled/rejected | need every outcome |
 | `Promise.race` | first settles (either way) | timeouts, first response wins |
 | `Promise.any` | first fulfills, or all reject (`AggregateError`) | first success wins |
 
 ### Sequential vs parallel await
 
-- `await` inside a loop runs **serially**; start the operations first, then `await Promise.all([...])` so their times overlap.
+- `for (const x of xs) await f(x)` runs **serially**: each call starts after the previous settles; start all calls first, then `await Promise.all([...])` so they overlap.
 - An unhandled rejection doesn't throw synchronously; Node **crashes the process on it by default since Node 15**.
 
 ### Cancellation and async iteration
@@ -140,6 +140,7 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 ### Node event loop phases
 
 - Phases: **timers → pending callbacks → poll (I/O) → check (`setImmediate`) → close**.
+- **Since Node 20 (libuv 1.45)**, timers run after poll in each iteration instead of before it (plus once when the loop starts); this can shift timer vs `setImmediate` ordering.
 - After each callback, the `process.nextTick` queue drains first, then promise microtasks.
 - `setTimeout(f, 0)` vs `setImmediate(f)` order is **nondeterministic** in the main module; inside an I/O callback `setImmediate` always runs first.
 

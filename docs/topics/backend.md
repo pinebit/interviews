@@ -13,7 +13,7 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 | Codes | Meaning |
 |---|---|
-| **401** vs **403** | not authenticated vs authenticated but not allowed (or 404 to hide that the resource exists) |
+| **401** vs **403** | missing or invalid credentials (re-auth may help) vs refused — credentials, if sent, are insufficient; others might succeed (or 404 to hide that the resource exists) |
 | **409** vs **422** | conflicts with current state vs well-formed but fails validation |
 | 202 / 204 | accepted for async processing / success with no body |
 | 412 / 429 | precondition (`If-Match`) failed / rate limited |
@@ -37,13 +37,14 @@ What experienced backend engineers forget before an interview, grouped by subtop
 | | REST | gRPC | GraphQL |
 |---|---|---|---|
 | Contract | OpenAPI (optional) | **Protobuf**, strict | schema, strict |
-| Transport | HTTP/1.1 or 2 | **HTTP/2** only | usually HTTP POST |
+| Transport | any HTTP version | **HTTP/2** only | usually HTTP POST |
 | Strength | HTTP caching, simplicity | streaming, speed, codegen | client picks fields, one round trip |
 | Weakness | over/under-fetching | browsers need gRPC-Web | hard to cache, N+1, query-cost limits |
 
 ### Pagination
 
-- **Cursor (keyset)**: `WHERE (created_at, id) > (:c, :id) ORDER BY ... LIMIT n` — fast and stable at any depth; return an opaque cursor.
+- **Keyset**: `WHERE (created_at, id) > (:c, :id) ORDER BY ... LIMIT n` — fast at any depth and unaffected by inserts; needs a unique, immutable sort key, or updated rows skip or repeat.
+- Expose the position as an opaque **cursor**; a cursor is just a token and can also encode an offset.
 - **Offset**: simple and jumps to page N, but slows with depth and skips or repeats rows as data changes.
 
 ### Versioning
@@ -72,7 +73,7 @@ What experienced backend engineers forget before an interview, grouped by subtop
 ### Transactional outbox
 
 - Write the business row and an outbox row in the **same DB transaction**; a relay (poller or CDC) publishes outbox rows and marks them sent.
-- Fixes the dual-write problem: committing and publishing can't both be atomic otherwise. Delivery is at-least-once.
+- Fixes the dual-write problem without 2PC, which most brokers don't support. Delivery is at-least-once.
 
 ### Inbox deduplication
 
