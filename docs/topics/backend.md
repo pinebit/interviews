@@ -4,11 +4,6 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 ## API design
 
-### Resource modeling
-
-- Resources are nouns and HTTP methods are verbs: `POST /orders/42/items`, not `/addItemToOrder`.
-- Non-CRUD actions become sub-resources or state changes: `POST /orders/42/cancellation`.
-
 ### Status codes people confuse
 
 | Codes | Meaning |
@@ -103,11 +98,6 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 ## Async work
 
-### Queue vs direct call
-
-- Direct call when the caller needs the result now and the dependency is fast and available.
-- Queue when work is slow, the downstream is flaky or rate-limited (**load leveling**), or several consumers need the event.
-
 ### Long-running operations
 
 - Return **202 Accepted** with a `Location` to a status resource (`/operations/123`); the client polls it or gets a webhook when done.
@@ -155,10 +145,10 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 ### File uploads
 
-- Large files go straight to object storage with a **presigned URL**, bypassing app servers; the app stores only metadata.
+- Clients upload straight to object storage with a presigned URL, bypassing app servers ([system.md](system.md)).
 - **Multipart/resumable uploads** retry individual parts instead of the whole file.
 
-## Lifecycle and config
+## Service lifecycle
 
 ### Graceful shutdown
 
@@ -169,11 +159,6 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 - Separate endpoints: **liveness** checks only that the process can make progress; **readiness** checks what serving needs (warm-up done, required dependencies) and fails while draining.
 - Keep them cheap and on an internal port; probe configuration and pitfalls: see [devops.md](devops.md).
-
-### Configuration and secrets
-
-- Config that varies by environment comes from the **environment**, so one immutable artifact promotes from staging to production.
-- Secrets come from a secret manager at runtime, never from the repo; **validate config at startup** and fail fast.
 
 ## Backend security
 

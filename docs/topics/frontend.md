@@ -53,9 +53,8 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 ## CSS
 
-### CSS layout and specificity
+### Specificity and the cascade
 
-- **Flexbox** for one axis (a toolbar, centering); **Grid** for two axes (page layout, card grids).
 - **Specificity**: inline > ID > class/attribute/pseudo-class > element; cascade layers and origin rank above specificity, and `!important` inverts layer order.
 
 ### Stacking contexts
@@ -66,13 +65,12 @@ What experienced frontend engineers forget before an interview, grouped by subto
 ### Modern CSS features
 
 - **Container queries** (`@container`) style a component by its container's size, not the viewport — reusable responsive components.
-- **`:has()`** selects a parent by its children (`form:has(:invalid)`); native **nesting** and `subgrid` remove common preprocessor and wrapper hacks.
-- All Baseline since 2023.
+- **`:has()`** selects a parent by its children (`form:has(:invalid)`), which used to need JavaScript.
 
 ### View transitions
 
 - **View Transitions API** animates between two DOM states: `document.startViewTransition(update)` snapshots old and new, then cross-fades or morphs elements sharing a `view-transition-name`.
-- Same-document transitions are Baseline since Firefox 144 (October 2025); multi-page apps opt in with `@view-transition { navigation: auto }`.
+- Multi-page apps opt in to cross-document transitions with `@view-transition { navigation: auto }`.
 
 ## Performance
 
@@ -209,17 +207,13 @@ Any XSS can read all of them except `HttpOnly` cookies — token storage in [sec
 - `React.memo` is defeated by a **new object, array, or function** literal passed as a prop on every render.
 - Memoize only when the skipped work costs more than the comparison.
 
-### Controlled vs uncontrolled inputs
-
-- **Controlled** (`value` + `onChange`): React owns the value — needed when it drives other UI.
-- **Uncontrolled** (read via ref): less code, fewer re-renders; a file input is always uncontrolled.
-
 ## State management
 
-### Where state lives
+### Context performance
 
-- Local state → lift to the nearest common parent → context → a **dedicated store** only when many unrelated components share it.
-- Reach for context or a store when prop drilling actually hurts, not for a two-level pass.
+- Every consumer re-renders when the provider's `value` changes **identity** — an inline object literal changes it on every render.
+- Memoize the value, split fast- and slow-changing state into separate contexts, or use a store with selectors (`useSyncExternalStore`, Zustand) so components subscribe to slices.
+- Context suits low-frequency values (theme, locale, current user), not fast-changing shared state.
 
 ### Server state vs client state
 

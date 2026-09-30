@@ -4,10 +4,6 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ## Type system semantics
 
-### Structural typing
-
-- Compatibility is by **shape**, not declared name — an object satisfies an interface just by having the members; no `implements` needed.
-
 ### Excess property checks
 
 - Only **fresh object literals** get excess-property errors: `const p: Point = { x: 1, y: 2, z: 3 }` fails.
@@ -51,15 +47,12 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 - `typeof`, `instanceof`, `in`, equality, and truthiness checks narrow a variable inside the branch where they're provably true.
 - **Discriminated unions**: a shared literal tag (`kind`) lets `switch (x.kind)` narrow each case.
+- **Exhaustiveness**: in the `default` branch, assign the value to a `never` variable; adding a new union member then fails to compile until handled.
 
 ### Custom type guards
 
 - A **type predicate** (`x is Fish`) or an **`asserts x is T`** function packages narrowing the compiler can't infer.
 - **Inferred type predicates** (5.5): a boolean-returning function that already narrows gets `x is T` automatically, e.g. `arr.filter(x => x !== undefined)`.
-
-### Exhaustiveness with `never`
-
-- In a `default` branch, assign the value to a `never` variable; adding a new union member then fails to compile until handled.
 
 ### `as` vs `satisfies` vs `!`
 
@@ -91,7 +84,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Branded types
 
-- Structural typing makes `UserId` and `OrderId` both plain `string`s; **brand** them for nominal-like safety: `type UserId = string & { readonly __brand: 'UserId' }`.
+- Types are compatible by **shape**, not declared name (structural typing), so `UserId` and `OrderId` are both plain `string`s; **brand** them for nominal-like safety: `type UserId = string & { readonly __brand: 'UserId' }`.
 - Create values only through a validating function (`asUserId(s)`); the brand has no runtime cost.
 
 ## Compilation and tooling
@@ -125,7 +118,6 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### TypeScript 7 native compiler
 
 - **TypeScript 7** (2026) ships the Go port of the compiler (`tsgo` in preview): roughly **10×** faster builds with parallel checking.
-- Its stable programmatic API is planned for **7.1**, so some tools (typescript-eslint, Vue/Svelte/Angular language tooling) still need the 6.x JS compiler.
 
 ## Strictness flags
 

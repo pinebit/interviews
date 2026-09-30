@@ -88,12 +88,6 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 - Fields are aligned to their type's alignment, so on 64-bit `struct{ a bool; b int64; c bool }` takes **24 bytes** while `{b int64; a, c bool}` takes **16** — order fields largest first in hot, numerous structs.
 - An empty struct (`struct{}`) is **zero bytes** — used for sets (`map[K]struct{}`) and signal channels.
 
-### Cleanups, weak pointers, interning
-
-- **`runtime.AddCleanup`** (1.24) replaces `SetFinalizer`: several cleanups per object, no resurrection, and no leak when objects form a cycle.
-- **`weak.Pointer`** (1.24) references an object without keeping it alive — for caches and canonicalization maps.
-- **`unique.Make`** (1.23) interns comparable values, turning equality into a pointer compare.
-
 ## Slices, maps, strings
 
 ### Slice mechanics
@@ -142,12 +136,6 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 - **Range-over-func** iterators (`iter.Seq`, `iter.Seq2`, **1.23**) let `range` work over a function, powering the `slices`/`maps` iterator helpers.
 - **Since Go 1.22**, each iteration gets its own copy of variables declared by the loop (`:=`) — the classic closure-capture bug needs `go 1.21` semantics or a reused outer variable (`for i = 0; ...`).
 
-### Newer language features
-
-- 1.21: `min` and `max` built-ins. 1.22: **`for i := range 10`** over integers.
-- 1.24: generic type aliases.
-- 1.26: **`new(expr)`** allocates and initializes in one step (`new(42)` → `*int`).
-
 ## Errors, defer, panic
 
 ### Error wrapping
@@ -168,6 +156,7 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 - The default **`http.Client` has no timeout** — a hung server blocks the goroutine forever; always set `Timeout` or use a context.
 - Always **close `resp.Body`** (and drain it) or the connection isn't reused and leaks.
 - `http.Server` needs `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`, or slow clients (Slowloris) hold connections open.
+- **`ServeMux` patterns since 1.22** take methods and wildcards: `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
 
 ### encoding/json gotchas
 
@@ -175,12 +164,6 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 - A nil slice or map encodes as `null`, an empty one as `[]` or `{}`.
 - Unexported fields are silently skipped; unknown JSON fields are ignored unless `DisallowUnknownFields`; field-name matching is case-insensitive.
 - `omitempty` never omits a struct value (a zero `time.Time` included); **`omitzero`** (1.24) does.
-
-### Routing, JSON, logging
-
-- **`ServeMux` patterns since 1.22**: methods and wildcards, `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
-- **`encoding/json/v2`**: experimental in 1.25 (`GOEXPERIMENT=jsonv2`), standard in 1.27 — faster, and stricter defaults (e.g. case-sensitive field matching).
-- **`log/slog`** (1.21) is the standard structured logger.
 
 ## Modules and tooling
 
@@ -195,12 +178,6 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 - **`internal/`** packages are importable only from within the parent tree.
 - **`go.work`** (**1.18**) builds several local modules together without `replace` directives.
 
-### Toolchains and tools
-
-- The `toolchain` line and **`GOTOOLCHAIN`** (1.21) let `go` download the toolchain a module requires.
-- **`tool` directives** in `go.mod` (**1.24**) track dev tools, run with `go tool <name>` — replaces the `tools.go` hack.
-- `go fix` (1.26) applies "modernizer" rewrites that adopt new idioms across a codebase.
-
 ### Compatibility and GODEBUG
 
 - Potentially breaking changes ship behind **`GODEBUG`** settings whose defaults follow the main module's **`go` line**, so a toolchain upgrade alone keeps their old behavior (other runtime and performance changes still apply).
@@ -210,7 +187,6 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 
 ### Test tooling
 
-- Table-driven tests with `t.Run` subtests, `t.Parallel()`, `t.Cleanup()`.
 - Benchmarks use `b.Loop()` (**1.24**), which replaced the manual `for i := 0; i < b.N; i++` idiom and avoids some compiler over-optimization pitfalls.
 - Fuzzing (`func FuzzX`, **1.18**) generates inputs from a seed corpus.
 

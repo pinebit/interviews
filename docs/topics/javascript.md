@@ -102,11 +102,6 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - There is no default timeout: pass `signal: AbortSignal.timeout(ms)`.
 - Cookies go only to the same origin by default (`credentials: 'same-origin'`); cross-origin requests need `'include'` plus CORS credential headers.
 
-### Promise helpers
-
-- **`Promise.withResolvers()`** (ES2024) returns `{ promise, resolve, reject }`.
-- **`Promise.try()`** (ES2025) runs a function and turns both its result and a synchronous throw into a promise.
-
 ## Modules
 
 ### CommonJS vs ESM
@@ -155,6 +150,7 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 - An object is iterable if it has **`[Symbol.iterator]()`** returning `{ next() → { value, done } }`; `for...of`, spread, and destructuring use it.
 - Generators (`function*`) are lazy, pause at `yield`, and can receive values via `next(v)`; async generators power `for await`.
+- **Iterator helpers** (`.map`, `.filter`, `.take`, `.drop` on iterators, ES2025) are lazy, unlike the array methods.
 
 ## Node.js runtime
 
@@ -175,11 +171,10 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - **`write()` returns `false`** once the buffer passes `highWaterMark`; stop writing until the `'drain'` event.
 - **`stream.pipeline()`** handles backpressure, errors, and cleanup of every stream in the chain — `.pipe()` doesn't forward errors.
 
-### Workers, cluster, child processes
+### Worker threads and cluster
 
 - **`worker_threads`**: threads in one process with separate V8 isolates, for CPU-bound JS; share memory through `SharedArrayBuffer`.
 - **`cluster`**: forks processes sharing one server port to use all cores — in containers, usually replaced by more replicas.
-- `child_process`: runs other programs (`spawn` streams output, `exec` buffers it).
 
 ### AsyncLocalStorage
 
@@ -200,22 +195,12 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 ## Recent language additions
 
-### Array and object helpers
-
-- **`toSorted`, `toReversed`, `toSpliced`, `with`** (ES2023) return a new array instead of mutating.
-- **`Object.groupBy`/`Map.groupBy`** (ES2024) group an iterable by a callback's key.
-
 ### Temporal
 
-- **`Temporal`** (Stage 4 in March 2026, **ES2026**) replaces `Date`: immutable values, explicit time zones (`ZonedDateTime`), calendar-safe arithmetic, separate types for dates, times, and instants.
-- Shipped in Firefox 139 and Chrome 144; Safari has it only in Technology Preview, so it isn't Baseline yet.
+- **`Temporal`** (Stage 4 in March 2026, **ES2026**) replaces `Date` with immutable values and separate types for instants, dates, times, and zoned date-times.
+- Time zones are explicit (`ZonedDateTime`) and arithmetic is calendar-safe, unlike `Date`'s mutable, local-time-by-default API.
 
 ### Explicit resource management
 
 - **`using`** / `await using` (ES2026; TypeScript since 5.2) call **`[Symbol.dispose]()`** / `[Symbol.asyncDispose]()` when the block exits, even on throw — no `try/finally`.
 - **`DisposableStack`** collects several resources and disposes them in reverse order.
-
-### Sets and iterators
-
-- **Set methods** (`union`, `intersection`, `difference`, `isSubsetOf`, …) arrived in **ES2025**.
-- **Iterator helpers** (`.map`, `.filter`, `.take`, `.drop` on iterators, ES2025) are lazy, unlike the array methods.

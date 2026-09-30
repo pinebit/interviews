@@ -2,7 +2,7 @@
 
 Temporary working file (2026-09-29): tick the items to act on, then delete this file before merging.
 
-**Status (2026-09-30):** all 72 P1 items are applied (619 → 675 concepts) and ticked below; notes in *italics* say where placement differs from the proposal. The section limit in AGENTS.md is now 5–20. P2, P3, and trim items are untouched.
+**Status (2026-09-30):** all 72 P1 items are applied (619 → 675 concepts) and ticked below; notes in *italics* say where placement differs from the proposal. The section limit in AGENTS.md is now 5–20. All cut, merge, restructure, and duplicate items are applied too (675 → 645 concepts). Two P2 items were pulled in because a trim depended on them: the Master theorem and Context performance. The rest of P2 and P3 is untouched.
 
 **Legend**
 
@@ -60,16 +60,16 @@ No file owned these; each is now named in the AGENTS.md ownership table (merged 
 
 ### Duplicates
 
-- [ ] solidity `Oracle integration` bullet 1 repeats ethereum `Oracle manipulation` bullet 1 (owner: ethereum). Keep only the link in solidity.
-- [ ] backend `File uploads` bullet 1 repeats system `CDN and object storage` bullet 2 (presigned URLs, metadata only). Keep one.
-- [ ] aws `KMS and envelope encryption` bullet 1 re-explains envelope encryption (owner: security). Keep the AWS-specific facts: `GenerateDataKey` and the 4 KB `Encrypt` limit.
+- [x] solidity `Oracle integration` bullet 1 repeats ethereum `Oracle manipulation` bullet 1 (owner: ethereum). Keep only the link in solidity.
+- [x] backend `File uploads` bullet 1 repeats system `CDN and object storage` bullet 2 (presigned URLs, metadata only). Keep one.
+- [x] aws `KMS and envelope encryption` bullet 1 re-explains envelope encryption (owner: security). Keep the AWS-specific facts: `GenerateDataKey` and the 4 KB `Encrypt` limit.
 - [x] distributed `Effectively-once processing` would overlap the proposed Delivery guarantees concept. Merge them. *Done: replaced by Delivery guarantees.*
 
 ### Structure
 
 - Section counts: no brief exceeds the new 20-section limit (javascript has 12, system 11), so no merges are needed for that reason.
 - [ ] Many sections have only 2 concepts (guide: 3–8). The P1 items filled backend Service calls, ai Training and fine-tuning, and rust Error handling; *new* P2 items would fill devops CI/CD, ethereum Consensus, rust Unsafe and FFI, and security Supply chain. Merge the rest where they stay thin.
-- [ ] Growth budget: P1 added 56 concepts (619 → 675). The remaining 107 P2 and 51 P3 items include 59 *new* P2 concepts; the cut/merge items remove about 24 whole concepts plus many bullets. Pairing each add with a trim in the same brief keeps skimming and quizzes fast.
+- [ ] Growth budget: P1 added 56 concepts (619 → 675) and the trims removed 30 (→ 645). The remaining 105 P2 and 51 P3 items include 58 *new* P2 concepts; pair each add with a trim in the same brief to keep skimming and quizzes fast.
 
 ## Fundamentals
 
@@ -83,7 +83,7 @@ Solid on arrays, DP, and graphs. Missing the problem-solving heuristics and a fe
 - [x] P1 · new · *Data structures* › **Heap patterns**: **k-way merge** of k sorted lists with a size-k min-heap, O(n log k); **two heaps** (max-heap for the lower half, min-heap for the upper) give a running median in O(log n) per insert; lazy deletion for removals.
 - [x] P1 · new · *Arrays and sequences* › **Maximum subarray (Kadane)**: `cur = max(x, cur + x)`, `best = max(best, cur)`, O(n) time and O(1) space; circular variant = max(best, total − minimum subarray) unless every value is negative. The section reaches 8 concepts.
 - [x] P1 · new · *Sorting and selection* (rename "Sorting, selection, and sampling") › **Random sampling and shuffling**: **reservoir sampling** keeps the i-th item with probability k/i (one pass, O(k) memory, unknown stream length); **Fisher–Yates** swaps `a[i]` with `a[rand(0..i)]`; drawing from the whole array at each step is biased.
-- [ ] P2 · extend · **Recurrence patterns** with the **Master theorem**: `T(n) = aT(n/b) + f(n)`; compare f(n) with n^(log_b a): smaller → Θ(n^(log_b a)), equal → Θ(n^(log_b a) · log n), larger → Θ(f(n)). Replaces the two worked examples.
+- [x] P2 · extend · **Recurrence patterns** with the **Master theorem**: `T(n) = aT(n/b) + f(n)`; compare f(n) with n^(log_b a): smaller → Θ(n^(log_b a)), equal → Θ(n^(log_b a) · log n), larger → Θ(f(n)). Replaces the two worked examples.
 - [ ] P2 · extend · **Knapsack and one-dimensional DP**: coin change with coins in the outer loop counts **combinations**; with the amount in the outer loop it counts **permutations**.
 - [ ] P2 · extend · **Shortest-path choices** table: 0/1 weights → **0-1 BFS** with a deque, O(V+E); all pairs → **Floyd–Warshall** O(V³) (negative edges fine; a negative diagonal entry means a negative cycle); Dijkstra skips stale heap entries (lazy deletion).
 - [ ] P2 · new · *Trees and graphs* › **Cycle detection and bipartiteness**: directed → DFS with three colors (reaching a gray node = back edge = cycle); undirected → a visited neighbor that isn't the parent, or union-find; bipartite ⇔ BFS 2-coloring succeeds ⇔ no odd cycle.
@@ -98,9 +98,9 @@ Solid on arrays, DP, and graphs. Missing the problem-solving heuristics and a fe
 
 **Trim**
 
-- [ ] cut · **Time and space bounds** bullet 1's opening ("state the input size…"): generic advice. Keep the Ω(k) output-size point.
-- [ ] cut · **Recurrence patterns** bullets 1–2: two textbook recurrences, superseded by the Master theorem.
-- [ ] cut · **LRU cache** bullet 2: library API listing (low confidence; handy mid-interview).
+- [x] cut · **Time and space bounds** bullet 1's opening ("state the input size…"): generic advice. Keep the Ω(k) output-size point.
+- [x] cut · **Recurrence patterns** bullets 1–2: two textbook recurrences, superseded by the Master theorem. *Replaced by the Master theorem, with merge sort and binary search as one-line examples.*
+- [x] cut · **LRU cache** bullet 2: library API listing (low confidence; handy mid-interview). *Split the remaining bullet in two.*
 
 ### Databases
 
@@ -128,11 +128,11 @@ Strong on PostgreSQL and InnoDB internals. Weaker on everyday SQL pitfalls, inde
 
 **Trim**
 
-- [ ] cut · **Redis persistence and licensing** bullet 3: license history is trivia; at most "Valkey is the drop-in open-source fork".
-- [ ] cut · **OLTP vs OLAP** bullet 1: definition-level. Keep the column-store bullet.
-- [ ] merge · **InnoDB MVCC** (one bullet) into **MySQL InnoDB isolation**.
-- [ ] merge · **Deep pagination cost** (one bullet) into the new index concept; backend owns pagination.
-- [ ] merge · **Materialized views** (one bullet) into **OLTP vs OLAP** or the denormalization bullet in **Normalization**.
+- [x] cut · **Redis persistence and licensing** bullet 3: license history is trivia; at most "Valkey is the drop-in open-source fork". *Dropped entirely; the concept is now *Redis persistence and replication*.*
+- [x] cut · **OLTP vs OLAP** bullet 1: definition-level. Keep the column-store bullet.
+- [x] merge · **InnoDB MVCC** (one bullet) into **MySQL InnoDB isolation**. *The merged concept is *InnoDB isolation and MVCC*.*
+- [x] merge · **Deep pagination cost** (one bullet) into the new index concept; backend owns pagination.
+- [x] merge · **Materialized views** (one bullet) into **OLTP vs OLAP** or the denormalization bullet in **Normalization**. *Merged into OLTP vs OLAP.*
 
 ### Distributed Systems
 
@@ -157,7 +157,7 @@ Strong and dense.
 
 **Trim**
 
-- [ ] merge · **Window types** (one bullet) into **Event time and watermarks**; frees a slot in Stream processing for CDC.
+- [x] merge · **Window types** (one bullet) into **Event time and watermarks**; frees a slot in Stream processing for CDC.
 - [x] merge · **Effectively-once processing** into the Delivery guarantees concept above.
 
 ### Networking
@@ -180,9 +180,9 @@ The smallest brief (5 sections, 22 concepts). Good fundamentals, light on troubl
 
 **Trim**
 
-- [ ] merge · **UDP**: definition-level. Move "DNS, VoIP, games, QUIC" into **HTTP/3 and QUIC** or **Head-of-line blocking**.
-- [ ] cut · **HTTP/1.1** bullet 2's history (domain sharding, sprite sheets). Keep "~6 connections per host".
-- [ ] merge · **Debugging tools**: a tool list. Fold it into the failure-signatures concept as symptom → tool.
+- [x] merge · **UDP**: definition-level. Move "DNS, VoIP, games, QUIC" into **HTTP/3 and QUIC** or **Head-of-line blocking**.
+- [x] cut · **HTTP/1.1** bullet 2's history (domain sharding, sprite sheets). Keep "~6 connections per host".
+- [x] merge · **Debugging tools**: a tool list. Fold it into the failure-signatures concept as symptom → tool. *Now a *Check with* column in the failure-signatures table.*
 
 ### Operating Systems
 
@@ -204,9 +204,9 @@ Good coverage of memory and I/O. Missing process states, a safe file-replace pat
 
 **Trim**
 
-- [ ] cut · **Processes vs threads** bullet 1: definition-level. Keep the `clone()` bullet, merged into **fork, exec, copy-on-write**.
-- [ ] cut · **Priority inversion**: rarely asked outside real-time roles (low confidence; Mars Pathfinder is a good memory hook).
-- [ ] cut · **Linux observability tools** bullet 1: a tool list. Keep the perf/eBPF/strace bullets, or turn the concept into a symptom → tool table.
+- [x] cut · **Processes vs threads** bullet 1: definition-level. Keep the `clone()` bullet, merged into **fork, exec, copy-on-write**. *The concept is gone; its `clone()` bullet moved to fork, exec, copy-on-write.*
+- [x] cut · **Priority inversion**: rarely asked outside real-time roles (low confidence; Mars Pathfinder is a good memory hook).
+- [x] cut · **Linux observability tools** bullet 1: a tool list. Keep the perf/eBPF/strace bullets, or turn the concept into a symptom → tool table.
 
 ### System Design
 
@@ -230,9 +230,9 @@ Strong building blocks and classic designs. Missing capacity math, metric aggreg
 
 **Trim**
 
-- [ ] cut · **Leaderboard** bullet 2: Redis command deprecation trivia.
-- [ ] cut · **SQL vs NoSQL** bullet 1: definition-level.
-- [ ] cut · **Monolith vs microservices** bullets 1–2: well-known pros and cons. Keep "modular monolith by default" and Conway's law.
+- [x] cut · **Leaderboard** bullet 2: Redis command deprecation trivia.
+- [x] cut · **SQL vs NoSQL** bullet 1: definition-level.
+- [x] cut · **Monolith vs microservices** bullets 1–2: well-known pros and cons. Keep "modular monolith by default" and Conway's law.
 
 ## Languages
 
@@ -256,11 +256,11 @@ Strong runtime and concurrency coverage. Missing several everyday gotchas; a few
 
 **Trim**
 
-- [ ] cut · **Newer language features**: syntax trivia (`min`/`max`, range over int, generic type aliases). Keep `new(expr)` at most.
-- [ ] cut · **Toolchains and tools**: `GOTOOLCHAIN`, `tool` directives, and `go fix` modernizers are rarely asked.
-- [ ] cut · **Routing, JSON, logging** bullets 2–3: json/v2's status keeps moving and "`log/slog` exists" is trivia. Replace them with the encoding/json gotchas concept.
-- [ ] cut · **Test tooling** bullet 1: table-driven tests and `t.Run`/`t.Parallel`/`t.Cleanup` are basics.
-- [ ] cut · **Cleanups, weak pointers, interning**: niche runtime APIs (low confidence).
+- [x] cut · **Newer language features**: syntax trivia (`min`/`max`, range over int, generic type aliases). Keep `new(expr)` at most. *`new(expr)` dropped too.*
+- [x] cut · **Toolchains and tools**: `GOTOOLCHAIN`, `tool` directives, and `go fix` modernizers are rarely asked.
+- [x] cut · **Routing, JSON, logging** bullets 2–3: json/v2's status keeps moving and "`log/slog` exists" is trivia. Replace them with the encoding/json gotchas concept. *The remaining ServeMux bullet moved into net/http clients and servers.*
+- [x] cut · **Test tooling** bullet 1: table-driven tests and `t.Run`/`t.Parallel`/`t.Cleanup` are basics.
+- [x] cut · **Cleanups, weak pointers, interning**: niche runtime APIs (low confidence).
 
 ### JavaScript
 
@@ -281,11 +281,11 @@ Good language-semantics coverage, but light on async ordering and engine interna
 
 **Trim**
 
-- [ ] cut · **Array and object helpers**: standard-library listing (`toSorted`, `with`, `groupBy`).
-- [ ] cut · **Promise helpers**: API listing (`withResolvers`, `try`).
-- [ ] cut · **Sets and iterators** bullet 1: Set method list. Keep the lazy iterator-helpers bullet.
-- [ ] cut · **Temporal** bullet 2: browser support status goes stale within months.
-- [ ] cut · **Workers, cluster, child processes** bullet 3: `spawn` vs `exec` basics.
+- [x] cut · **Array and object helpers**: standard-library listing (`toSorted`, `with`, `groupBy`).
+- [x] cut · **Promise helpers**: API listing (`withResolvers`, `try`).
+- [x] cut · **Sets and iterators** bullet 1: Set method list. Keep the lazy iterator-helpers bullet. *The iterator-helpers bullet moved into Iterators and generators.*
+- [x] cut · **Temporal** bullet 2: browser support status goes stale within months.
+- [x] cut · **Workers, cluster, child processes** bullet 3: `spawn` vs `exec` basics. *Renamed *Worker threads and cluster*.*
 
 ### Python
 
@@ -307,11 +307,11 @@ Strong on the runtime, object model, and asyncio. Missing a few classic gotchas 
 
 **Trim**
 
-- [ ] cut · **Refcounting and the cyclic GC** bullet 2: patch-release GC history won't be asked.
-- [ ] cut · **Mutation during iteration** bullet 2: "dict order since 3.7" repeats dict internals.
-- [ ] merge · **Late-binding closures** (one bullet) into **Mutable default arguments** (same `i=i` fix) or **Scope and `UnboundLocalError`**.
-- [ ] cut · **Specializing interpreter and JIT** bullet 2: the JIT is off by default (low confidence).
-- [ ] restructure · merge Recent language features + Typing (2 concepts each).
+- [x] cut · **Refcounting and the cyclic GC** bullet 2: patch-release GC history won't be asked.
+- [x] cut · **Mutation during iteration** bullet 2: "dict order since 3.7" repeats dict internals.
+- [x] merge · **Late-binding closures** (one bullet) into **Mutable default arguments** (same `i=i` fix) or **Scope and `UnboundLocalError`**. *Merged into *Default arguments and late binding*.*
+- [x] cut · **Specializing interpreter and JIT** bullet 2: the JIT is off by default (low confidence). *Renamed *Specializing interpreter*.*
+- [x] restructure · merge Recent language features + Typing (2 concepts each). *Now *Typing and recent features*.*
 
 ### Rust
 
@@ -333,10 +333,10 @@ Strong on ownership, traits, and async. Missing numeric semantics, the standard 
 
 **Trim**
 
-- [ ] cut · **Iterators** bullet 2: `iter`/`iter_mut`/`into_iter` basics.
-- [ ] cut · **String vs &str** bullet 1: basics. Keep the no-indexing and char-boundary panic bullet.
-- [ ] cut · **Lock files and editions** bullet 2's version note ("edition 2024 since 1.85"). Keep what edition 2024 changes.
-- [ ] merge · **Async closures** (one bullet) into **Futures and executors** or **Fn, FnMut, FnOnce**.
+- [x] cut · **Iterators** bullet 2: `iter`/`iter_mut`/`into_iter` basics.
+- [x] cut · **String vs &str** bullet 1: basics. Keep the no-indexing and char-boundary panic bullet.
+- [x] cut · **Lock files and editions** bullet 2's version note ("edition 2024 since 1.85"). Keep what edition 2024 changes.
+- [x] merge · **Async closures** (one bullet) into **Futures and executors** or **Fn, FnMut, FnOnce**. *Merged into Fn, FnMut, FnOnce.*
 
 ### Solidity
 
@@ -354,14 +354,14 @@ The most thorough brief (254 lines). Few additions; trimming version trivia matt
 
 **Trim** (keep the mechanism, drop the release number)
 
-- [ ] cut · **Modifiers** bullet 4: `virtual` modifier deprecation (0.8.31).
-- [ ] cut · **Libraries and user-defined types**: the `global` (0.8.13) and operator-binding (0.8.19) version details.
-- [ ] cut · **Transient and relocated storage** bullet 3: `layout at` (0.8.29/0.8.35) is niche.
-- [ ] cut · **Error types** bullet 4: the 0.8.26 vs 0.8.27 split for `require(cond, Error())`.
-- [ ] cut · **Assembly gotchas** bullet 2's deprecated-comment clause, and **Gas optimization patterns** bullet 5's 0.8.22 note.
-- [ ] cut · **Code size limit** bullet 3: EIP-7954 and Glamsterdam are still moving; re-add once shipped.
-- [ ] cut · **Oracle integration** bullet 1: duplicate of ethereum.md (owner).
-- [ ] cut · **Randomness and block data** bullet 4: the timestamp slot detail is minor.
+- [x] cut · **Modifiers** bullet 4: `virtual` modifier deprecation (0.8.31).
+- [x] cut · **Libraries and user-defined types**: the `global` (0.8.13) and operator-binding (0.8.19) version details.
+- [x] cut · **Transient and relocated storage** bullet 3: `layout at` (0.8.29/0.8.35) is niche.
+- [x] cut · **Error types** bullet 4: the 0.8.26 vs 0.8.27 split for `require(cond, Error())`.
+- [x] cut · **Assembly gotchas** bullet 2's deprecated-comment clause, and **Gas optimization patterns** bullet 5's 0.8.22 note.
+- [x] cut · **Code size limit** bullet 3: EIP-7954 and Glamsterdam are still moving; re-add once shipped.
+- [x] cut · **Oracle integration** bullet 1: duplicate of ethereum.md (owner). *Now one line linking to ethereum.md.*
+- [x] cut · **Randomness and block data** bullet 4: the timestamp slot detail is minor.
 
 ### TypeScript
 
@@ -381,9 +381,9 @@ Good type-system depth. The biggest gap is the runtime boundary (types vanish), 
 
 **Trim**
 
-- [ ] merge · **Structural typing** (one definition-level bullet) into **Branded types**, which exists because of it.
-- [ ] cut · **TypeScript 7 native compiler** bullet 2: tooling compatibility status will change within months.
-- [ ] merge · **Exhaustiveness with `never`** (one bullet) into **Control-flow narrowing** (low confidence).
+- [x] merge · **Structural typing** (one definition-level bullet) into **Branded types**, which exists because of it.
+- [x] cut · **TypeScript 7 native compiler** bullet 2: tooling compatibility status will change within months.
+- [x] merge · **Exhaustiveness with `never`** (one bullet) into **Control-flow narrowing** (low confidence).
 
 ## Web
 
@@ -404,10 +404,10 @@ Good API and reliability patterns. Missing schema evolution, tenancy, time handl
 
 **Trim**
 
-- [ ] cut · **Resource modeling**: REST naming basics.
-- [ ] cut · **Configuration and secrets**: 12-factor generics. Keep "validate config at startup" at most.
-- [ ] cut · **File uploads** bullet 1: duplicates system.md. Keep the multipart/resumable bullet.
-- [ ] cut · **Queue vs direct call**: system.md's **Queue semantics** covers it (low confidence).
+- [x] cut · **Resource modeling**: REST naming basics.
+- [x] cut · **Configuration and secrets**: 12-factor generics. Keep "validate config at startup" at most. *Cut entirely; the section is now *Service lifecycle*.*
+- [x] cut · **File uploads** bullet 1: duplicates system.md. Keep the multipart/resumable bullet. *Shortened to a link to system.md.*
+- [x] cut · **Queue vs direct call**: system.md's **Queue semantics** covers it (low confidence).
 
 ### Frontend
 
@@ -422,7 +422,7 @@ Good breadth. Missing the React data-fetching and state-update gotchas that inte
 - [ ] P2 · new · *React hooks pitfalls* › **useLayoutEffect vs useEffect**: `useEffect` runs after paint; `useLayoutEffect` runs after DOM mutation but **before paint**, for measuring layout without flicker, at the cost of blocking paint.
 - [ ] P2 · extend · **Core Web Vitals**: rankings use **field data** (CrUX, p75 over 28 days, mobile and desktop separately); a page-load Lighthouse run is lab data and can't measure INP, so it reports TBT as a proxy.
 - [ ] P2 · new · *Performance* › **Long lists**: **virtualize** (render only the visible rows: TanStack Virtual, react-window) beyond a few hundred complex rows; keep stable keys for infinite scroll.
-- [ ] P2 · new · *State management* › **Context performance** (replaces **Where state lives**): every consumer re-renders when the provider `value` changes identity, so memoize it, split state and dispatch into separate contexts, or use a store with selectors (`useSyncExternalStore`).
+- [x] P2 · new · *State management* › **Context performance** (replaces **Where state lives**): every consumer re-renders when the provider `value` changes identity, so memoize it, split state and dispatch into separate contexts, or use a store with selectors (`useSyncExternalStore`).
 - [ ] P2 · new · *Performance* › **Web fonts**: `font-display: swap` shows fallback text instead of invisible text but causes a swap shift; `size-adjust` and metric overrides reduce that CLS; preload the one critical font; subset and self-host.
 - [ ] P2 · extend · **Semantic HTML and ARIA**: dynamic messages (toasts, form errors) need an **`aria-live`** region; every input needs a programmatic label; test with axe and a keyboard.
 - [ ] P3 · new · *State management* › **Signals**: fine-grained reactivity (Solid, Preact, Vue, Angular signals) updates only the dependents without a VDOM diff; a TC39 Signals proposal exists.
@@ -431,11 +431,11 @@ Good breadth. Missing the React data-fetching and state-update gotchas that inte
 
 **Trim**
 
-- [ ] cut · **CSS layout and specificity** bullet 1: flexbox vs grid basics.
-- [ ] cut · **Modern CSS features**: feature listing and Baseline status. Keep container queries and `:has()`.
-- [ ] cut · **View transitions** bullet 2: Baseline status details go stale.
-- [ ] cut · **Where state lives**: generic advice (replaced by Context performance).
-- [ ] cut · **Controlled vs uncontrolled inputs**: basic React (low confidence).
+- [x] cut · **CSS layout and specificity** bullet 1: flexbox vs grid basics. *Renamed *Specificity and the cascade*.*
+- [x] cut · **Modern CSS features**: feature listing and Baseline status. Keep container queries and `:has()`. *The nesting and `subgrid` clause went too.*
+- [x] cut · **View transitions** bullet 2: Baseline status details go stale. *Kept the multi-page opt-in, dropped the Baseline status.*
+- [x] cut · **Where state lives**: generic advice (replaced by Context performance). *Replaced by Context performance (P2 item ticked).*
+- [x] cut · **Controlled vs uncontrolled inputs**: basic React (low confidence).
 
 ### Security
 
@@ -462,9 +462,9 @@ Strong. Missing a few browser-policy nuances, randomness, account recovery, and 
 
 **Trim**
 
-- [ ] cut · **Encoding vs encryption vs hashing**: definition-level table.
-- [ ] merge · **Clickjacking** into **Content Security Policy** (`frame-ancestors`) (low confidence).
-- [ ] cut · **OWASP Top 10:2025**: keep only if you expect "name the list" questions (low confidence).
+- [x] cut · **Encoding vs encryption vs hashing**: definition-level table.
+- [x] merge · **Clickjacking** into **Content Security Policy** (`frame-ancestors`) (low confidence). *Now a bullet in Content Security Policy.*
+- [x] cut · **OWASP Top 10:2025**: keep only if you expect "name the list" questions (low confidence). *Cut; Threat modeling would have had one concept left, so it merged with Supply chain into *Secure development*.*
 
 ## Infrastructure
 
@@ -490,10 +490,10 @@ Compact and accurate. Missing the load balancer choice, cross-account access, S3
 
 **Trim**
 
-- [ ] cut · **ECS service mechanics**: definitions (task definition, service).
-- [ ] cut · **Lambda limits and concurrency** bullet 2: Managed Instances' 90-minute limit is new and niche (low confidence).
-- [ ] cut · **Capacity and cost guardrails** bullet 2: Budgets vs Cost Explorer trivia.
-- [ ] cut · **KMS and envelope encryption** bullet 1's re-explanation (owner: security). Keep `GenerateDataKey` and the 4 KB limit.
+- [x] cut · **ECS service mechanics**: definitions (task definition, service).
+- [x] cut · **Lambda limits and concurrency** bullet 2: Managed Instances' 90-minute limit is new and niche (low confidence).
+- [x] cut · **Capacity and cost guardrails** bullet 2: Budgets vs Cost Explorer trivia.
+- [x] cut · **KMS and envelope encryption** bullet 1's re-explanation (owner: security). Keep `GenerateDataKey` and the 4 KB limit.
 
 ### DevOps
 
@@ -516,10 +516,10 @@ Good Kubernetes and Terraform coverage. Missing workload security, a key Terrafo
 
 **Trim**
 
-- [ ] cut · **Container networking and storage**: Docker basics (`EXPOSE` vs `-p`, volumes vs bind mounts).
-- [ ] cut · **Modules, workspaces, licensing** bullet 3: license history. Keep "OpenTofu is the open fork" (low confidence).
-- [ ] cut · **Node components** bullet 3: kube-proxy modes by version (low confidence).
-- [ ] cut · **Workload types**: definition-level for Kubernetes users. Keep "never run a bare Pod" (low confidence).
+- [x] cut · **Container networking and storage**: Docker basics (`EXPOSE` vs `-p`, volumes vs bind mounts).
+- [x] cut · **Modules, workspaces, licensing** bullet 3: license history. Keep "OpenTofu is the open fork" (low confidence). *Renamed *Modules, workspaces, OpenTofu*.*
+- [x] cut · **Node components** bullet 3: kube-proxy modes by version (low confidence).
+- [x] cut · **Workload types**: definition-level for Kubernetes users. Keep "never run a bare Pod" (low confidence). *The bare-Pod bullet moved to Control plane.*
 
 ## Domains
 
@@ -544,9 +544,9 @@ Strong on inference, serving, RAG, and agents. Missing how models are trained (i
 
 **Trim**
 
-- [ ] cut · **Browser automation as a fallback**: generic. Move "approve irreversible submits" into **Human approval gates**.
-- [ ] cut · **Model routing and caching** bullet 3: "measure cost per completed task" is generic (low confidence).
-- [ ] cut · **Stop conditions** bullet 2: generic (low confidence).
+- [x] cut · **Browser automation as a fallback**: generic. Move "approve irreversible submits" into **Human approval gates**. *Moved into Human approval gates.*
+- [x] cut · **Model routing and caching** bullet 3: "measure cost per completed task" is generic (low confidence).
+- [x] cut · **Stop conditions** bullet 2: generic (low confidence).
 
 ### Ethereum
 
@@ -570,5 +570,5 @@ Good protocol coverage. Missing precompiles, node and RPC practicalities, ZK pro
 
 **Trim**
 
-- [ ] cut · **Bridge exploits**: historical hack list. Keep one lesson per incident, or fold it into Bridge designs (low confidence).
-- [ ] cut · **Account model** bullet 1: definition-level for Ethereum roles (low confidence).
+- [x] cut · **Bridge exploits**: historical hack list. Keep one lesson per incident, or fold it into Bridge designs (low confidence). *Kept as one lesson per incident.*
+- [x] cut · **Account model** bullet 1: definition-level for Ethereum roles (low confidence). *Renamed *Account nonces*.*

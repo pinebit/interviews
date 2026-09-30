@@ -80,7 +80,6 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### SQL vs NoSQL
 
-- **SQL**: relational schema, ACID transactions, joins — the default for data needing correctness (payments, orders).
 - NoSQL families by access pattern: key-value, document, **wide-column** (heavy writes, time series), graph; model tables around queries, not entities.
 - Pick NoSQL only for a named reason (write volume, schema flexibility, access pattern). Internals in [database.md](database.md).
 
@@ -161,9 +160,8 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Monolith vs microservices
 
-- Monolith: simple to develop, deploy, and debug, with in-process calls and local transactions; struggles with many teams or very different scaling needs.
-- Microservices: independent deploys and scaling, at the cost of network failures, distributed transactions, and operational overhead.
-- Default to a **modular monolith**; extract services for a concrete reason. Boundaries mirror teams (**Conway's law**).
+- Default to a **modular monolith**: in-process calls and local transactions, with module boundaries that could later become services.
+- Extract a service for a concrete reason (independent scaling, deploy cadence, team ownership); boundaries mirror teams (**Conway's law**).
 
 ### Service discovery
 
@@ -265,7 +263,6 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### Leaderboard
 
 - A Redis **sorted set**: `ZINCRBY` updates a score and `ZREVRANK` returns a user's rank in O(log n); `ZRANGE ... REV` reads the top k in O(log n + k).
-- `ZRANGE ... REV` replaces `ZREVRANGE`, deprecated since Redis 6.2.
 - Beyond one node, shard by score range or keep per-shard top-k and merge.
 
 ### Booking and inventory contention

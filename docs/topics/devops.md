@@ -55,23 +55,18 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - PID 1 gets no default signal handlers, so an app not written for it may ignore **`SIGTERM`** and be killed after the grace period.
 - Use the **exec form** (`CMD ["app"]`, not `CMD app`, which wraps it in a shell) and a tiny init (`tini`, `--init`) to forward signals and reap zombies.
 
-### Container networking and storage
-
-- On a user-defined bridge network, containers resolve each other by name; `EXPOSE` only documents a port, `-p` publishes it.
-- **Volumes** are Docker-managed and survive the container; **bind mounts** map a host path; the writable layer dies with the container.
-
 ## Kubernetes architecture
 
 ### Control plane
 
 - The **API server** is the only component talking to **etcd**; the scheduler assigns Pods to nodes; **controllers** reconcile actual state toward desired state.
 - Everything is declarative and level-triggered: `kubectl apply` succeeding means the object was stored, not that the app is healthy.
+- A bare Pod has no controller, so nothing recreates it after a node failure — run workloads through a Deployment, StatefulSet, DaemonSet, or Job.
 
 ### Node components
 
 - **kubelet** runs the node's Pods through the container runtime (CRI) and reports status.
 - **kube-proxy** or an **eBPF** CNI such as Cilium implements Service virtual IPs.
-- kube-proxy modes: iptables (default), nftables (GA in 1.33), IPVS (deprecated since 1.35).
 
 ### Packaging and extension
 
@@ -79,12 +74,6 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - **CRDs + operators** extend the API: an operator's controller reconciles custom resources (databases, certificates) like built-in objects.
 
 ## Kubernetes workloads
-
-### Workload types
-
-- **Deployment**: interchangeable stateless Pods via ReplicaSets. **StatefulSet**: stable names (`db-0`), ordered rollout, a volume per Pod.
-- **DaemonSet**: one Pod per node (log agents, CNI). Job/CronJob: run to completion, once or on a schedule.
-- Never run a bare Pod for anything that should come back after failure.
 
 ### Rolling update tuning
 
@@ -208,11 +197,11 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - **`import`** blocks (1.5) adopt existing resources into state.
 - **`removed`** blocks (1.7) drop a resource from config; the default destroys it — only `lifecycle { destroy = false }` keeps the real object.
 
-### Modules, workspaces, licensing
+### Modules, workspaces, OpenTofu
 
 - Modules package resources behind inputs and outputs.
 - Workspaces give one configuration several states but are **not an access boundary** — isolate environments with separate backends or root modules.
-- Terraform moved to the **BSL license in 2023**; **OpenTofu** is the open-source fork with the same workflow.
+- **OpenTofu** is the open-source fork of Terraform with the same workflow.
 
 ## CI/CD and GitOps
 

@@ -24,7 +24,7 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 ### KMS and envelope encryption
 
-- **Envelope encryption**: `GenerateDataKey` returns a plaintext data key (encrypt locally, then discard) and the same key encrypted under the KMS key (store it with the data). KMS `Encrypt` itself only takes **4 KB**.
+- `GenerateDataKey` returns a data key in plaintext (use it, then discard it) and wrapped under the KMS key (store it with the data) — the envelope pattern in [security.md](security.md); KMS `Encrypt` itself takes at most **4 KB**.
 - Every KMS key has a **key policy**; IAM policies grant access only if the key policy delegates to the account.
 
 ## Networking
@@ -79,7 +79,6 @@ Gateway Load Balancer inserts inline appliances such as third-party firewalls.
 ### Lambda limits and concurrency
 
 - Maximum timeout **15 minutes**; synchronous payloads 6 MB each way (streamed responses allow more).
-- Lambda Managed Instances allow up to **90 minutes** for async and event-source invocations (Sept 2026); synchronous calls stay at 15.
 - **Reserved concurrency** guarantees capacity and caps a function; provisioned concurrency pre-initializes environments to reduce startup latency and incurs separate charges.
 
 ### Lambda cold starts and scaling
@@ -93,11 +92,6 @@ Gateway Load Balancer inserts inline appliances such as third-party firewalls.
 - API Gateway REST API: auth, throttling, usage plans, request validation; integration timeout **29 s** by default (raisable for Regional and private APIs).
 - **HTTP API**: cheaper, JWT/Lambda/IAM authorizers and throttling, but no usage plans or request validation; integration timeout max **30 s**.
 - ALB in front of Lambda or containers can authenticate via OIDC/Cognito but has no throttling, usage plans, or validation; LCU pricing is usually cheaper at sustained high volume.
-
-### ECS service mechanics
-
-- A **task definition** specifies containers and resources; a **service** keeps the desired number of tasks running and replaces failed ones.
-- Services register tasks with a load balancer target group and roll out new task definitions with rolling or blue/green deployments.
 
 ## Storage and databases
 
@@ -173,7 +167,6 @@ Gateway Load Balancer inserts inline appliances such as third-party firewalls.
 ### Capacity and cost guardrails
 
 - Service **quotas** are per account and Region and often stop scaling before the application does — many are soft and raised by request.
-- AWS Budgets alerts follow billing-data updates, at least daily; use CloudWatch service metrics for operational alarms. Cost Explorer is for spend analysis.
 - EC2 **Spot** capacity can be reclaimed; stop/terminate interruption notices give about **2 minutes** on a best-effort basis (hibernation starts immediately). Checkpoint work and replace capacity proactively.
 
 ### Cost drivers

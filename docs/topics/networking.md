@@ -12,18 +12,14 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### Connection failure signatures
 
-| Symptom | Usual cause |
-|---|---|
-| Connection refused | RST: host reachable, nothing listening on the port |
-| Connect timeout | SYN dropped: firewall, security group, or dead host; Linux retries the SYN for **~127 s**, so set connect timeouts |
-| Connection reset by peer | peer crashed, or a middlebox dropped the flow after its idle timeout |
-| **502** from a proxy | upstream refused, reset, or sent an invalid response |
-| **504** from a proxy | upstream didn't answer in time |
-
-### Debugging tools
-
-- `dig` (DNS answer, TTL), `curl -v` and `curl -w '%{time_connect} %{time_appconnect} %{time_starttransfer}'` (per-phase timing).
-- `ss -tanp` (sockets and states), `traceroute`/`mtr` (path, TTL expiry), `tcpdump`/Wireshark (packets).
+| Symptom | Usual cause | Check with |
+|---|---|---|
+| Name doesn't resolve, or resolves to an old IP | NXDOMAIN, stale cache, TTL not expired | `dig` (answer, TTL) |
+| Connection refused | RST: host reachable, nothing listening on the port | `ss -tlnp` on the server |
+| Connect timeout | SYN dropped: firewall, security group, or dead host; Linux retries the SYN for **~127 s**, so set connect timeouts | `traceroute`/`mtr`, `tcpdump` for SYNs |
+| Connection reset by peer | peer crashed, or a middlebox dropped the flow after its idle timeout | `tcpdump`/Wireshark around the RST |
+| **502** from a proxy | upstream refused, reset, or sent an invalid response | proxy error log, `ss -tanp` states |
+| **504** from a proxy, or just slow | upstream didn't answer in time | `curl -w '%{time_connect} %{time_appconnect} %{time_starttransfer}'` per phase |
 
 ## TCP
 
@@ -69,17 +65,12 @@ What experienced engineers forget about networking before an interview, grouped 
 - TCP delivers bytes in order, so one lost packet stalls everything behind it — even data for unrelated HTTP/2 streams.
 - HTTP/1.1 blocks at the request level, HTTP/2 fixes that but not TCP's, and **QUIC** fixes both: streams are delivered independently, so a lost packet stalls only the streams whose data it carried.
 
-### UDP
-
-- No handshake, ordering, retransmission, or congestion control — the application decides.
-- Used where latency beats reliability or the protocol handles it itself: DNS, VoIP, games, **QUIC**.
-
 ## HTTP
 
 ### HTTP/1.1
 
 - Persistent connections (keep-alive), but **one outstanding request per connection** in practice (pipelining is unused).
-- Browsers open about **6 connections per host** to parallelize — the reason for old tricks like domain sharding and sprite sheets.
+- Browsers open about **6 connections per host** to parallelize.
 
 ### HTTP/2
 
@@ -89,6 +80,7 @@ What experienced engineers forget about networking before an interview, grouped 
 
 ### HTTP/3 and QUIC
 
+- UDP has no handshake, ordering, or retransmission, so QUIC implements them in user space; DNS, VoIP, and games use UDP directly and handle loss themselves.
 - QUIC runs over UDP with TLS 1.3 built in: **1-RTT** setup (0-RTT on resumption) and independent stream delivery, so no cross-stream head-of-line blocking; loss detection and congestion control stay per connection.
 - **Connection migration**: a connection ID survives an IP change (Wi-Fi → cellular).
 - Clients discover it via the `Alt-Svc` header or a DNS HTTPS record; many networks block UDP, so browsers fall back to TCP.

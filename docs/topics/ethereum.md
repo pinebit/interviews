@@ -4,9 +4,8 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 ## Accounts and transactions
 
-### Account model
+### Account nonces
 
-- **EOA** (controlled by a secp256k1 key) vs **contract account** (controlled by its code); only EOAs originate transactions.
 - The **nonce** orders an EOA's transactions and prevents replay; an EIP-7702 authorization also increments it, even in someone else's transaction.
 - A stuck transaction blocks every later nonce until replaced by one with the same nonce and a higher fee.
 
@@ -189,5 +188,6 @@ Built-in contracts at fixed low addresses for cryptography too expensive in byte
 
 ### Bridge exploits
 
-- Bridges hold large locked pools, making them prime targets.
-- **Ronin** (5 of 9 validator keys compromised), **Wormhole** (signature verification bypass), **Nomad** (bad initialization let anyone forge messages).
+- A bridge is only as secure as whoever attests to cross-chain messages, and its locked pool makes it a prime target.
+- **Ronin** (2022): 5 of 9 validator keys compromised — a small validator set is just a multisig.
+- **Wormhole** (2022): a signature-verification bypass minted unbacked tokens; **Nomad** (2022): an upgrade marked the zero root as trusted, so any message passed and copycats drained it.

@@ -54,17 +54,13 @@ What experienced engineers forget about application security before an interview
 
 - A **strict CSP** uses per-response nonces or hashes (`script-src 'nonce-…' 'strict-dynamic'`); host allowlists are routinely bypassed through JSONP endpoints and CDN-hosted gadgets.
 - **`'strict-dynamic'`** lets a trusted script load further scripts and makes supporting browsers ignore host allowlists.
+- **`frame-ancestors`** blocks framing, which stops clickjacking (a hidden frame tricking the user into clicking the real site); `X-Frame-Options` is the legacy header.
 - Roll out with `Content-Security-Policy-Report-Only` first.
 
 ### CSRF
 
 - The browser auto-attaches cookies to a forged cross-site request.
 - Defend with framework **CSRF tokens** plus `SameSite=Lax`/`Strict` cookies (**Lax is Chrome's default**); XSS defeats CSRF defenses, so it's no substitute.
-
-### Clickjacking
-
-- A hidden frame tricks the user into clicking the real site.
-- Block framing with CSP **`frame-ancestors`** (or legacy `X-Frame-Options`).
 
 ### CORS
 
@@ -171,14 +167,6 @@ What experienced engineers forget about application security before an interview
 
 ## Cryptography
 
-### Encoding vs encryption vs hashing
-
-| | Reversible? | Needs a key? | Purpose |
-|---|---|---|---|
-| Encoding (Base64) | yes | no | representation |
-| Encryption | yes, with the key | yes | confidentiality |
-| Hashing | no | no | integrity, fingerprint |
-
 ### Secure randomness
 
 - Tokens, session IDs, nonces, and reset codes need a **CSPRNG**: `crypto.getRandomValues`/`crypto.randomBytes`, Python `secrets`, Go `crypto/rand`.
@@ -232,7 +220,7 @@ What experienced engineers forget about application security before an interview
 - **HSTS** forces HTTPS on later visits after one HTTPS response (preload lists cover the first visit).
 - **Certificate pinning** resists CA compromise but makes key rotation painful — mostly limited to mobile apps now.
 
-## Supply chain
+## Secure development
 
 ### Dependency attacks
 
@@ -243,8 +231,6 @@ What experienced engineers forget about application security before an interview
 
 - An **SBOM** (SPDX, CycloneDX) lists what's inside an artifact, so a new CVE can be matched to affected builds.
 - **SLSA** levels grade build provenance; **Sigstore** (cosign) signs artifacts with short-lived keys tied to a CI identity.
-
-## Threat modeling
 
 ### STRIDE
 
@@ -258,9 +244,3 @@ What experienced engineers forget about application security before an interview
 | Elevation of privilege | Authorization |
 
 - STRIDE finds threats at each trust boundary; it doesn't rank them — pair it with impact/likelihood.
-
-### OWASP Top 10:2025
-
-- Broken Access Control, Security Misconfiguration, **Software Supply Chain Failures** (new), Cryptographic Failures, Injection, Insecure Design.
-- Authentication Failures, Software/Data Integrity Failures, Security Logging and Alerting Failures, **Mishandling of Exceptional Conditions** (new).
-- An awareness list, not a test checklist — name the edition when citing it.

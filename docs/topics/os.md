@@ -4,16 +4,12 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ## Processes and threads
 
-### Processes vs threads
-
-- A **process** has its own address space, file descriptors, and credentials; **threads** share the address space and descriptors of their process.
-- On Linux both are **tasks** created by `clone()` with different sharing flags; the scheduler treats them alike.
-
 ### fork, exec, copy-on-write
 
 - **`fork()`** duplicates the process lazily: pages are shared **copy-on-write** until one side writes.
 - **`exec()`** replaces the program image, keeping the PID and open descriptors (unless `O_CLOEXEC`).
 - Forking a multi-threaded process copies only the calling thread — locks held by others stay locked forever in the child.
+- On Linux, processes and threads are both tasks created by `clone()` with different sharing flags; the scheduler treats them alike.
 
 ### Process states
 
@@ -156,11 +152,6 @@ What experienced engineers forget about Linux and OS internals before an intervi
 - All four **Coffman conditions** must hold: mutual exclusion, hold and wait, no preemption, **circular wait**.
 - Break one — usually circular wait, with a global **lock ordering** — or use `trylock` with timeouts.
 
-### Priority inversion
-
-- A low-priority task holds a lock needed by a high-priority task while a medium-priority task starves it (Mars Pathfinder, 1997).
-- **Priority inheritance** temporarily boosts the lock holder.
-
 ### Atomics, CAS, and the ABA problem
 
 - **Compare-and-swap** writes only if the value still equals the expected one; retry loops build lock-free stacks, counters, and mutex fast paths.
@@ -177,7 +168,6 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### Linux observability tools
 
-- `top`/`htop` (CPU per process), `vmstat 1` (run queue, swap, context switches), `iostat -x 1` (disk utilization, await), `pidstat` (per-process CPU and I/O).
 - **`perf`** samples stacks with low overhead → flame graphs; **eBPF** tools (`bpftrace`, bcc) trace kernel events in production safely.
 - **`strace`** shows every syscall but slows the process heavily (ptrace) — avoid on hot production paths.
 

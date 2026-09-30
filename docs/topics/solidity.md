@@ -21,13 +21,12 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - `_` marks where the function body runs; a `return` in the body only leaves the body, so code after `_` still runs **after the return**.
 - Modifiers apply left to right; `_` may run several times, and if it never runs the body is skipped and return values stay at their defaults.
 - Legacy codegen **inlines** modifier code at every use — move the logic into an internal function to shrink bytecode; via-IR emits modifiers as functions.
-- `virtual` modifiers are deprecated since 0.8.31, ahead of 0.9.
 
 ### Libraries and user-defined types
 
 - `internal` library functions are inlined into the caller (a `JUMP`); `public`/`external` ones run through **`DELEGATECALL`** into a separately deployed, linked library.
-- Libraries have no state variables and can't receive ETH; `using L for T` attaches their functions to a type, and `global` (0.8.13, user-defined types only) applies it in every file.
-- **User-defined value types** (`type Price is uint256;`, 0.8.8) are zero-cost wrappers that stop mixing units; `using {add as +} for Price global` binds operators (0.8.19).
+- Libraries have no state variables and can't receive ETH; `using L for T` attaches their functions to a type, and `global` (user-defined types only) applies it in every file.
+- **User-defined value types** (`type Price is uint256;`, 0.8.8) are zero-cost wrappers that stop mixing units; `using {add as +} for Price global` binds operators.
 
 ### Arithmetic and casts
 
@@ -54,7 +53,6 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 
 - **`transient`** state variables (0.8.28, value types only) compile to `TSTORE`/`TLOAD`: 100 gas, cleared at the end of the transaction — see [ethereum.md](ethereum.md).
 - They can't have initializers, and they **persist across calls within one transaction** — a lock or flag must be reset explicitly, or a later call in a batch sees it.
-- **`layout at <slot>`** (0.8.29) moves a contract's storage to a custom base slot; `layout at erc7201("my.app")` (0.8.35) uses an ERC-7201 namespace's base slot.
 
 ### Mapping and delete gotchas
 
@@ -133,7 +131,6 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - **`block.prevrandao`** (0.8.18, replaced `difficulty`) is known to the proposer, who can bias it by withholding a block — use **Chainlink VRF** or commit-reveal.
 - `blockhash(n)` returns 0 for blocks older than **256**; EIP-2935 (Pectra) serves 8,191 hashes from a system contract, but the opcode is unchanged.
 - Anything derived from block data can be computed by an attacker's contract in the same transaction, which reverts when the outcome is bad.
-- On L1, `block.timestamp` advances in fixed 12 s slots; L2 sequencers set it within looser bounds.
 
 ## Integration risks
 
@@ -147,7 +144,7 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 
 ### Oracle integration
 
-- A DEX **spot price** can be moved within one transaction using a flash loan — use a TWAP or Chainlink; see [ethereum.md](ethereum.md).
+- Never price assets off a DEX spot price — manipulation and TWAPs in [ethereum.md](ethereum.md).
 - Chainlink `latestRoundData`: check **staleness** (`updatedAt` against the feed's heartbeat) and `answer > 0`; on L2s also check the **sequencer uptime feed**.
 - Feeds have their own decimals (USD pairs use 8, ETH pairs 18) — scale before combining with token amounts.
 
@@ -171,13 +168,12 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - **Pack** small variables that are read and written together into one slot.
 - **`constant`/`immutable`** values are embedded in bytecode — no `SLOAD`.
 - Cache storage reads in local variables inside loops; use `calldata` parameters.
-- Custom errors are cheaper than revert strings; 0.8.22 made simple loop-counter increments unchecked automatically.
+- Custom errors are cheaper than revert strings; the compiler already skips overflow checks on simple loop-counter increments, so `unchecked { ++i; }` is no longer needed there.
 
 ### Code size limit
 
 - Deployed code is capped at **24,576 bytes** (EIP-170) and initcode at 49,152 (EIP-3860, Shanghai).
 - Workarounds: move logic into external libraries, split into several contracts, lower optimizer `runs`, or use the Diamond pattern.
-- **EIP-7954**, scheduled for Glamsterdam, raises the limits to 64 KiB and 128 KiB.
 
 ### Clones and factories
 
@@ -220,7 +216,7 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - `require(cond, "msg")` and `revert("msg")` encode **`Error(string)`** (selector `0x08c379a0`).
 - `assert`, overflow, division by zero, and out-of-bounds access raise **`Panic(uint256)`** with codes `0x01`, `0x11`, `0x12`, `0x32`.
 - Before 0.8, `assert` hit the `INVALID` opcode and burned all remaining gas; now it reverts like any other error.
-- **Custom errors** (0.8.4) encode a selector plus arguments; `require(cond, MyError())` works since 0.8.26 with via-IR and 0.8.27 with legacy codegen.
+- **Custom errors** (0.8.4) encode a selector plus arguments; `require(cond, MyError())` accepts them too.
 
 ### try/catch limits
 
@@ -271,6 +267,6 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 ### Assembly gotchas
 
 - No overflow or bounds checks, and values narrower than 256 bits may carry **dirty upper bits** — mask them.
-- Mark blocks **`assembly ("memory-safe")`** (0.8.13) so via-IR can still move variables to memory; the `/// @solidity memory-safe-assembly` comment is deprecated since 0.8.31.
+- Mark blocks **`assembly ("memory-safe")`** (0.8.13) so via-IR can still move variables to memory.
 - `return` and `revert` in assembly end the whole call, not just the current function.
 - Storage variables expose `.slot` and `.offset`; calldata arrays expose `.offset` and `.length`.

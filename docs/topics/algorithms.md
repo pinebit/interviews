@@ -6,7 +6,7 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 
 ### Time and space bounds
 
-- State the **input size**, then worst-case time and **auxiliary space**; producing an output of size `k` already costs Ω(k).
+- Producing an output of size `k` already costs **Ω(k)**, whatever the algorithm.
 - Nested loops aren't automatically O(n²): if two pointers each advance at most `n` times, total work is O(n).
 - Recursion stack counts as space: balanced divide-and-conquer uses O(log n) frames, a linear chain O(n).
 
@@ -30,8 +30,8 @@ At ~10⁸ simple operations per second, the constraints tell you which complexit
 
 ### Recurrence patterns
 
-- **Binary search**: `T(n) = T(n/2) + O(1) = O(log n)`.
-- **Merge sort**: `T(n) = 2T(n/2) + O(n) = O(n log n)`.
+- **Master theorem** for `T(n) = aT(n/b) + f(n)`: compare `f(n)` with `n^(log_b a)` — smaller → Θ(n^(log_b a)); equal → Θ(n^(log_b a) · log n); larger → Θ(f(n)).
+- Merge sort (a = b = 2, f = n) is the equal case → O(n log n); binary search (a = 1, b = 2, f = 1) → O(log n).
 - Recursion without memoization can revisit states exponentially often; after memoizing, cost = **states × work per state**.
 
 ## Arrays and sequences
@@ -149,8 +149,8 @@ Standard array implementations; variants differ in stability and space.
 
 ### LRU cache
 
-- **Hash map + doubly linked list**: the map finds a node in O(1), the list keeps recency — move to front on access, evict from the tail.
-- Python: `OrderedDict.move_to_end` + `popitem(last=False)`; Java: `LinkedHashMap` in access order.
+- **Hash map + doubly linked list**: the map finds a node in O(1), the list keeps recency.
+- Move a node to the front on every access and evict from the tail — both O(1).
 
 ### Fenwick and segment trees
 

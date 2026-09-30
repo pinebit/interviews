@@ -195,14 +195,11 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ## Stream processing
 
-### Event time and watermarks
+### Event time, watermarks, and windows
 
 - **Event time** (when it happened) vs **processing time** (when it arrived) — late events break processing-time windows.
 - A **watermark** says "no events older than T are expected", letting a window close; later stragglers go to a side output or update results.
-
-### Window types
-
-- **Tumbling** (fixed, non-overlapping), **sliding/hopping** (fixed, overlapping), **session** (closed by an inactivity gap).
+- Windows: tumbling (fixed, non-overlapping), sliding or hopping (fixed, overlapping), session (closed by an inactivity gap).
 
 ### Change data capture
 

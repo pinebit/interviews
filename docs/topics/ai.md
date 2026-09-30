@@ -162,8 +162,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Stop conditions
 
-- Cap steps, tokens, and cost per run; require evidence (tests pass, a record exists) before declaring success; escalate on repeated failure.
-- Open-ended self-critique loops often repeat the same mistake and burn budget.
+- Cap steps, tokens, and cost per run; escalate to a human on repeated failure.
+- Require evidence (tests pass, a record exists) before declaring success.
 
 ### Context management
 
@@ -181,11 +181,6 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 - **MCP** standardizes how apps discover and call tools, read resources, and fetch prompts — JSON-RPC 2.0 over stdio (local) or **Streamable HTTP** (remote, replaced HTTP+SSE in 2025).
 - Authorization is optional; HTTP servers that support it use **OAuth 2.1**. MCP doesn't replace per-action authorization or business validation.
-
-### Browser automation as a fallback
-
-- Use it only without an API — layouts change and clicks have ambiguous effects.
-- Isolate its credentials and require **approval** before irreversible submits.
 
 ## Evaluation
 
@@ -215,7 +210,6 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 - **Route** easy requests to a small, fast model and hard ones to a strong model.
 - **Semantic caching** reuses answers to similar queries; its key must include user permissions, source version, and freshness, or it leaks.
-- Measure cost **per completed task**, not per call.
 
 ### Batch and streaming
 
@@ -236,5 +230,5 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Human approval gates
 
-- Require approval before high-impact actions (money, legal, external sends); show the action, evidence, and affected records.
+- Require approval before high-impact actions (money, legal, external sends, irreversible form submits by a browser agent); show the action, evidence, and affected records.
 - An approval covers **one specific action**; re-check that data hasn't changed since the proposal, and record who approved what and when.

@@ -87,16 +87,17 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - Every `Fn` is also `FnMut` and `FnOnce`; take the **loosest** bound your code allows (`FnOnce` if you call it once), so callers can pass more kinds of closures.
 - **`move`** changes *how* variables are captured (by value), not which trait is implemented — a `move` closure that only reads is still `Fn`.
+- Async closures (`async || { ... }`, 1.85) can borrow from their captures across `.await`, which `|| async { ... }` couldn't; bound them with **`AsyncFn`/`AsyncFnMut`/`AsyncFnOnce`**.
 
 ### Iterators
 
-- Iterator adapters (`map`, `filter`, …) are **lazy** and compile to the same code as a hand-written loop — a **zero-cost abstraction**; nothing runs until a consumer (`collect`, `sum`, `for`).
-- `iter()` yields `&T`, `iter_mut()` `&mut T`, `into_iter()` `T` (consumes the collection).
+- Iterator adapters (`map`, `filter`, …) are **lazy**: nothing runs until a consumer (`collect`, `sum`, `for`).
+- They compile to the same code as a hand-written loop — a **zero-cost abstraction**.
 
 ### String vs &str
 
-- **`String`** is an owned, growable UTF-8 buffer; **`&str`** is a borrowed slice of UTF-8 bytes — accept `&str` in parameters.
 - No indexing by integer (`s[0]` doesn't compile) because characters are variable-width; slicing at a non-char boundary **panics**.
+- `len()` counts bytes; `chars()` yields Unicode scalar values, which still aren't user-perceived characters.
 
 ## Smart pointers and memory
 
@@ -190,10 +191,6 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - Dropping a Tokio `JoinHandle` **detaches** the spawned task instead — cancel with `abort()`.
 - **Cancel safety**: in `select!`, a losing branch is dropped mid-await — `read_line` into a buffer can lose data, `recv()` on a channel can't.
 
-### Async closures
-
-- **Async closures** (`async || { ... }`, **1.85**) can borrow from their captures across `.await`, which `|| async { ... }` couldn't; bound them with **`AsyncFn`/`AsyncFnMut`/`AsyncFnOnce`**.
-
 ## Unsafe and FFI
 
 ### What `unsafe` allows
@@ -221,5 +218,5 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Lock files and editions
 
 - Commit **`Cargo.lock`** for binaries; since 2023, Cargo's guidance is to commit it for libraries too, as a CI baseline (dependents ignore it).
-- Editions are opt-in, per-crate language changes; **edition 2024** is available since Rust 1.85.
-- Edition 2024 enables **let chains** (`if let Some(x) = a && x > 0`, 1.88) and makes `impl Trait` in return position capture all in-scope lifetimes by default.
+- Editions are opt-in, per-crate language changes; crates on different editions link together freely.
+- **Edition 2024** enables **let chains** (`if let Some(x) = a && x > 0`, 1.88) and makes `impl Trait` in return position capture all in-scope lifetimes by default.
