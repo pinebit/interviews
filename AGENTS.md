@@ -51,7 +51,7 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 - **Bold** the term or number worth memorizing — at most 3 per concept, not counting tables.
 - **Versions**: note when behavior changed ("since Go 1.22", "Python 3.14+", "Pectra, May 2025").
 - **Cross-topic**: the owner file covers a concept in full; another file may overlap briefly from its own angle and links to the owner: `see [security.md](security.md)` (rules in Topic ownership). Link to files, not anchors (the strict build validates anchors; only use one if you've checked the slug).
-- Suggested size: 5–10 sections, 3–8 concepts each. Shorter is better if nothing is lost.
+- Suggested size: 5–20 sections, 3–8 concepts each. Shorter is better if nothing is lost.
 
 ### What to include
 
@@ -78,15 +78,15 @@ Each concept has one owner file that covers it in full. Other files may overlap 
 
 | Concept | Owner | Referenced from |
 |---|---|---|
-| Consistency models, replication theory, consensus, clocks, delivery semantics, sagas, CRDTs | distributed | database, system, backend |
+| Consistency models, replication theory, consensus, clocks (monotonic vs wall), delivery semantics, sagas, CRDTs, CDC | distributed | database, system, backend, os, golang |
 | Retries, backoff, circuit breakers, backpressure, tail latency | distributed | backend, system |
 | Isolation levels, MVCC, indexes, WAL, DB replication setup, pooling | database | backend, system |
-| Caching strategies, rate-limiting algorithms, load balancing, CDN, observability (SLI/SLO) | system | backend, devops |
-| REST/gRPC/GraphQL, pagination, idempotency keys, outbox, graceful shutdown, N+1 | backend | system, database |
+| Caching strategies, rate-limiting algorithms, load balancing, CDN, observability (SLI/SLO), capacity math (Little's law), multi-region and DR tiers | system | backend, devops, os, aws |
+| REST/gRPC/GraphQL, pagination, idempotency keys, outbox, graceful shutdown, N+1, schema evolution, multi-tenancy, time handling | backend | system, database, distributed |
 | AuthN, sessions, OAuth/OIDC, JWT, XSS, CSRF, CORS, clickjacking, crypto, TLS | security | backend, frontend |
 | Containers, Kubernetes, cloud, IaC, deployment strategies, zero-downtime migrations | devops | backend, database |
 | Browser event loop, JS language semantics | javascript | frontend, typescript |
-| Rendering strategies, browser pipeline, Web Vitals, HTTP caching in the browser, React | frontend | javascript |
+| Rendering strategies, browser pipeline, Web Vitals, HTTP caching in the browser, browser storage, React | frontend | javascript, security |
 | asyncio event loop | python | — |
 | TCP/UDP, HTTP versions, QUIC, DNS, IP addressing, NAT, MTU, BGP/anycast | networking | backend, system, devops |
 | Processes, signals, scheduling, virtual memory, OOM, file descriptors, epoll/io_uring, fsync, locks | os | devops, database, golang |

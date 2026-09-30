@@ -36,6 +36,13 @@ What experienced engineers forget about application security before an interview
 - A proxy and the backend disagree on where a request ends (**`Content-Length` vs `Transfer-Encoding`**), so attacker bytes become the start of the next user's request.
 - Reject ambiguous requests at the edge, use HTTP/2 end to end, and keep proxies patched.
 
+### Resource-exhaustion attacks
+
+- **ReDoS**: backtracking regex engines take exponential time on patterns like `(a+)+$` with crafted input; use linear-time engines (RE2, Go `regexp`, Rust `regex`) or match timeouts.
+- Decompression bombs and XML **billion laughs** expand kilobytes into gigabytes — cap the decompressed size and disable entity expansion.
+- Hash flooding sends colliding keys that make hash tables O(n) per operation; runtimes defend with randomized hash seeds (SipHash).
+- Cap JSON nesting depth, GraphQL query depth and cost, and request sizes at the edge.
+
 ## Browser-side attacks
 
 ### XSS
@@ -47,6 +54,7 @@ What experienced engineers forget about application security before an interview
 
 - A **strict CSP** uses per-response nonces or hashes (`script-src 'nonce-…' 'strict-dynamic'`); host allowlists are routinely bypassed through JSONP endpoints and CDN-hosted gadgets.
 - **`'strict-dynamic'`** lets a trusted script load further scripts and makes supporting browsers ignore host allowlists.
+- **`frame-ancestors`** blocks framing, which stops clickjacking (a hidden frame tricking the user into clicking the real site); `X-Frame-Options` is the legacy header.
 - Roll out with `Content-Security-Policy-Report-Only` first.
 
 ### CSRF
@@ -54,15 +62,12 @@ What experienced engineers forget about application security before an interview
 - The browser auto-attaches cookies to a forged cross-site request.
 - Defend with framework **CSRF tokens** plus `SameSite=Lax`/`Strict` cookies (**Lax is Chrome's default**); XSS defeats CSRF defenses, so it's no substitute.
 
-### Clickjacking
-
-- A hidden frame tricks the user into clicking the real site.
-- Block framing with CSP **`frame-ancestors`** (or legacy `X-Frame-Options`).
-
 ### CORS
 
 - CORS is a **browser read policy**, not authentication or a firewall — non-browser clients ignore it.
 - A credentialed response can't use `Access-Control-Allow-Origin: *`; reflecting any `Origin` with credentials is equivalent to no policy.
+- **Simple requests** (GET, HEAD, or POST with a form or `text/plain` body and no custom headers) go out without a preflight: the server acts on them even though the browser hides the response, so CORS is no CSRF defense.
+- Other requests are **preflighted** with `OPTIONS`; `Access-Control-Max-Age` caches the result.
 
 ### Open redirect
 
@@ -101,6 +106,13 @@ What experienced engineers forget about application security before an interview
 
 - An attacker plants a known session ID before login, then shares the victim's session once they authenticate.
 - Always **issue a new session ID** on authentication and privilege change.
+
+### Password reset and recovery
+
+- Reset tokens are single-use, short-lived, high-entropy, and **stored hashed** like passwords.
+- Respond identically whether or not the account exists; revoke other sessions after a reset.
+- Build the reset link from a configured origin, never the request's `Host` header — **host-header poisoning** sends the token to the attacker's domain.
+- Recovery is often the weakest login path (SIM swap, support-desk social engineering): hold it to the same assurance as MFA.
 
 ### Browser token storage
 
@@ -155,13 +167,11 @@ What experienced engineers forget about application security before an interview
 
 ## Cryptography
 
-### Encoding vs encryption vs hashing
+### Secure randomness
 
-| | Reversible? | Needs a key? | Purpose |
-|---|---|---|---|
-| Encoding (Base64) | yes | no | representation |
-| Encryption | yes, with the key | yes | confidentiality |
-| Hashing | no | no | integrity, fingerprint |
+- Tokens, session IDs, nonces, and reset codes need a **CSPRNG**: `crypto.getRandomValues`/`crypto.randomBytes`, Python `secrets`, Go `crypto/rand`.
+- `Math.random`, Python `random` (Mersenne Twister, reconstructable from 624 outputs), and Go `math/rand` aren't designed for secrets.
+- Use at least **128 bits** for unguessable tokens.
 
 ### AES-GCM nonces
 
@@ -210,7 +220,7 @@ What experienced engineers forget about application security before an interview
 - **HSTS** forces HTTPS on later visits after one HTTPS response (preload lists cover the first visit).
 - **Certificate pinning** resists CA compromise but makes key rotation painful — mostly limited to mobile apps now.
 
-## Supply chain
+## Secure development
 
 ### Dependency attacks
 
@@ -221,8 +231,6 @@ What experienced engineers forget about application security before an interview
 
 - An **SBOM** (SPDX, CycloneDX) lists what's inside an artifact, so a new CVE can be matched to affected builds.
 - **SLSA** levels grade build provenance; **Sigstore** (cosign) signs artifacts with short-lived keys tied to a CI identity.
-
-## Threat modeling
 
 ### STRIDE
 
@@ -236,9 +244,3 @@ What experienced engineers forget about application security before an interview
 | Elevation of privilege | Authorization |
 
 - STRIDE finds threats at each trust boundary; it doesn't rank them — pair it with impact/likelihood.
-
-### OWASP Top 10:2025
-
-- Broken Access Control, Security Misconfiguration, **Software Supply Chain Failures** (new), Cryptographic Failures, Injection, Insecure Design.
-- Authentication Failures, Software/Data Integrity Failures, Security Logging and Alerting Failures, **Mishandling of Exceptional Conditions** (new).
-- An awareness list, not a test checklist — name the edition when citing it.

@@ -4,16 +4,22 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ## Processes and threads
 
-### Processes vs threads
-
-- A **process** has its own address space, file descriptors, and credentials; **threads** share the address space and descriptors of their process.
-- On Linux both are **tasks** created by `clone()` with different sharing flags; the scheduler treats them alike.
-
 ### fork, exec, copy-on-write
 
 - **`fork()`** duplicates the process lazily: pages are shared **copy-on-write** until one side writes.
 - **`exec()`** replaces the program image, keeping the PID and open descriptors (unless `O_CLOEXEC`).
 - Forking a multi-threaded process copies only the calling thread — locks held by others stay locked forever in the child.
+- On Linux, processes and threads are both tasks created by `clone()` with different sharing flags; the scheduler treats them alike.
+
+### Process states
+
+| State | Meaning |
+|---|---|
+| R | running or runnable (on a run queue) |
+| S | interruptible sleep: waiting for an event; signals wake it |
+| **D** | uninterruptible sleep, usually disk or NFS I/O; even `SIGKILL` waits, and it counts toward load average |
+| Z | zombie: exited, not yet reaped by its parent |
+| T | stopped (`SIGSTOP`, a debugger) |
 
 ### Zombies and orphans
 
@@ -122,6 +128,12 @@ What experienced engineers forget about Linux and OS internals before an intervi
 - Data is durable only after **`fsync`** (or `fdatasync`); a new file also needs its **directory** fsynced.
 - After an fsync error, Linux may drop the dirty pages and a retry can falsely succeed — since 2018's "fsyncgate", **PostgreSQL panics** on fsync failure instead of retrying.
 
+### Atomic file replace
+
+- Write a temp file in the **same directory** → `fsync` it → `rename()` it over the target → `fsync` the directory.
+- `rename` within one filesystem is **atomic** on POSIX: readers see the old or the new file, never a torn mix.
+- Skipping the first `fsync` can leave an empty file after a crash (the rename persisted before the data).
+
 ### Zero-copy I/O
 
 - **`sendfile`**/`splice` move file data to a socket inside the kernel, skipping user-space copies — how static file servers and Kafka reach high throughput.
@@ -140,10 +152,12 @@ What experienced engineers forget about Linux and OS internals before an intervi
 - All four **Coffman conditions** must hold: mutual exclusion, hold and wait, no preemption, **circular wait**.
 - Break one — usually circular wait, with a global **lock ordering** — or use `trylock` with timeouts.
 
-### Priority inversion
+### Atomics, CAS, and the ABA problem
 
-- A low-priority task holds a lock needed by a high-priority task while a medium-priority task starves it (Mars Pathfinder, 1997).
-- **Priority inheritance** temporarily boosts the lock holder.
+- **Compare-and-swap** writes only if the value still equals the expected one; retry loops build lock-free stacks, counters, and mutex fast paths.
+- **ABA**: the value goes A → B → A between the read and the CAS, so a stale CAS succeeds (a popped stack node freed and reused); fix with version-tagged pointers or safe reclamation (hazard pointers, epochs).
+- Under heavy contention, CAS loops bounce the cache line between cores and can be slower than a mutex.
+- x86 is strongly ordered (TSO), ARM weakly ordered, so code that works on x86 can break on ARM without the right memory orderings ([rust.md](rust.md)).
 
 ### False sharing
 
@@ -154,9 +168,20 @@ What experienced engineers forget about Linux and OS internals before an intervi
 
 ### Linux observability tools
 
-- `top`/`htop` (CPU per process), `vmstat 1` (run queue, swap, context switches), `iostat -x 1` (disk utilization, await), `pidstat` (per-process CPU and I/O).
 - **`perf`** samples stacks with low overhead → flame graphs; **eBPF** tools (`bpftrace`, bcc) trace kernel events in production safely.
 - **`strace`** shows every syscall but slows the process heavily (ptrace) — avoid on hot production paths.
+
+### Memory hierarchy latencies
+
+| Level | Latency |
+|---|---|
+| L1 cache | ~1 ns |
+| L2 cache | ~4 ns |
+| L3 cache | ~10–40 ns |
+| DRAM | **~100 ns** |
+| NVMe SSD read | ~10–100 µs |
+
+Sequential access and contiguous layouts (arrays over linked lists, struct-of-arrays) win through prefetching and full cache-line use.
 
 ### CPU time breakdown
 

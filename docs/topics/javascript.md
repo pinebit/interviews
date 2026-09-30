@@ -78,6 +78,13 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 | `Promise.race` | first settles (either way) | timeouts, first response wins |
 | `Promise.any` | first fulfills, or all reject (`AggregateError`) | first success wins |
 
+### async/await ordering
+
+- The `new Promise` executor runs **synchronously**; only the `.then` callbacks are deferred.
+- Code after `await` always resumes as a microtask, even when the awaited value is already resolved or isn't a promise.
+- Inside `try`, **`return promise`** skips the `catch` when it rejects; write `return await promise`.
+- An `async` function always returns a new promise, so a `throw` inside it becomes a rejection, not a synchronous exception.
+
 ### Sequential vs parallel await
 
 - `for (const x of xs) await f(x)` runs **serially**: each call starts after the previous settles; start all calls first, then `await Promise.all([...])` so they overlap.
@@ -88,10 +95,12 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - **`AbortController`** cancels `fetch` and other abortable APIs via a shared `AbortSignal`; `AbortSignal.timeout(ms)` builds a deadline.
 - **`for await...of`** consumes async generators and any object with `Symbol.asyncIterator`.
 
-### Promise helpers
+### fetch semantics
 
-- **`Promise.withResolvers()`** (ES2024) returns `{ promise, resolve, reject }`.
-- **`Promise.try()`** (ES2025) runs a function and turns both its result and a synchronous throw into a promise.
+- `fetch` rejects only on network failure (DNS, refused connection, CORS, abort); HTTP 4xx/5xx **resolve** with `res.ok === false`, so check it.
+- The body is a stream and can be read **once**; call `res.clone()` before reading it twice.
+- There is no default timeout: pass `signal: AbortSignal.timeout(ms)`.
+- Cookies go only to the same origin by default (`credentials: 'same-origin'`); cross-origin requests need `'include'` plus CORS credential headers.
 
 ## Modules
 
@@ -112,6 +121,13 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - V8's collector is **generational**: a fast scavenger for the young generation (most objects die young), mark-compact for the old generation.
 - Common leaks: **detached DOM nodes** still referenced from JS, forgotten listeners and timers, unbounded caches.
 - A closure keeps its referenced outer variables alive, so a long-lived listener can retain a large object it barely uses.
+
+### Hidden classes and inline caches
+
+- V8 gives objects created with the same properties in the same order a shared **hidden class** (shape); adding a property transitions to a new one.
+- Each property-access site caches the shapes it has seen: monomorphic (one) is fastest, polymorphic up to 4, then **megamorphic** (a generic slow lookup).
+- Initialize every field in the constructor in a fixed order; `delete` on a hot object can drop it into slow dictionary mode.
+- Arrays track element kinds too: mixing integers, doubles, and holes (`new Array(n)`) downgrades them for good.
 
 ### Weak references
 
@@ -134,6 +150,7 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 - An object is iterable if it has **`[Symbol.iterator]()`** returning `{ next() → { value, done } }`; `for...of`, spread, and destructuring use it.
 - Generators (`function*`) are lazy, pause at `yield`, and can receive values via `next(v)`; async generators power `for await`.
+- **Iterator helpers** (`.map`, `.filter`, `.take`, `.drop` on iterators, ES2025) are lazy, unlike the array methods.
 
 ## Node.js runtime
 
@@ -154,11 +171,10 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - **`write()` returns `false`** once the buffer passes `highWaterMark`; stop writing until the `'drain'` event.
 - **`stream.pipeline()`** handles backpressure, errors, and cleanup of every stream in the chain — `.pipe()` doesn't forward errors.
 
-### Workers, cluster, child processes
+### Worker threads and cluster
 
 - **`worker_threads`**: threads in one process with separate V8 isolates, for CPU-bound JS; share memory through `SharedArrayBuffer`.
 - **`cluster`**: forks processes sharing one server port to use all cores — in containers, usually replaced by more replicas.
-- `child_process`: runs other programs (`spawn` streams output, `exec` buffers it).
 
 ### AsyncLocalStorage
 
@@ -179,22 +195,12 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 ## Recent language additions
 
-### Array and object helpers
-
-- **`toSorted`, `toReversed`, `toSpliced`, `with`** (ES2023) return a new array instead of mutating.
-- **`Object.groupBy`/`Map.groupBy`** (ES2024) group an iterable by a callback's key.
-
 ### Temporal
 
-- **`Temporal`** (Stage 4 in March 2026, **ES2026**) replaces `Date`: immutable values, explicit time zones (`ZonedDateTime`), calendar-safe arithmetic, separate types for dates, times, and instants.
-- Shipped in Firefox 139 and Chrome 144; Safari has it only in Technology Preview, so it isn't Baseline yet.
+- **`Temporal`** (Stage 4 in March 2026, **ES2026**) replaces `Date` with immutable values and separate types for instants, dates, times, and zoned date-times.
+- Time zones are explicit (`ZonedDateTime`) and arithmetic is calendar-safe, unlike `Date`'s mutable, local-time-by-default API.
 
 ### Explicit resource management
 
 - **`using`** / `await using` (ES2026; TypeScript since 5.2) call **`[Symbol.dispose]()`** / `[Symbol.asyncDispose]()` when the block exits, even on throw — no `try/finally`.
 - **`DisposableStack`** collects several resources and disposes them in reverse order.
-
-### Sets and iterators
-
-- **Set methods** (`union`, `intersection`, `difference`, `isSubsetOf`, …) arrived in **ES2025**.
-- **Iterator helpers** (`.map`, `.filter`, `.take`, `.drop` on iterators, ES2025) are lazy, unlike the array methods.

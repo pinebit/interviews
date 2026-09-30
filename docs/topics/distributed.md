@@ -109,7 +109,8 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Physical clocks and TrueTime
 
 - Clocks drift and NTP can step them backward, so wall-clock timestamps can't order events across nodes — **last-write-wins** silently loses data.
-- Spanner's **TrueTime** returns an uncertainty interval; a commit **waits out** the uncertainty (~ms) before becoming visible, giving external consistency.
+- Spanner's **TrueTime** returns an uncertainty interval; a commit waits out the uncertainty (~ms) before becoming visible, giving external consistency.
+- Measure durations, timeouts, and leases with the **monotonic clock** (`CLOCK_MONOTONIC`, Go's `time.Since`, `performance.now()`), which never jumps; wall-clock time steps on NTP corrections, manual changes, and VM migration.
 
 ### Logical clocks
 
@@ -138,10 +139,12 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 - A chain of local transactions, each with a **compensating action**; eventual consistency, **no isolation** (others see intermediate states).
 - **Orchestration** (a central coordinator) vs choreography (services react to each other's events).
 
-### Effectively-once processing
+### Delivery guarantees
 
-- **Effectively-once = at-least-once delivery + idempotent processing**: handlers may run repeatedly, but the effect lands once.
-- Publish events atomically with the local write via the **transactional outbox**; dedupe on the consumer via an inbox — both in [backend.md](backend.md).
+- **At-most-once**: ack (or commit the offset) before processing — a crash mid-processing loses the message.
+- **At-least-once**: ack after processing — a crash between the effect and the ack redelivers it, so handlers see duplicates.
+- Exactly-once *delivery* is impossible; an **exactly-once effect** = at-least-once + idempotent handling, or one transaction covering both the effect and the offset.
+- Publish events atomically with the local write via the transactional outbox; dedupe on the consumer via an inbox — both in [backend.md](backend.md).
 
 ## Conflict resolution
 
@@ -192,19 +195,25 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ## Stream processing
 
-### Event time and watermarks
+### Event time, watermarks, and windows
 
 - **Event time** (when it happened) vs **processing time** (when it arrived) — late events break processing-time windows.
 - A **watermark** says "no events older than T are expected", letting a window close; later stragglers go to a side output or update results.
+- Windows: tumbling (fixed, non-overlapping), sliding or hopping (fixed, overlapping), session (closed by an inactivity gap).
 
-### Window types
+### Change data capture
 
-- **Tumbling** (fixed, non-overlapping), **sliding/hopping** (fixed, overlapping), **session** (closed by an inactivity gap).
+- **Log-based CDC** (Debezium) tails the WAL or binlog: every committed change in commit order, deletes included, with no dual writes in the application.
+- Polling an `updated_at` column misses hard deletes and rows that commit late with an older timestamp.
+- Bootstrap from a **consistent snapshot**, then stream from the log position it was taken at.
+- Events are ordered per key (partition by primary key); connectors deliver at least once, so consumers must be idempotent.
 
 ### Kafka ordering and consumer groups
 
 - Order is guaranteed **only within a partition**; key by entity ID to keep one entity's events in order.
-- A **consumer group** splits partitions among its members — parallelism is capped at the **partition count**.
+- A consumer group splits partitions among its members — parallelism is capped at the **partition count**.
+- Adding partitions changes `hash(key) % partitions`, so existing keys move and **per-key ordering breaks**; the count can't be decreased — size it up front.
+- Consumer lag (latest offset − committed offset) is the health metric to alert on.
 
 ### Kafka producer semantics
 

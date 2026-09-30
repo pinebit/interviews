@@ -15,6 +15,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 - 1 day ≈ 86,400 s ≈ 10⁵ s, so **1M requests/day ≈ 12 QPS**; assume peak ≈ 2–3× average unless told otherwise.
 - 1 KB × 1M items = 1 GB; 1 KB × 1B = 1 TB.
 - Ballpark capacity (varies with workload): a well-indexed PostgreSQL box handles **10k+ simple queries/s**; Redis ~100k ops/s per core.
+- **Little's law** L = λ × W: requests in flight = throughput × latency — 1,000 RPS × 200 ms = 200 concurrent requests, which sizes thread pools, connection pools, and queues.
 
 ## Traffic and edge
 
@@ -79,7 +80,6 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### SQL vs NoSQL
 
-- **SQL**: relational schema, ACID transactions, joins — the default for data needing correctness (payments, orders).
 - NoSQL families by access pattern: key-value, document, **wide-column** (heavy writes, time series), graph; model tables around queries, not entities.
 - Pick NoSQL only for a named reason (write volume, schema flexibility, access pattern). Internals in [database.md](database.md).
 
@@ -127,7 +127,20 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 - Components in **series** multiply: 99.9% × 99.9% ≈ 99.8%.
 - Redundant components in **parallel** fail only together: 1 − 0.001² ≈ 99.9999%.
 - Both formulas assume **independent failures**; a shared zone or dependency wipes out most of the parallel redundancy gain.
-- RPO (acceptable data loss) and RTO (acceptable recovery time) drive backup and failover design; active-passive vs active-active.
+
+### Multi-region and disaster recovery
+
+- **RPO** = acceptable data loss, **RTO** = acceptable recovery time; together they pick the tier.
+
+| Tier | What runs in the standby region | RTO / RPO |
+|---|---|---|
+| Backup and restore | nothing; restore from backups | hours / hours |
+| Pilot light | replicated data, compute off | tens of minutes / minutes |
+| Warm standby | a scaled-down copy | minutes / seconds |
+| Active-active | full capacity everywhere | ~zero / ~zero with sync replication |
+
+- Async cross-region replication means RPO > 0; active-active also needs conflict handling or a home region per record, plus global routing (GeoDNS, anycast).
+- A failover that was never rehearsed rarely works: run regular game days.
 
 ### SLIs, SLOs, error budgets
 
@@ -137,17 +150,18 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Observability
 
-- Metrics: numeric time series (Prometheus); **golden signals** latency, traffic, errors, saturation — **RED** for services, **USE** for resources.
+- Metrics: numeric time series (Prometheus); golden signals latency, traffic, errors, saturation — **RED** for services, **USE** for resources.
 - Logs: structured, centralized, tagged with a request ID. Traces: a request's span tree across services (OpenTelemetry).
 - Metrics say something is wrong, traces say where, logs say why.
+- Percentiles **can't be averaged** across hosts or time windows: merge the histograms (or sketches), then take p99.
+- High-cardinality labels (user ID, request ID) multiply Prometheus time series; keep them in logs and traces.
 
 ## Architecture
 
 ### Monolith vs microservices
 
-- Monolith: simple to develop, deploy, and debug, with in-process calls and local transactions; struggles with many teams or very different scaling needs.
-- Microservices: independent deploys and scaling, at the cost of network failures, distributed transactions, and operational overhead.
-- Default to a **modular monolith**; extract services for a concrete reason. Boundaries mirror teams (**Conway's law**).
+- Default to a **modular monolith**: in-process calls and local transactions, with module boundaries that could later become services.
+- Extract a service for a concrete reason (independent scaling, deploy cadence, team ownership); boundaries mirror teams (**Conway's law**).
 
 ### Service discovery
 
@@ -197,6 +211,13 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 - A **trie** (or prefix index) with precomputed **top-k suggestions** per node, built offline from query logs and cached aggressively.
 - Debounce on the client; for semantic matches, query an approximate nearest-neighbor index (HNSW).
 
+### Video streaming
+
+- Upload to object storage → a **transcoding** pipeline splits the video into chunks and encodes them in parallel at several resolutions and bitrates.
+- Package as **HLS or DASH**: 2–10 s segments plus a manifest listing the renditions, served from a CDN.
+- The player picks a rendition per segment from measured bandwidth and buffer (**adaptive bitrate**), so quality drops instead of stalling.
+- Pre-warm popular titles at the edge; the long tail streams from regional caches or the origin.
+
 ### Notification system
 
 - One API → a queue per channel (push, SMS, email) → workers calling providers (APNs, FCM, Twilio) with retries.
@@ -242,7 +263,6 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### Leaderboard
 
 - A Redis **sorted set**: `ZINCRBY` updates a score and `ZREVRANK` returns a user's rank in O(log n); `ZRANGE ... REV` reads the top k in O(log n + k).
-- `ZRANGE ... REV` replaces `ZREVRANGE`, deprecated since Redis 6.2.
 - Beyond one node, shard by score range or keep per-shard top-k and merge.
 
 ### Booking and inventory contention

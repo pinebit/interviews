@@ -4,10 +4,6 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ## Type system semantics
 
-### Structural typing
-
-- Compatibility is by **shape**, not declared name — an object satisfies an interface just by having the members; no `implements` needed.
-
 ### Excess property checks
 
 - Only **fresh object literals** get excess-property errors: `const p: Point = { x: 1, y: 2, z: 3 }` fails.
@@ -17,6 +13,18 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 - **`any`** turns checking off in both directions; **`unknown`** accepts anything but must be narrowed before use.
 - **`never`** is the empty type — the result of exhaustive narrowing and of functions that never return.
+
+### `{}`, `object`, and index signatures
+
+- **`{}` means any non-nullish value** — strings and numbers included — not "empty object"; `Object` behaves the same.
+- `object` is any non-primitive; `Record<string, never>` is a truly empty object.
+- With an index signature (`Record<string, T>`), every key reads as present and typed `T` unless **`noUncheckedIndexedAccess`** is on.
+
+### Function assignability
+
+- A function returning a value is assignable to a **`void`-returning** function type, so `arr.forEach(x => out.push(x))` compiles and the result is ignored.
+- A function with **fewer parameters** is assignable to one with more: callbacks may ignore arguments (`arr.map(x => x * 2)`).
+- Only the contextual case is relaxed: a function declared with a `void` return type still can't return a value.
 
 ### `interface` vs `type`
 
@@ -39,15 +47,12 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 - `typeof`, `instanceof`, `in`, equality, and truthiness checks narrow a variable inside the branch where they're provably true.
 - **Discriminated unions**: a shared literal tag (`kind`) lets `switch (x.kind)` narrow each case.
+- **Exhaustiveness**: in the `default` branch, assign the value to a `never` variable; adding a new union member then fails to compile until handled.
 
 ### Custom type guards
 
 - A **type predicate** (`x is Fish`) or an **`asserts x is T`** function packages narrowing the compiler can't infer.
 - **Inferred type predicates** (5.5): a boolean-returning function that already narrows gets `x is T` automatically, e.g. `arr.filter(x => x !== undefined)`.
-
-### Exhaustiveness with `never`
-
-- In a `default` branch, assign the value to a `never` variable; adding a new union member then fails to compile until handled.
 
 ### `as` vs `satisfies` vs `!`
 
@@ -79,7 +84,7 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 
 ### Branded types
 
-- Structural typing makes `UserId` and `OrderId` both plain `string`s; **brand** them for nominal-like safety: `type UserId = string & { readonly __brand: 'UserId' }`.
+- Types are compatible by **shape**, not declared name (structural typing), so `UserId` and `OrderId` are both plain `string`s; **brand** them for nominal-like safety: `type UserId = string & { readonly __brand: 'UserId' }`.
 - Create values only through a validating function (`asUserId(s)`); the brand has no runtime cost.
 
 ## Compilation and tooling
@@ -113,7 +118,6 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 ### TypeScript 7 native compiler
 
 - **TypeScript 7** (2026) ships the Go port of the compiler (`tsgo` in preview): roughly **10×** faster builds with parallel checking.
-- Its stable programmatic API is planned for **7.1**, so some tools (typescript-eslint, Vue/Svelte/Angular language tooling) still need the 6.x JS compiler.
 
 ## Strictness flags
 
@@ -145,6 +149,12 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 - **`experimentalDecorators`** is the older, incompatible form still used by Angular and NestJS — check which one a codebase uses.
 
 ## Typing patterns
+
+### Runtime validation at boundaries
+
+- Types are erased: `JSON.parse` and `res.json()` return `any`, and env vars or `as` casts are unchecked, so data can violate its declared type at runtime.
+- Parse untrusted input with a schema library (Zod, Valibot, ArkType) and **derive the type from the schema** (`type User = z.infer<typeof User>`), so the two can't drift.
+- Type unparsed input as **`unknown`**, not `any`, so it must be validated or narrowed before use.
 
 ### Overloads
 

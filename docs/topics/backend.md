@@ -4,11 +4,6 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 ## API design
 
-### Resource modeling
-
-- Resources are nouns and HTTP methods are verbs: `POST /orders/42/items`, not `/addItemToOrder`.
-- Non-CRUD actions become sub-resources or state changes: `POST /orders/42/cancellation`.
-
 ### Status codes people confuse
 
 | Codes | Meaning |
@@ -88,6 +83,13 @@ What experienced backend engineers forget before an interview, grouped by subtop
 - **Propagate the deadline** (gRPC does it natively) so downstream services stop work once the original caller has given up.
 - Retries, backoff, and circuit breakers: see [distributed.md](distributed.md).
 
+### Schema evolution
+
+- **Backward compatible**: new readers read old data; **forward compatible**: old readers read new data — rolling deploys and replayed events need both.
+- Protobuf: never reuse or renumber a field tag (mark removed ones `reserved`); adding fields is safe; proto3 has no `required`; unknown fields survive a round trip.
+- Avro with a schema registry checks BACKWARD, FORWARD, or FULL compatibility on every schema change.
+- JSON consumers must ignore unknown fields (**tolerant reader**); rename a field by adding the new one, writing both, moving readers over, then removing the old.
+
 ### Webhooks
 
 - **Sign** each payload (HMAC over timestamp + body) and have receivers verify it with a **constant-time** compare; reject stale timestamps to stop replays.
@@ -95,11 +97,6 @@ What experienced backend engineers forget before an interview, grouped by subtop
 - Fetching a user-supplied webhook URL is an SSRF risk — see [security.md](security.md).
 
 ## Async work
-
-### Queue vs direct call
-
-- Direct call when the caller needs the result now and the dependency is fast and available.
-- Queue when work is slow, the downstream is flaky or rate-limited (**load leveling**), or several consumers need the event.
 
 ### Long-running operations
 
@@ -133,12 +130,25 @@ What experienced backend engineers forget before an interview, grouped by subtop
 - Never make a network call inside an open DB transaction — it holds **locks and a connection** for the whole round trip.
 - For "commit, then notify another service", use the outbox instead of calling inside the transaction.
 
+### Multi-tenancy models
+
+- Shared tables with a `tenant_id`: cheapest, but every query must filter — enforce it with PostgreSQL **row-level security** (the table owner bypasses it unless `FORCE ROW LEVEL SECURITY`).
+- Schema per tenant: more isolation, but migrations and connection pools multiply with the tenant count.
+- Database per tenant: strongest isolation, per-tenant restore and data residency, the most operational work.
+- Move **noisy neighbors** (the largest tenants) to their own shard or database, and rate-limit per tenant.
+
+### Time handling
+
+- Store and send instants in **UTC** (RFC 3339 with an offset, `2026-03-08T09:30:00Z`); in PostgreSQL use `timestamptz`.
+- For future local-time events (meetings, schedules), store the local time plus an **IANA zone** (`Europe/Berlin`), not an offset — DST rules and offsets change.
+- A DST switch skips or repeats a local hour, so a job scheduled at 02:30 local time runs never or twice; schedule jobs in UTC.
+
 ### File uploads
 
-- Large files go straight to object storage with a **presigned URL**, bypassing app servers; the app stores only metadata.
+- Clients upload straight to object storage with a presigned URL, bypassing app servers ([system.md](system.md)).
 - **Multipart/resumable uploads** retry individual parts instead of the whole file.
 
-## Lifecycle and config
+## Service lifecycle
 
 ### Graceful shutdown
 
@@ -149,11 +159,6 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 - Separate endpoints: **liveness** checks only that the process can make progress; **readiness** checks what serving needs (warm-up done, required dependencies) and fails while draining.
 - Keep them cheap and on an internal port; probe configuration and pitfalls: see [devops.md](devops.md).
-
-### Configuration and secrets
-
-- Config that varies by environment comes from the **environment**, so one immutable artifact promotes from staging to production.
-- Secrets come from a secret manager at runtime, never from the repo; **validate config at startup** and fail fast.
 
 ## Backend security
 

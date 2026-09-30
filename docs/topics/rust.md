@@ -63,6 +63,13 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - Every type parameter is implicitly `Sized`; **`?Sized`** accepts `str`, `[T]`, or `dyn Trait` behind a pointer.
 - `impl Trait` in argument position is an anonymous generic; in return position it hides the concrete type but stays static dispatch.
 
+### Eq, Ord, and Hash
+
+- `PartialEq`/`PartialOrd` allow incomparable values (NaN ≠ NaN); **`Eq`/`Ord`** promise a total order.
+- `f64` implements none of `Eq`, `Ord`, or `Hash`, so it can't key a `HashMap` or `BTreeMap` or use `.sort()`; use `sort_by(f64::total_cmp)` or an ordered wrapper.
+- `Hash` must agree with `Eq` (`a == b` ⇒ equal hashes), or map lookups silently fail.
+- Derived `PartialOrd`/`Ord` compare fields in **declaration order** (enums by variant order).
+
 ### Async functions in traits
 
 - **Async fn in traits** (**1.75**) desugars to a method returning `impl Future`.
@@ -80,16 +87,17 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - Every `Fn` is also `FnMut` and `FnOnce`; take the **loosest** bound your code allows (`FnOnce` if you call it once), so callers can pass more kinds of closures.
 - **`move`** changes *how* variables are captured (by value), not which trait is implemented — a `move` closure that only reads is still `Fn`.
+- Async closures (`async || { ... }`, 1.85) can borrow from their captures across `.await`, which `|| async { ... }` couldn't; bound them with **`AsyncFn`/`AsyncFnMut`/`AsyncFnOnce`**.
 
 ### Iterators
 
-- Iterator adapters (`map`, `filter`, …) are **lazy** and compile to the same code as a hand-written loop — a **zero-cost abstraction**; nothing runs until a consumer (`collect`, `sum`, `for`).
-- `iter()` yields `&T`, `iter_mut()` `&mut T`, `into_iter()` `T` (consumes the collection).
+- Iterator adapters (`map`, `filter`, …) are **lazy**: nothing runs until a consumer (`collect`, `sum`, `for`).
+- They compile to the same code as a hand-written loop — a **zero-cost abstraction**.
 
 ### String vs &str
 
-- **`String`** is an owned, growable UTF-8 buffer; **`&str`** is a borrowed slice of UTF-8 bytes — accept `&str` in parameters.
 - No indexing by integer (`s[0]` doesn't compile) because characters are variable-width; slicing at a non-char boundary **panics**.
+- `len()` counts bytes; `chars()` yields Unicode scalar values, which still aren't user-perceived characters.
 
 ## Smart pointers and memory
 
@@ -111,6 +119,12 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - **`AsRef<T>`** is a cheap reference conversion for flexible parameters: `fn open<P: AsRef<Path>>(p: P)`.
 - **`Borrow<T>`** also promises identical `Eq`/`Hash`/`Ord`, which is why `HashMap<String, V>::get` accepts a `&str`.
 
+### Layout and niche optimization
+
+- **Niche optimization**: `Option<&T>`, `Option<Box<T>>`, and `Option<NonZeroU32>` are the same size as the inner type — the forbidden null or zero value encodes `None`.
+- The default `repr(Rust)` may reorder fields to cut padding; **`repr(C)`** fixes C field order for FFI.
+- `&str`, `&[T]`, and `&dyn Trait` are two words (pointer + length or vtable); an enum is its largest variant plus a tag, unless a niche absorbs the tag.
+
 ### Pin and Unpin
 
 - **`Pin<P>`** stops the pointee from moving **only if it's `!Unpin`**; most types are `Unpin` and move freely.
@@ -122,6 +136,12 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - `?` returns early with `Err`, converting via **`From`**; on `Option` it returns `None`.
 - **`thiserror`** for libraries (typed enums callers can match); **`anyhow`** for applications (one dynamic error with context).
+
+### Integer overflow and casts
+
+- Overflow **panics in debug builds and wraps in release** (unless `overflow-checks = true`), so state intent with `checked_*`, `wrapping_*`, `saturating_*`, or `overflowing_*`.
+- `as` between integers truncates or reinterprets silently (`300_i32 as u8 == 44`, `-1_i32 as u32 == u32::MAX`); `try_from` fails instead.
+- `as` from float to integer **saturates** (since 1.45), and NaN becomes 0.
 
 ### Panics and unwinding
 
@@ -156,6 +176,8 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - Futures are **lazy** — nothing runs until an executor (e.g. **Tokio**) polls them.
 - Holding a non-`Send` guard across `.await` makes the future non-`Send`, so it can't be spawned on a multi-threaded runtime.
+- `tokio::spawn` needs a **`Send + 'static`** future: move owned data or `Arc` clones in, not references.
+- Tokio's default runtime is multi-threaded with work stealing; `current_thread` plus a `LocalSet` runs non-`Send` futures; `JoinSet` spawns and awaits a group of tasks.
 
 ### Blocking and locks in async code
 
@@ -168,10 +190,6 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - Dropping a future cancels it at its current `.await`, with no signal and no chance to run async cleanup.
 - Dropping a Tokio `JoinHandle` **detaches** the spawned task instead — cancel with `abort()`.
 - **Cancel safety**: in `select!`, a losing branch is dropped mid-await — `read_line` into a buffer can lose data, `recv()` on a channel can't.
-
-### Async closures
-
-- **Async closures** (`async || { ... }`, **1.85**) can borrow from their captures across `.await`, which `|| async { ... }` couldn't; bound them with **`AsyncFn`/`AsyncFnMut`/`AsyncFnOnce`**.
 
 ## Unsafe and FFI
 
@@ -200,5 +218,5 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 ### Lock files and editions
 
 - Commit **`Cargo.lock`** for binaries; since 2023, Cargo's guidance is to commit it for libraries too, as a CI baseline (dependents ignore it).
-- Editions are opt-in, per-crate language changes; **edition 2024** is available since Rust 1.85.
-- Edition 2024 enables **let chains** (`if let Some(x) = a && x > 0`, 1.88) and makes `impl Trait` in return position capture all in-scope lifetimes by default.
+- Editions are opt-in, per-crate language changes; crates on different editions link together freely.
+- **Edition 2024** enables **let chains** (`if let Some(x) = a && x > 0`, 1.88) and makes `impl Trait` in return position capture all in-scope lifetimes by default.

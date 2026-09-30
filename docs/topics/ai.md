@@ -68,6 +68,13 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 - A small **draft model** proposes several tokens; the large model verifies them in one pass and keeps the accepted prefix.
 - Faster decode with the **same output distribution**; the gain depends on how often drafts are accepted.
 
+### Model parallelism and GPU memory
+
+- Serving memory ≈ weights + KV cache + activations; a model too large for one GPU must be split.
+- **Tensor parallelism** splits each layer's matrices across GPUs; it needs a fast interconnect (NVLink), so it stays within a node.
+- **Pipeline parallelism** puts consecutive layers on different GPUs or nodes: less communication, but pipeline bubbles leave stages idle.
+- Data parallelism replicates the whole model for throughput; **disaggregated serving** runs prefill and decode on separate GPU pools, each tuned for its bottleneck.
+
 ### Quantization
 
 - Weights in FP16 take **2 bytes per parameter** (a 70B model ≈ 140 GB); INT8 halves that, **4-bit** (GPTQ, AWQ) quarters it, with some quality loss.
@@ -95,6 +102,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 | **IVF** | cluster, then probe `nprobe` clusters | less memory; recall depends on `nprobe` |
 | **PQ** | compress vectors into codes | much smaller, lower recall; often combined as IVF-PQ |
 
+- **Filtered search**: post-filtering the top-k returns too few hits when the filter is selective, and pre-filtering breaks HNSW graph connectivity — use a filter-aware engine or partition the index (per tenant).
+
 ### Chunking
 
 - Chunk along **document structure** (sections, paragraphs); a few hundred tokens with **10–20% overlap** is a common starting point — tune on evals.
@@ -118,7 +127,13 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 | RAG | facts are private or change often; citations matter |
 | Fine-tuning | a stable style, format, or decision gap persists after prompting; poor for keeping facts current |
 
-## Fine-tuning
+## Training and fine-tuning
+
+### Training pipeline
+
+- **Pretraining**: next-token prediction on trillions of tokens; Chinchilla-optimal is ≈ **20 tokens per parameter**, but modern models train far past it so a smaller model is cheaper to serve.
+- Post-training: SFT on demonstrations, then preference tuning (RLHF, DPO) for helpfulness and safety.
+- **RL with verifiable rewards** (math and code graded automatically, e.g. GRPO) is how reasoning models learn long chains of thought.
 
 ### SFT, RLHF, DPO
 
@@ -147,8 +162,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Stop conditions
 
-- Cap steps, tokens, and cost per run; require evidence (tests pass, a record exists) before declaring success; escalate on repeated failure.
-- Open-ended self-critique loops often repeat the same mistake and burn budget.
+- Cap steps, tokens, and cost per run; escalate to a human on repeated failure.
+- Require evidence (tests pass, a record exists) before declaring success.
 
 ### Context management
 
@@ -166,11 +181,6 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 - **MCP** standardizes how apps discover and call tools, read resources, and fetch prompts — JSON-RPC 2.0 over stdio (local) or **Streamable HTTP** (remote, replaced HTTP+SSE in 2025).
 - Authorization is optional; HTTP servers that support it use **OAuth 2.1**. MCP doesn't replace per-action authorization or business validation.
-
-### Browser automation as a fallback
-
-- Use it only without an API — layouts change and clicks have ambiguous effects.
-- Isolate its credentials and require **approval** before irreversible submits.
 
 ## Evaluation
 
@@ -200,7 +210,6 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 - **Route** easy requests to a small, fast model and hard ones to a strong model.
 - **Semantic caching** reuses answers to similar queries; its key must include user permissions, source version, and freshness, or it leaks.
-- Measure cost **per completed task**, not per call.
 
 ### Batch and streaming
 
@@ -221,5 +230,5 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 
 ### Human approval gates
 
-- Require approval before high-impact actions (money, legal, external sends); show the action, evidence, and affected records.
+- Require approval before high-impact actions (money, legal, external sends, irreversible form submits by a browser agent); show the action, evidence, and affected records.
 - An approval covers **one specific action**; re-check that data hasn't changed since the proposal, and record who approved what and when.

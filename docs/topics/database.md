@@ -60,10 +60,11 @@ What experienced database engineers forget before an interview, grouped by subto
 - **Default: Read Committed**; Repeatable Read is **snapshot isolation** — no phantoms, and a concurrent update of the same row aborts (no lost update), but write skew is possible.
 - Serializable is **SSI**: it prevents write skew by aborting with a serialization error, so the app must retry.
 
-### MySQL InnoDB isolation
+### InnoDB isolation and MVCC
 
 - **Default: Repeatable Read** with **next-key locks** (record + gap) on locking reads, blocking many phantoms.
 - Plain `SELECT` reads the snapshot, but `UPDATE` sees the latest committed row — lost updates slip through without `SELECT ... FOR UPDATE`.
+- Updates happen in place; older versions are rebuilt from the **undo log**, and a long transaction makes undo history grow.
 
 ## MVCC and locking
 
@@ -73,10 +74,6 @@ What experienced database engineers forget before an interview, grouped by subto
 - Old row versions stay in the table, tagged **`xmin`/`xmax`**; **VACUUM** reclaims them, and a long-running transaction blocks it, causing bloat.
 - **XID wraparound** (32-bit transaction IDs) forces aggressive anti-wraparound vacuuming.
 - HOT updates skip index maintenance when no indexed column changed and the page has room.
-
-### InnoDB MVCC
-
-- Updates happen in place; older versions are rebuilt from the **undo log**, and a long transaction makes undo history grow.
 
 ### Row locks, queue tables, advisory locks
 
@@ -128,9 +125,14 @@ What experienced database engineers forget before an interview, grouped by subto
 
 - **`FROM/JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT`** — why a `SELECT` alias works in `ORDER BY` but not in `WHERE`.
 
-### Reading EXPLAIN ANALYZE
+### Why an index isn't used
 
-- Look for sequential scans on big tables, **estimated vs actual rows** far apart (stale statistics — run `ANALYZE`), and sorts or hashes spilling to disk.
+- Low selectivity: when a filter matches a large share of rows, the planner prefers a **sequential scan**, since one sequential pass beats many random heap reads.
+- `LIKE 'x%'` uses a B-tree only with C collation or `text_pattern_ops`; `LIKE '%x'` needs a trigram GIN index (`pg_trgm`).
+- A function or implicit cast on the column, and `OR` across columns without an index on each, also defeat it.
+- **Stale statistics** show up in `EXPLAIN ANALYZE` as estimated vs actual rows far apart — run `ANALYZE`; also watch for sorts or hashes spilling to disk.
+- Scan types: Seq Scan, Index Scan, Index Only Scan, and **Bitmap Heap Scan** (collects matches from one or more indexes, then reads pages in physical order).
+- `OFFSET` still reads and discards every skipped row, so deep pages get slower; keyset pagination seeks by index — API side in [backend.md](backend.md).
 
 ### Join algorithms
 
@@ -139,10 +141,6 @@ What experienced database engineers forget before an interview, grouped by subto
 | **Nested loop** | outer side small, inner side index-backed |
 | **Hash join** | large equality joins without a useful index; builds on the smaller side |
 | **Merge join** | both inputs already sorted (e.g. from indexes) |
-
-### Deep pagination cost
-
-- **OFFSET** still reads and discards every skipped row, so deep pages get slower; **keyset** pagination seeks by index — API side in [backend.md](backend.md).
 
 ## SQL gotchas
 
@@ -163,6 +161,12 @@ What experienced database engineers forget before an interview, grouped by subto
 - **Since PostgreSQL 12**, a side-effect-free CTE referenced **once** is inlined into the outer query; one referenced several times is materialized.
 - `MATERIALIZED` / `NOT MATERIALIZED` override the default.
 
+### Join pitfalls
+
+- A condition on the right table in **`WHERE`** discards the NULL-extended rows and turns a `LEFT JOIN` into an inner join; put it in `ON`.
+- Joining a parent to **two one-to-many children** multiplies rows (fan-out) and inflates `SUM`/`COUNT`; aggregate each child in a subquery first.
+- `EXISTS` / `NOT EXISTS` are semi- and anti-joins: they never duplicate rows, unlike `JOIN` + `DISTINCT`.
+
 ### Upsert
 
 - **`INSERT ... ON CONFLICT (...) DO UPDATE`** (PostgreSQL) / `ON DUPLICATE KEY UPDATE` (MySQL) replaces a racy check-then-write.
@@ -175,11 +179,24 @@ What experienced database engineers forget before an interview, grouped by subto
 - Structures: strings, hashes, lists, sets, **sorted sets** (skip list + hash — leaderboards, rate limiters), streams, HyperLogLog.
 - Redis Cluster splits keys into **16,384 hash slots**; multi-key operations need the same slot, forced with hash tags (`{user42}:cart`).
 
-### Redis persistence and licensing
+### Redis persistence and replication
 
 - RDB: periodic fork + snapshot (copy-on-write), loses writes since the last one. AOF: logs every write; `appendfsync everysec` (default) loses up to **~1 s**.
 - Replication is **asynchronous** — failover can drop acknowledged writes.
-- The 2024 license change led to the **Valkey** fork (Linux Foundation); Redis 8 (2025) added AGPLv3 as an option.
+
+### Redis eviction, expiry, and messaging
+
+- `maxmemory-policy` defaults to **`noeviction`**: at the memory limit, writes fail with an OOM error.
+- Caches use `allkeys-lru` or `allkeys-lfu`; `volatile-*` policies evict only keys with a TTL, so without TTLs they behave like `noeviction`.
+- Expired keys are removed **lazily** on access plus by background sampling, so memory lags behind expirations.
+- Pub/sub is fire-and-forget (offline subscribers miss messages); Streams persist entries, with consumer groups, acknowledgments, and redelivery of pending entries.
+
+### Document stores (MongoDB)
+
+- **Embed** data that is read together (one read, atomic update); reference unbounded or shared data — a document is capped at **16 MB**.
+- Single-document writes are atomic; multi-document transactions (replica sets since 4.0, sharded clusters since 4.2) cost more, so design for single-document atomicity.
+- Write concern **`w: "majority"`** is the default since 5.0; `w: 1` acknowledges before replication, so a failover can roll back acknowledged writes.
+- A query without a matching index scans the collection (`COLLSCAN`); order compound index keys by the ESR rule: Equality, Sort, Range.
 
 ### Wide-column key design (Cassandra, DynamoDB)
 
@@ -232,9 +249,5 @@ What experienced database engineers forget before an interview, grouped by subto
 
 ### OLTP vs OLAP
 
-- **OLTP**: row storage, many small transactional reads and writes.
 - **OLAP**: **column storage**, compression, vectorized scans of few columns over many rows, star schemas (facts + dimensions).
-
-### Materialized views
-
-- Store a query result for fast reads that are stale until refresh; `REFRESH MATERIALIZED VIEW CONCURRENTLY` avoids blocking reads but needs a unique index.
+- Materialized views store a query result for fast reads that stay stale until refresh; `REFRESH MATERIALIZED VIEW CONCURRENTLY` avoids blocking reads but needs a unique index.

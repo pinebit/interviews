@@ -16,17 +16,17 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - The **free-threaded build** (no GIL) was experimental in 3.13 and is **officially supported since 3.14** (PEP 779); an incompatible C extension can force the GIL back on.
 - **`concurrent.interpreters`** (3.14, PEP 734) runs several interpreters in one process, each with its own GIL, talking over cross-interpreter queues.
 
-### Specializing interpreter and JIT
+### Specializing interpreter
 
-- **3.11** added the adaptive specializing interpreter, roughly **25%** faster on average: hot bytecodes are rewritten into type-specialized versions.
-- 3.13 added an experimental copy-and-patch **JIT**; 3.14's official Windows and macOS builds include it, off by default (`PYTHON_JIT=1`).
+- **3.11** added the adaptive specializing interpreter, roughly **25%** faster on average.
+- Hot bytecodes are rewritten in place into type-specialized versions, which fall back when the observed types change.
 
 ## Memory management
 
 ### Refcounting and the cyclic GC
 
-- **Reference counting** frees an object the instant its count hits zero; a **generational cyclic GC** periodically frees reference cycles counting can't.
-- 3.14.0–3.14.4 shipped an incremental GC; **3.14.5 reverted it** over production memory growth.
+- **Reference counting** frees an object the instant its count hits zero.
+- A **generational cyclic GC** periodically finds and frees reference cycles, which counting alone can't.
 
 ### Object identity and caching
 
@@ -71,8 +71,9 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### multiprocessing start methods
 
 - **`fork`** copies the parent — fast, but can inherit inconsistent state (a lock held by another thread mid-acquire).
-- `spawn` starts a fresh interpreter — slower, safest; **`forkserver`** forks children from a clean single-threaded server process.
-- **`forkserver` is the Linux default since 3.14** (previously `fork`).
+- `spawn` starts a fresh interpreter — slower, safest; `forkserver` forks children from a clean single-threaded server process.
+- **`forkserver` is the Linux default since 3.14** (previously `fork`); macOS defaults to `spawn` since 3.8, Windows always has.
+- With `spawn`/`forkserver`, children **re-import the main module**, so guard entry code with `if __name__ == "__main__":`; the target, arguments, and results must pickle (no lambdas, local functions, or open sockets).
 
 ### asyncio event loop
 
@@ -88,19 +89,28 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ## Gotchas
 
-### Mutable default arguments
+### Default arguments and late binding
 
 - Defaults are evaluated **once, at definition time** — `def f(x, cache=[])` shares one list across calls; default to `None` and create the object inside.
 - Dataclasses reject unhashable defaults (`list`, `dict`, `set`) — use **`field(default_factory=list)`**.
-
-### Late-binding closures
-
-- A closure captures the *variable*, not its value — `[lambda: i for i in range(3)]` all return `2`; bind early with `lambda i=i: i`.
+- A closure captures the *variable*, not its value — `[lambda: i for i in range(3)]` all return `2`; a default binds early: `lambda i=i: i`.
 
 ### Scope and `UnboundLocalError`
 
 - **LEGB** lookup: Local, Enclosing, Global, Built-in.
 - Assigning to a name anywhere in a function makes it local for the **whole** body, so reading it before the assignment raises `UnboundLocalError`; use `nonlocal`/`global`.
+
+### Numeric gotchas
+
+- `//` and `%` **floor toward −∞**: `-7 // 2 == -4` and `-7 % 2 == 1`; C, Go, Rust, and JavaScript truncate toward zero (`-7 % 2 == -1`).
+- **`round()` rounds half to even**: `round(2.5) == 2`, `round(3.5) == 4`; `round(2.675, 2) == 2.67` because the float is slightly below 2.675.
+- `int` never overflows (arbitrary precision); `float` is an IEEE 754 double, so use **`decimal.Decimal`** built from strings for money.
+
+### Recursion depth
+
+- The default limit is **1000** frames (`sys.getrecursionlimit()`); going deeper raises `RecursionError`.
+- There's no **tail-call optimization**, so deep DFS or memoized recursion on large inputs needs an explicit stack.
+- `sys.setrecursionlimit` helps for moderate depths; for depths around 10⁵ and beyond, rewrite iteratively.
 
 ### Copies and aliasing
 
@@ -109,8 +119,8 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 ### Mutation during iteration
 
-- Removing items from a list inside `for` skips elements; resizing a dict raises `RuntimeError: dictionary changed size during iteration` — iterate over a copy.
-- Dict insertion order is guaranteed **since 3.7**.
+- Removing items from a list inside `for` skips elements.
+- Resizing a dict while iterating raises `RuntimeError: dictionary changed size during iteration` — iterate over a copy.
 
 ### Import mechanics
 
@@ -123,6 +133,12 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - Multiple inheritance resolves via **C3 linearization** (the MRO, `Cls.__mro__`).
 - **`super()`** follows the instance's MRO, not the direct parent, so every class in a mixin chain must call `super().__init__()`.
+
+### Shared class attributes
+
+- A mutable class attribute (`items = []` in the class body) is **shared by every instance**.
+- `self.items.append(x)` mutates the shared list; `self.items = [...]` creates an instance attribute that shadows it.
+- Create per-instance state in `__init__`; dataclasses force `field(default_factory=list)` for this reason.
 
 ### Descriptors
 
@@ -162,19 +178,7 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - **`__exit__` returning `True` suppresses** the exception; `contextlib.contextmanager` turns a one-`yield` generator into a context manager.
 - `try ... else` runs only when no exception was raised; **`except*`** (**3.11**) handles exception groups, e.g. from a `TaskGroup`.
 
-## Recent language features
-
-### Structural pattern matching
-
-- `match` (**3.10**) destructures by shape: `case {"type": "click", "x": x}`, `case Point(x=0)`.
-- A bare name in a `case` **binds**, it doesn't compare — `case RED:` matches everything; use dotted names (`Color.RED`) for constants.
-
-### Template strings
-
-- **t-strings** (`t"Hello {name}"`, **3.14**, PEP 750) produce a `Template` object with static parts and interpolated values kept separate.
-- A library receiving it can escape values safely (SQL, HTML), unlike an f-string that arrives already joined.
-
-## Typing
+## Typing and recent features
 
 ### Gradual typing and protocols
 
@@ -186,6 +190,16 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - **PEP 695** syntax (`class Box[T]: ...`, `type Alias = ...`, 3.12) replaces manual `TypeVar` declarations with scoped type parameters.
 - Annotations are **evaluated lazily since 3.14** (**PEP 649**), making `from __future__ import annotations` largely unnecessary.
+
+### Structural pattern matching
+
+- `match` (**3.10**) destructures by shape: `case {"type": "click", "x": x}`, `case Point(x=0)`.
+- A bare name in a `case` **binds**, it doesn't compare — `case RED:` matches everything; use dotted names (`Color.RED`) for constants.
+
+### Template strings
+
+- **t-strings** (`t"Hello {name}"`, **3.14**, PEP 750) produce a `Template` object with static parts and interpolated values kept separate.
+- A library receiving it can escape values safely (SQL, HTML), unlike an f-string that arrives already joined.
 
 ## Tooling
 

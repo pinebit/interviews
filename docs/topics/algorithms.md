@@ -6,9 +6,22 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 
 ### Time and space bounds
 
-- State the **input size**, then worst-case time and **auxiliary space**; producing an output of size `k` already costs Ω(k).
+- Producing an output of size `k` already costs **Ω(k)**, whatever the algorithm.
 - Nested loops aren't automatically O(n²): if two pointers each advance at most `n` times, total work is O(n).
 - Recursion stack counts as space: balanced divide-and-conquer uses O(log n) frames, a linear chain O(n).
+
+### Input size and target complexity
+
+At ~10⁸ simple operations per second, the constraints tell you which complexity to aim for:
+
+| n up to | Target | Typical technique |
+|---|---|---|
+| 10–11 | O(n!) | permutations |
+| 20 | O(2ⁿ) | subsets, bitmask DP |
+| 500 | O(n³) | interval DP, Floyd–Warshall |
+| 5,000 | O(n²) | pairwise DP |
+| 10⁶ | O(n log n) | sorting, heaps, binary search |
+| beyond | O(n) or O(log n) | linear scan, math |
 
 ### Amortized analysis
 
@@ -17,8 +30,8 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 
 ### Recurrence patterns
 
-- **Binary search**: `T(n) = T(n/2) + O(1) = O(log n)`.
-- **Merge sort**: `T(n) = 2T(n/2) + O(n) = O(n log n)`.
+- **Master theorem** for `T(n) = aT(n/b) + f(n)`: compare `f(n)` with `n^(log_b a)` — smaller → Θ(n^(log_b a)); equal → Θ(n^(log_b a) · log n); larger → Θ(f(n)).
+- Merge sort (a = b = 2, f = n) is the equal case → O(n log n); binary search (a = 1, b = 2, f = 1) → O(log n).
 - Recursion without memoization can revisit states exponentially often; after memoizing, cost = **states × work per state**.
 
 ## Arrays and sequences
@@ -50,6 +63,12 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 - **Sliding window maximum**: keep indices with decreasing values; pop smaller values from the back, drop the front once it leaves the window.
 - Every index enters and leaves once — **O(n)** total instead of O(nk).
 
+### Maximum subarray (Kadane)
+
+- Scan once: `cur = max(x, cur + x)`, `best = max(best, cur)` — **O(n)** time, O(1) space.
+- Initialize both with the first element, not 0, so an all-negative array returns its largest value.
+- **Circular** variant: `max(best, total − minimum subarray)`, unless every value is negative (then just `best`).
+
 ### Intervals
 
 - **Merge overlapping intervals**: sort by start, extend the last merged interval while the next start ≤ its end — O(n log n).
@@ -72,7 +91,7 @@ What experienced engineers forget before an algorithms interview, grouped by sub
 - A **polynomial rolling hash** updates a window's hash in O(1) as it slides, so search is O(n + m) expected.
 - Collisions happen: **verify each match** for exact results — two moduli only make collisions rarer; also finds duplicate substrings via binary search on length.
 
-## Sorting and selection
+## Sorting, selection, and sampling
 
 ### Comparison sorts
 
@@ -94,12 +113,24 @@ Standard array implementations; variants differ in stability and space.
 - **Quickselect** partitions around a random pivot and recurses into one side: O(n) expected, O(n²) worst.
 - A size-`k` **min-heap** keeps the largest `k` of `n` items in O(n log k) time and O(k) space.
 
+### Random sampling and shuffling
+
+- **Reservoir sampling** picks `k` items from a stream of unknown length: keep the first `k`, then replace a random slot with the i-th item with probability k/i — one pass, O(k) memory.
+- **Fisher–Yates** shuffle: for `i` from `n−1` down to 1, swap `a[i]` with `a[rand(0..i)]` — O(n), every permutation equally likely.
+- Swapping with `a[rand(0..n−1)]` at each step looks similar but is **biased** (nⁿ outcomes can't split evenly over n! permutations).
+
 ## Data structures
 
 ### Heap invariants
 
 - A binary heap is a **complete tree** in an array; the root is the min or max, siblings are unordered.
 - Peek O(1); insert and remove-root O(log n); **bottom-up construction is O(n)**.
+
+### Heap patterns
+
+- **k-way merge**: push the head of each of `k` sorted lists into a min-heap, pop and push the next from the same list — O(n log k).
+- Running median with **two heaps**: a max-heap for the lower half, a min-heap for the upper, sizes differing by at most one — O(log n) per insert, O(1) median.
+- Heaps can't delete arbitrary items cheaply: **lazy deletion** marks items removed and discards them when they reach the top.
 
 ### Hash tables and collisions
 
@@ -118,8 +149,8 @@ Standard array implementations; variants differ in stability and space.
 
 ### LRU cache
 
-- **Hash map + doubly linked list**: the map finds a node in O(1), the list keeps recency — move to front on access, evict from the tail.
-- Python: `OrderedDict.move_to_end` + `popitem(last=False)`; Java: `LinkedHashMap` in access order.
+- **Hash map + doubly linked list**: the map finds a node in O(1), the list keeps recency.
+- Move a node to the front on every access and evict from the tail — both O(1).
 
 ### Fenwick and segment trees
 
