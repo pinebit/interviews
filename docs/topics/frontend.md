@@ -123,6 +123,18 @@ What experienced frontend engineers forget before an interview, grouped by subto
 - Long `max-age` + `immutable` on **content-hashed filenames** (`app.a3f9c1.js`), with HTML served `no-cache` — each deploy is a new URL.
 - `ETag`/`Last-Modified` let the server answer **`304 Not Modified`** — saves the body, not the round trip.
 
+### Browser storage
+
+| Storage | Size | Notes |
+|---|---|---|
+| Cookies | ~4 KB each | sent with every request to the domain |
+| `localStorage` | ~5 MB per origin | **synchronous** (blocks the main thread), strings only |
+| `sessionStorage` | ~5 MB per origin | per tab, cleared when the tab closes |
+| **IndexedDB** | a share of free disk | async, structured data, available in workers |
+| Cache API | a share of free disk | request/response pairs, used by service workers |
+
+Any XSS can read all of them except `HttpOnly` cookies — token storage in [security.md](security.md).
+
 ### Service workers
 
 - **Service workers** implement cache-first, network-first, or stale-while-revalidate strategies and offline support.
@@ -134,6 +146,18 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - **Keys** match list items across renders; an array index as key attaches the wrong state after reorder or filter.
 - A component re-renders on its own state change, a **parent re-render** (unless memoized), or a consumed **context value** change.
+
+### State snapshots and resets
+
+- State is a **snapshot** per render: `setCount(count + 1)` twice adds 1; the updater form `setCount(c => c + 1)` twice adds 2.
+- Changing a component's **`key`** remounts it and resets its state — the clean way to reset a form when the selected item changes.
+- `useRef` holds a mutable value across renders without triggering a re-render; don't read or write it during render.
+
+### Error boundaries
+
+- An error boundary catches errors thrown while **rendering** its subtree and shows a fallback UI instead of unmounting the whole app.
+- It's still a **class component** (`getDerivedStateFromError`, `componentDidCatch`) or the `react-error-boundary` package; there's no hook equivalent.
+- It doesn't catch errors in event handlers or async code (`setTimeout`, promises) — handle those with `try/catch` and state.
 
 ### Fiber and concurrent rendering
 
@@ -173,6 +197,12 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - Deriving state inside an effect + `setState` causes an extra render and a flash — **compute it during render**.
 - Every subscription, timer, or listener an effect creates needs a **cleanup** function.
+
+### Data fetching in effects
+
+- Responses can arrive **out of order**: ignore stale ones in the effect cleanup (an `ignore` flag or `AbortController`), or a slow earlier request overwrites newer data.
+- Effect-based fetching creates **waterfalls** (parent fetches → child mounts → child fetches); hoist fetching to route loaders, Server Components, or a query library.
+- Strict Mode runs effects twice in development, so a fetch without cleanup fires twice there.
 
 ### Memoization pitfalls
 

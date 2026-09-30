@@ -88,6 +88,13 @@ What experienced backend engineers forget before an interview, grouped by subtop
 - **Propagate the deadline** (gRPC does it natively) so downstream services stop work once the original caller has given up.
 - Retries, backoff, and circuit breakers: see [distributed.md](distributed.md).
 
+### Schema evolution
+
+- **Backward compatible**: new readers read old data; **forward compatible**: old readers read new data — rolling deploys and replayed events need both.
+- Protobuf: never reuse or renumber a field tag (mark removed ones `reserved`); adding fields is safe; proto3 has no `required`; unknown fields survive a round trip.
+- Avro with a schema registry checks BACKWARD, FORWARD, or FULL compatibility on every schema change.
+- JSON consumers must ignore unknown fields (**tolerant reader**); rename a field by adding the new one, writing both, moving readers over, then removing the old.
+
 ### Webhooks
 
 - **Sign** each payload (HMAC over timestamp + body) and have receivers verify it with a **constant-time** compare; reject stale timestamps to stop replays.
@@ -132,6 +139,19 @@ What experienced backend engineers forget before an interview, grouped by subtop
 
 - Never make a network call inside an open DB transaction — it holds **locks and a connection** for the whole round trip.
 - For "commit, then notify another service", use the outbox instead of calling inside the transaction.
+
+### Multi-tenancy models
+
+- Shared tables with a `tenant_id`: cheapest, but every query must filter — enforce it with PostgreSQL **row-level security** (the table owner bypasses it unless `FORCE ROW LEVEL SECURITY`).
+- Schema per tenant: more isolation, but migrations and connection pools multiply with the tenant count.
+- Database per tenant: strongest isolation, per-tenant restore and data residency, the most operational work.
+- Move **noisy neighbors** (the largest tenants) to their own shard or database, and rate-limit per tenant.
+
+### Time handling
+
+- Store and send instants in **UTC** (RFC 3339 with an offset, `2026-03-08T09:30:00Z`); in PostgreSQL use `timestamptz`.
+- For future local-time events (meetings, schedules), store the local time plus an **IANA zone** (`Europe/Berlin`), not an offset — DST rules and offsets change.
+- A DST switch skips or repeats a local hour, so a job scheduled at 02:30 local time runs never or twice; schedule jobs in UTC.
 
 ### File uploads
 

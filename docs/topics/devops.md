@@ -30,6 +30,13 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - A destructive migration (dropping a column old code still reads) makes rollback impossible.
 - Keep each DDL short and lock-safe (`lock_timeout`, concurrent index builds) — see [database.md](database.md).
 
+### Incident response
+
+- Assign roles: an **incident commander** coordinates while others handle communications and operations.
+- **Mitigate first** (roll back, flip a flag, fail over); find the root cause later.
+- Write a blameless postmortem: timeline, contributing factors, and action items with owners.
+- Track time to detect and time to recover (MTTD, MTTR); link a runbook from every alert.
+
 ## Containers
 
 ### How containers work
@@ -65,6 +72,11 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - **kubelet** runs the node's Pods through the container runtime (CRI) and reports status.
 - **kube-proxy** or an **eBPF** CNI such as Cilium implements Service virtual IPs.
 - kube-proxy modes: iptables (default), nftables (GA in 1.33), IPVS (deprecated since 1.35).
+
+### Packaging and extension
+
+- **Helm** templates charts with values and tracks releases; **Kustomize** patches plain YAML with overlays, no templating.
+- **CRDs + operators** extend the API: an operator's controller reconciles custom resources (databases, certificates) like built-in objects.
 
 ## Kubernetes workloads
 
@@ -136,7 +148,9 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 ### Autoscaling
 
-- **HPA** scales replicas from metrics; **VPA** adjusts requests; Cluster Autoscaler/**Karpenter** add nodes when Pods can't be scheduled.
+- **HPA** scales replicas from metrics; VPA adjusts requests; Cluster Autoscaler/Karpenter add nodes when Pods can't be scheduled.
+- HPA utilization targets are a percentage of **requests**, so Pods without CPU requests can't scale on CPU; scale-down waits out a 5-minute stabilization window by default.
+- **KEDA** scales on external events (queue length, consumer lag), down to zero; Karpenter also consolidates underused nodes.
 - More replicas don't help when the bottleneck is a saturated downstream database.
 
 ### Graceful Pod shutdown
@@ -145,15 +159,19 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - The kubelet runs **`preStop`** first, then sends `SIGTERM` — a short `preStop` sleep covers that race.
 - **`terminationGracePeriodSeconds`** (default **30 s**) covers `preStop` plus shutdown; then the kubelet sends `SIGKILL`. App-side steps are in [backend.md](backend.md).
 
-### ConfigMaps and Secrets
-
-- Secret values are only **base64-encoded**; enable encryption at rest (KMS), restrict access with **RBAC**, or sync from a vault (External Secrets Operator).
-- Env vars from a ConfigMap don't update in a running Pod; mounted files do (eventually) — most apps still need a restart.
-
 ### Debugging Pod states
 
 - **`Pending`**: unschedulable (resources, quota, taints, unbound volume). **`ImagePullBackOff`**: wrong image or registry credentials. **`CrashLoopBackOff`**: the process or its liveness probe keeps failing.
 - `kubectl describe pod` shows events; `kubectl logs --previous` shows the crashed container's last output.
+
+## Kubernetes security
+
+### Pod security
+
+- **Pod Security Admission** enforces the privileged, baseline, or **restricted** profile per namespace via labels; PodSecurityPolicy was removed in 1.25.
+- A hardened `securityContext`: `runAsNonRoot`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false`, drop all capabilities, `seccompProfile: RuntimeDefault`.
+- `privileged: true`, `hostPath` mounts, and `hostNetwork`/`hostPID` effectively hand over the node.
+- Kyverno or OPA Gatekeeper enforce custom rules (allowed registries, no `latest` tags, required labels).
 
 ### ServiceAccounts and workload identity
 
@@ -161,10 +179,10 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 - Its tokens are projected, short-lived, and audience-bound; set `automountServiceAccountToken: false` when the app doesn't call the API.
 - **Workload identity** maps a ServiceAccount to a cloud role (EKS IRSA or Pod Identity, GKE Workload Identity) — no static cloud keys in Secrets.
 
-### Packaging and extension
+### ConfigMaps and Secrets
 
-- **Helm** templates charts with values and tracks releases; **Kustomize** patches plain YAML with overlays, no templating.
-- **CRDs + operators** extend the API: an operator's controller reconciles custom resources (databases, certificates) like built-in objects.
+- Secret values are only **base64-encoded**; enable encryption at rest (KMS), restrict access with **RBAC**, or sync from a vault (External Secrets Operator).
+- Env vars from a ConfigMap don't update in a running Pod; mounted files do (eventually) — most apps still need a restart.
 
 ## Terraform
 
@@ -177,6 +195,12 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 - **State** maps resource addresses to real objects and can hold secrets — keep it in a **remote backend with locking**, never in Git.
 - **Drift**: out-of-band changes show up in the next plan, which proposes reverting them.
+
+### count vs for_each
+
+- `count` addresses instances by index (`aws_instance.web[2]`): removing one element shifts every later index, so Terraform **destroys and recreates** those resources.
+- **`for_each`** keys instances by stable map or set keys (`aws_instance.web["api"]`), so adding or removing one touches only that one.
+- `for_each` keys must be known at plan time, not computed during apply; switching between the two needs `moved` blocks.
 
 ### Refactoring resources
 

@@ -15,6 +15,13 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 - Use **temporary role credentials** for EC2, ECS tasks, and Lambda; use OIDC federation for external CI so pipelines do not store long-lived AWS keys.
 - In ECS, the **task role** grants the application access to AWS APIs; the **execution role** lets the ECS agent pull images, fetch configured secrets, and send logs.
 
+### Cross-account access
+
+- Within one account, an allow in the identity policy **or** the resource policy suffices (KMS key policies and role trust policies are exceptions).
+- Across accounts, **both** sides must allow: the resource policy trusts the other account or principal, and that principal's identity policy grants the action.
+- Third parties assume your role with an **`sts:ExternalId`** condition, preventing the confused-deputy problem.
+- `aws:PrincipalOrgID` in a resource policy limits access to accounts in your organization.
+
 ### KMS and envelope encryption
 
 - **Envelope encryption**: `GenerateDataKey` returns a plaintext data key (encrypt locally, then discard) and the same key encrypted under the KMS key (store it with the data). KMS `Encrypt` itself only takes **4 KB**.
@@ -31,6 +38,19 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 
 - **Security groups** are stateful and attach to network interfaces; **network ACLs** are stateless and apply at subnet boundaries, so return traffic needs an explicit ACL rule.
 - **Gateway VPC endpoints** route S3 and DynamoDB traffic without a NAT device or internet gateway; interface endpoints use private IPs and AWS PrivateLink for supported services.
+
+### ALB vs NLB
+
+| | ALB | NLB |
+|---|---|---|
+| Layer | L7: HTTP(S), gRPC, WebSockets | L4: TCP, UDP, TLS |
+| Routing | host, path, header, query string | port only |
+| Addresses | changing IPs; use the DNS name | **static IP per AZ** (Elastic IPs optional) |
+| Client IP | in `X-Forwarded-For` | preserved, or sent via PROXY protocol v2 |
+| Extras | OIDC/Cognito auth, WAF, Lambda targets | TLS passthrough, PrivateLink services, very high throughput |
+| Cross-zone | on by default | **off** by default; cross-AZ data is charged when on |
+
+Gateway Load Balancer inserts inline appliances such as third-party firewalls.
 
 ### Connecting VPCs
 
@@ -86,6 +106,12 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 - S3 has **strong read-after-write consistency** for object PUT and DELETE, including list results; a successfully written object is immediately readable.
 - With **versioning**, deleting an object without a version ID adds a delete marker; deleting a specific version permanently removes it. Lifecycle rules can expire noncurrent versions.
 - A **presigned URL** grants temporary access using the signer's permissions and expires no later than the credentials used to sign it.
+
+### S3 access and CloudFront
+
+- New buckets block public access and disable ACLs (**bucket owner enforced**) by default since April 2023; objects are encrypted with SSE-S3 by default since January 2023.
+- Serve a private bucket through CloudFront with **Origin Access Control**, which replaces the legacy OAI; the bucket policy allows only that distribution.
+- CloudFront **signed URLs or signed cookies** gate private content at the edge; S3 presigned URLs bypass the CDN.
 
 ### S3 performance and classes
 
@@ -149,3 +175,10 @@ What experienced AWS developers and DevOps engineers forget before an interview,
 - Service **quotas** are per account and Region and often stop scaling before the application does — many are soft and raised by request.
 - AWS Budgets alerts follow billing-data updates, at least daily; use CloudWatch service metrics for operational alarms. Cost Explorer is for spend analysis.
 - EC2 **Spot** capacity can be reclaimed; stop/terminate interruption notices give about **2 minutes** on a best-effort basis (hibernation starts immediately). Checkpoint work and replace capacity proactively.
+
+### Cost drivers
+
+- **NAT gateway** data processing (~$0.045/GB in us-east-1, plus hourly) is a classic surprise; S3 and DynamoDB gateway endpoints are free and skip it.
+- **Cross-AZ traffic** costs ~$0.01/GB in each direction, so chatty services and replicas spread across AZs add up.
+- Internet egress and CloudWatch Logs ingestion (~$0.50/GB) are the other usual suspects.
+- Discounts: Savings Plans and Reserved Instances (up to ~72% for 1–3 year commitments), Spot (up to ~90%), Graviton (roughly 20% cheaper per hour than comparable x86).

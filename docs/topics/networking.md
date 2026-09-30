@@ -10,6 +10,16 @@ What experienced engineers forget about networking before an interview, grouped 
 - A cold HTTPS request over TCP costs about **3 RTTs** before the first response byte; **HTTP/3** saves one, and resumption with 0-RTT saves more.
 - Every later request reuses the connection, which is why keep-alive and connection pools matter.
 
+### Connection failure signatures
+
+| Symptom | Usual cause |
+|---|---|
+| Connection refused | RST: host reachable, nothing listening on the port |
+| Connect timeout | SYN dropped: firewall, security group, or dead host; Linux retries the SYN for **~127 s**, so set connect timeouts |
+| Connection reset by peer | peer crashed, or a middlebox dropped the flow after its idle timeout |
+| **502** from a proxy | upstream refused, reset, or sent an invalid response |
+| **504** from a proxy | upstream didn't answer in time |
+
 ### Debugging tools
 
 - `dig` (DNS answer, TTL), `curl -v` and `curl -w '%{time_connect} %{time_appconnect} %{time_starttransfer}'` (per-phase timing).
@@ -36,6 +46,13 @@ What experienced engineers forget about networking before an interview, grouped 
 - Throughput ≤ window / RTT (**bandwidth-delay product**) — high-latency links need large windows.
 - CUBIC (Linux default) backs off on packet loss; BBR models bandwidth and RTT instead, doing better on lossy links.
 
+### Retransmission and loss recovery
+
+- The retransmission timeout (**RTO**) derives from smoothed RTT; Linux floors it at **200 ms** (initial 1 s) and doubles it on each retry.
+- One lost packet on a quiet connection therefore adds ≥ 200 ms — a classic cause of p99 spikes.
+- **Fast retransmit**: 3 duplicate ACKs resend the missing segment without waiting for the RTO; SACK tells the sender exactly which ranges arrived.
+- A lost last segment produces no duplicate ACKs; Linux's tail loss probe resends it after ~2 RTTs instead of waiting for the RTO.
+
 ### Keepalive and half-open connections
 
 - **TCP keepalive** probes an idle connection to detect a dead peer (Linux: first probe after **2 hours** by default); HTTP keep-alive only means reusing a connection — unrelated.
@@ -57,7 +74,7 @@ What experienced engineers forget about networking before an interview, grouped 
 - No handshake, ordering, retransmission, or congestion control — the application decides.
 - Used where latency beats reliability or the protocol handles it itself: DNS, VoIP, games, **QUIC**.
 
-## HTTP versions
+## HTTP
 
 ### HTTP/1.1
 
@@ -80,6 +97,12 @@ What experienced engineers forget about networking before an interview, grouped 
 
 - Starts as HTTP/1.1 **`Upgrade: websocket`** → **`101 Switching Protocols`**, then framed full-duplex messages on the same TCP connection.
 - Proxies and load balancers need idle timeouts above the app's ping interval, or they drop quiet connections.
+
+### Client IP behind proxies
+
+- L7 proxies append the peer's address to **`X-Forwarded-For`**; clients can forge earlier entries, so trust only those your own proxies added — read from the right, skipping known proxy hops.
+- L4 load balancers either preserve the source IP or pass it in a **PROXY protocol** header, which the backend must be configured to expect.
+- Rate limits, geo-blocking, and audit logs depend on it: taking the leftmost entry lets any client spoof its IP.
 
 ## DNS
 
@@ -109,6 +132,12 @@ What experienced engineers forget about networking before an interview, grouped 
 
 - `/24` = 256 addresses, `/16` = 65,536; each bit less doubles the block.
 - Private ranges: **10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16**; 100.64.0.0/10 is carrier-grade NAT; AWS reserves **5 addresses** per subnet.
+
+### Routing tables
+
+- The kernel picks the **longest prefix match**: a `/32` route beats a `/24`, which beats the default route `0.0.0.0/0` (the gateway).
+- On the local link, **ARP** (IPv6: neighbor discovery) resolves the next hop's MAC address; MACs change at every hop, while IPs stay end to end unless NAT rewrites them.
+- `ip route get <addr>` shows the route, interface, and source address the kernel would use.
 
 ### NAT
 

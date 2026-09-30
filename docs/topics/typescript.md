@@ -18,6 +18,18 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 - **`any`** turns checking off in both directions; **`unknown`** accepts anything but must be narrowed before use.
 - **`never`** is the empty type — the result of exhaustive narrowing and of functions that never return.
 
+### `{}`, `object`, and index signatures
+
+- **`{}` means any non-nullish value** — strings and numbers included — not "empty object"; `Object` behaves the same.
+- `object` is any non-primitive; `Record<string, never>` is a truly empty object.
+- With an index signature (`Record<string, T>`), every key reads as present and typed `T` unless **`noUncheckedIndexedAccess`** is on.
+
+### Function assignability
+
+- A function returning a value is assignable to a **`void`-returning** function type, so `arr.forEach(x => out.push(x))` compiles and the result is ignored.
+- A function with **fewer parameters** is assignable to one with more: callbacks may ignore arguments (`arr.map(x => x * 2)`).
+- Only the contextual case is relaxed: a function declared with a `void` return type still can't return a value.
+
 ### `interface` vs `type`
 
 - `interface` supports **declaration merging** (reopening adds members) and gives clearer error messages for object shapes.
@@ -145,6 +157,12 @@ What experienced TypeScript engineers forget before an interview, grouped by sub
 - **`experimentalDecorators`** is the older, incompatible form still used by Angular and NestJS — check which one a codebase uses.
 
 ## Typing patterns
+
+### Runtime validation at boundaries
+
+- Types are erased: `JSON.parse` and `res.json()` return `any`, and env vars or `as` casts are unchecked, so data can violate its declared type at runtime.
+- Parse untrusted input with a schema library (Zod, Valibot, ArkType) and **derive the type from the schema** (`type User = z.infer<typeof User>`), so the two can't drift.
+- Type unparsed input as **`unknown`**, not `any`, so it must be validated or narrowed before use.
 
 ### Overloads
 

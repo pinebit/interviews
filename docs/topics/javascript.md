@@ -78,6 +78,13 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 | `Promise.race` | first settles (either way) | timeouts, first response wins |
 | `Promise.any` | first fulfills, or all reject (`AggregateError`) | first success wins |
 
+### async/await ordering
+
+- The `new Promise` executor runs **synchronously**; only the `.then` callbacks are deferred.
+- Code after `await` always resumes as a microtask, even when the awaited value is already resolved or isn't a promise.
+- Inside `try`, **`return promise`** skips the `catch` when it rejects; write `return await promise`.
+- An `async` function always returns a new promise, so a `throw` inside it becomes a rejection, not a synchronous exception.
+
 ### Sequential vs parallel await
 
 - `for (const x of xs) await f(x)` runs **serially**: each call starts after the previous settles; start all calls first, then `await Promise.all([...])` so they overlap.
@@ -87,6 +94,13 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 
 - **`AbortController`** cancels `fetch` and other abortable APIs via a shared `AbortSignal`; `AbortSignal.timeout(ms)` builds a deadline.
 - **`for await...of`** consumes async generators and any object with `Symbol.asyncIterator`.
+
+### fetch semantics
+
+- `fetch` rejects only on network failure (DNS, refused connection, CORS, abort); HTTP 4xx/5xx **resolve** with `res.ok === false`, so check it.
+- The body is a stream and can be read **once**; call `res.clone()` before reading it twice.
+- There is no default timeout: pass `signal: AbortSignal.timeout(ms)`.
+- Cookies go only to the same origin by default (`credentials: 'same-origin'`); cross-origin requests need `'include'` plus CORS credential headers.
 
 ### Promise helpers
 
@@ -112,6 +126,13 @@ What experienced JavaScript engineers forget before an interview, grouped by sub
 - V8's collector is **generational**: a fast scavenger for the young generation (most objects die young), mark-compact for the old generation.
 - Common leaks: **detached DOM nodes** still referenced from JS, forgotten listeners and timers, unbounded caches.
 - A closure keeps its referenced outer variables alive, so a long-lived listener can retain a large object it barely uses.
+
+### Hidden classes and inline caches
+
+- V8 gives objects created with the same properties in the same order a shared **hidden class** (shape); adding a property transitions to a new one.
+- Each property-access site caches the shapes it has seen: monomorphic (one) is fastest, polymorphic up to 4, then **megamorphic** (a generic slow lookup).
+- Initialize every field in the constructor in a fixed order; `delete` on a hot object can drop it into slow dictionary mode.
+- Arrays track element kinds too: mixing integers, doubles, and holes (`new Array(n)`) downgrades them for good.
 
 ### Weak references
 

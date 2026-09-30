@@ -31,6 +31,12 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 - Signed → propagated to the **mempool** → a builder assembles a block (**PBS** via MEV-Boost separates building from proposing) → the proposer publishes it → validators attest.
 - **Finalized after 2 epochs (~12.8 min)**; before that a block can be reorged, so exchanges and bridges wait for finality or several confirmations.
 
+### RPC block tags and reorgs
+
+- `latest` can be reorged; **`safe`** (the justified checkpoint) rarely is; **`finalized`** can't be reverted without slashing at least ⅓ of the stake.
+- `eth_call` simulates against a chosen block without sending a transaction; `eth_estimateGas` binary-searches a working gas limit and can underestimate state-dependent paths, so add headroom.
+- Indexers store block hashes and roll back on a reorg, or index only finalized blocks.
+
 ## Gas and fees
 
 ### EIP-1559 fee market
@@ -61,6 +67,20 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 - Stack-based, **256-bit words**, stack depth 1024 — `DUP` reaches only the top **16** items (`SWAP16` the 17th), the source of "stack too deep".
 - Memory expansion cost is **quadratic** in size; storage is the most expensive resource, priced per 32-byte slot.
 - `DELEGATECALL` runs another contract's code on the caller's storage; any call forwards at most 63/64 of the remaining gas (EIP-150) — see [solidity.md](solidity.md).
+
+### Precompiles
+
+Built-in contracts at fixed low addresses for cryptography too expensive in bytecode; they have no code, so `extcodesize` returns 0.
+
+| Address | Function |
+|---|---|
+| `0x01` | `ecrecover` |
+| `0x02`, `0x03` | SHA-256, RIPEMD-160 |
+| `0x05` | modexp (RSA verification) |
+| `0x06`–`0x08` | BN254 add, mul, pairing — **SNARK verifiers** |
+| `0x0a` | KZG point evaluation (EIP-4844 blobs) |
+| `0x0b`–`0x11` | BLS12-381 operations (Pectra, EIP-2537) |
+| `0x100` | P-256 verification (Fusaka, EIP-7951) — passkeys and secure enclaves |
 
 ### Transient storage and SELFDESTRUCT
 
@@ -103,6 +123,8 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - **ERC-4337**: users sign UserOperations, bundlers submit them to a singleton EntryPoint, and **paymasters** can sponsor gas — no protocol change.
 - **EIP-7702** lets an existing EOA delegate to smart-wallet code while keeping its address.
+- 7702 risks: one authorization signature hands the EOA to the delegate's code, a prime phishing target; an authorization with `chain_id = 0` is valid on every chain.
+- The delegate's storage lives in the EOA, so switching delegates can collide storage layouts — use namespaced storage (ERC-7201).
 
 ## Consensus (PoS)
 
@@ -130,6 +152,12 @@ What experienced Ethereum engineers forget before an interview, grouped by subto
 
 - Rollups post transaction data to L1 for **data availability**, so anyone can rebuild state and challenge or exit.
 - Most use a **centralized sequencer** for ordering, with forced inclusion through L1 as the censorship backstop.
+
+### ZK proof systems
+
+- **SNARKs** (Groth16, PLONK): proofs of a few hundred bytes, cheap to verify on L1 via the BN254 pairing precompile; many need a **trusted setup** (per circuit for Groth16, universal for PLONK).
+- **STARKs**: no trusted setup and hash-based (plausibly post-quantum), but proofs run to tens or hundreds of KB, so rollups often wrap a STARK in a SNARK for L1.
+- zkEVM types 1–4 trade Ethereum equivalence against proving cost: type 1 proves unmodified Ethereum blocks, type 4 compiles Solidity to a different VM.
 
 ### Blobs and PeerDAS
 

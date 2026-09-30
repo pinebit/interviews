@@ -68,6 +68,13 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 - A small **draft model** proposes several tokens; the large model verifies them in one pass and keeps the accepted prefix.
 - Faster decode with the **same output distribution**; the gain depends on how often drafts are accepted.
 
+### Model parallelism and GPU memory
+
+- Serving memory ≈ weights + KV cache + activations; a model too large for one GPU must be split.
+- **Tensor parallelism** splits each layer's matrices across GPUs; it needs a fast interconnect (NVLink), so it stays within a node.
+- **Pipeline parallelism** puts consecutive layers on different GPUs or nodes: less communication, but pipeline bubbles leave stages idle.
+- Data parallelism replicates the whole model for throughput; **disaggregated serving** runs prefill and decode on separate GPU pools, each tuned for its bottleneck.
+
 ### Quantization
 
 - Weights in FP16 take **2 bytes per parameter** (a 70B model ≈ 140 GB); INT8 halves that, **4-bit** (GPTQ, AWQ) quarters it, with some quality loss.
@@ -95,6 +102,8 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 | **IVF** | cluster, then probe `nprobe` clusters | less memory; recall depends on `nprobe` |
 | **PQ** | compress vectors into codes | much smaller, lower recall; often combined as IVF-PQ |
 
+- **Filtered search**: post-filtering the top-k returns too few hits when the filter is selective, and pre-filtering breaks HNSW graph connectivity — use a filter-aware engine or partition the index (per tenant).
+
 ### Chunking
 
 - Chunk along **document structure** (sections, paragraphs); a few hundred tokens with **10–20% overlap** is a common starting point — tune on evals.
@@ -118,7 +127,13 @@ What experienced AI engineers forget before an interview, grouped by subtopic. F
 | RAG | facts are private or change often; citations matter |
 | Fine-tuning | a stable style, format, or decision gap persists after prompting; poor for keeping facts current |
 
-## Fine-tuning
+## Training and fine-tuning
+
+### Training pipeline
+
+- **Pretraining**: next-token prediction on trillions of tokens; Chinchilla-optimal is ≈ **20 tokens per parameter**, but modern models train far past it so a smaller model is cheaper to serve.
+- Post-training: SFT on demonstrations, then preference tuning (RLHF, DPO) for helpfulness and safety.
+- **RL with verifiable rewards** (math and code graded automatically, e.g. GRPO) is how reasoning models learn long chains of thought.
 
 ### SFT, RLHF, DPO
 

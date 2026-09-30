@@ -7,8 +7,9 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 ### Scheduler (GMP)
 
 - Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps.
-- Default = min(logical CPUs, affinity mask); **since Go 1.25** also capped by the cgroup CPU limit (rounded up, floor 2) and updated when it changes — before that, containers needed `automaxprocs`.
+- Default = min(logical CPUs, affinity mask); since Go 1.25 also capped by the cgroup CPU limit (rounded up, floor 2) and updated when it changes — before that, containers needed `automaxprocs`.
 - Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the netpoller and doesn't hold a thread.
+- Each P has a local run queue (256 goroutines) plus a `runnext` slot; an idle P takes half of another P's queue (**work stealing**), and every 61st schedule checks the global queue for fairness.
 - Preemption is asynchronous (signal-based) since Go 1.14, so tight loops no longer starve the scheduler.
 - Goroutines start with a **2 KB** stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
 
@@ -51,9 +52,10 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 ### context.Context
 
 - Carries cancellation, deadlines, and request-scoped values across API and goroutine boundaries; canceling a parent cancels all children.
-- `WithCancelCause` (**1.20**) lets callers retrieve *why* a context was canceled via `context.Cause(ctx)`.
+- `WithCancelCause` (1.20) lets callers retrieve *why* a context was canceled via `context.Cause(ctx)`.
 - `AfterFunc` and `WithoutCancel` (**1.21**): run a function on cancellation, or derive a context that keeps values but drops the parent's cancellation.
 - Pass as the **first parameter**, never store in a struct; use `WithValue` only for request-scoped data, not optional parameters.
+- Every `WithCancel`/`WithTimeout`/`WithDeadline` returns a `cancel` func: call it (**`defer cancel()`**) or the child context and its timer live until the parent ends; `go vet` flags it (`lostcancel`).
 
 ### Patterns and goroutine leaks
 
@@ -105,8 +107,9 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 
 - Hash table; implemented as **Swiss tables since Go 1.24** (faster, but iteration order was already randomized and remains so).
 - Concurrent write (or write + read) is a race; the runtime detects it best-effort, and then it's a **fatal, unrecoverable** error, not a panic you can `recover`.
-- Maps never shrink after deletions; `clear(m)` (**1.21**) empties one without reallocating the header.
+- Maps never shrink after deletions; `clear(m)` (1.21) empties one without reallocating the header.
 - Map values aren't addressable: `&m[k]` and `m[k].field = x` don't compile for struct values.
+- Reading a nil map returns zero values, but **writing to a nil map panics** — `make` it first (a nil slice, by contrast, works with `append`).
 
 ### Strings
 
@@ -165,6 +168,13 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 - The default **`http.Client` has no timeout** — a hung server blocks the goroutine forever; always set `Timeout` or use a context.
 - Always **close `resp.Body`** (and drain it) or the connection isn't reused and leaks.
 - `http.Server` needs `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`, or slow clients (Slowloris) hold connections open.
+
+### encoding/json gotchas
+
+- Numbers decoded into `any` become **float64**, so integer IDs above 2⁵³ lose precision — use `Decoder.UseNumber` or a typed field.
+- A nil slice or map encodes as `null`, an empty one as `[]` or `{}`.
+- Unexported fields are silently skipped; unknown JSON fields are ignored unless `DisallowUnknownFields`; field-name matching is case-insensitive.
+- `omitempty` never omits a struct value (a zero `time.Time` included); **`omitzero`** (1.24) does.
 
 ### Routing, JSON, logging
 

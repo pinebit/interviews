@@ -63,6 +63,13 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - Every type parameter is implicitly `Sized`; **`?Sized`** accepts `str`, `[T]`, or `dyn Trait` behind a pointer.
 - `impl Trait` in argument position is an anonymous generic; in return position it hides the concrete type but stays static dispatch.
 
+### Eq, Ord, and Hash
+
+- `PartialEq`/`PartialOrd` allow incomparable values (NaN ≠ NaN); **`Eq`/`Ord`** promise a total order.
+- `f64` implements none of `Eq`, `Ord`, or `Hash`, so it can't key a `HashMap` or `BTreeMap` or use `.sort()`; use `sort_by(f64::total_cmp)` or an ordered wrapper.
+- `Hash` must agree with `Eq` (`a == b` ⇒ equal hashes), or map lookups silently fail.
+- Derived `PartialOrd`/`Ord` compare fields in **declaration order** (enums by variant order).
+
 ### Async functions in traits
 
 - **Async fn in traits** (**1.75**) desugars to a method returning `impl Future`.
@@ -111,6 +118,12 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 - **`AsRef<T>`** is a cheap reference conversion for flexible parameters: `fn open<P: AsRef<Path>>(p: P)`.
 - **`Borrow<T>`** also promises identical `Eq`/`Hash`/`Ord`, which is why `HashMap<String, V>::get` accepts a `&str`.
 
+### Layout and niche optimization
+
+- **Niche optimization**: `Option<&T>`, `Option<Box<T>>`, and `Option<NonZeroU32>` are the same size as the inner type — the forbidden null or zero value encodes `None`.
+- The default `repr(Rust)` may reorder fields to cut padding; **`repr(C)`** fixes C field order for FFI.
+- `&str`, `&[T]`, and `&dyn Trait` are two words (pointer + length or vtable); an enum is its largest variant plus a tag, unless a niche absorbs the tag.
+
 ### Pin and Unpin
 
 - **`Pin<P>`** stops the pointee from moving **only if it's `!Unpin`**; most types are `Unpin` and move freely.
@@ -122,6 +135,12 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - `?` returns early with `Err`, converting via **`From`**; on `Option` it returns `None`.
 - **`thiserror`** for libraries (typed enums callers can match); **`anyhow`** for applications (one dynamic error with context).
+
+### Integer overflow and casts
+
+- Overflow **panics in debug builds and wraps in release** (unless `overflow-checks = true`), so state intent with `checked_*`, `wrapping_*`, `saturating_*`, or `overflowing_*`.
+- `as` between integers truncates or reinterprets silently (`300_i32 as u8 == 44`, `-1_i32 as u32 == u32::MAX`); `try_from` fails instead.
+- `as` from float to integer **saturates** (since 1.45), and NaN becomes 0.
 
 ### Panics and unwinding
 
@@ -156,6 +175,8 @@ What experienced Rust engineers forget before an interview, grouped by subtopic.
 
 - Futures are **lazy** — nothing runs until an executor (e.g. **Tokio**) polls them.
 - Holding a non-`Send` guard across `.await` makes the future non-`Send`, so it can't be spawned on a multi-threaded runtime.
+- `tokio::spawn` needs a **`Send + 'static`** future: move owned data or `Arc` clones in, not references.
+- Tokio's default runtime is multi-threaded with work stealing; `current_thread` plus a `LocalSet` runs non-`Send` futures; `JoinSet` spawns and awaits a group of tasks.
 
 ### Blocking and locks in async code
 

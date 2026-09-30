@@ -109,11 +109,33 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - **`msg.sender == tx.origin`** no longer proves there is no code in the path: since EIP-7702 (Pectra, May 2025) a delegated EOA runs code and makes several calls per transaction.
 - `code.length == 0` doesn't prove an EOA either: it's 0 for a contract still in its constructor, and a 7702-delegated EOA has code.
 
+### Admin keys and governance
+
+- **`Ownable2Step`** makes the new owner accept the transfer, so a typo in the address can't brick ownership.
+- Route admin actions through a **timelock** controlled by a multisig, giving users a window to exit before a change lands.
+- Flash-loan governance attacks borrow voting power for one transaction (Beanstalk, April 2022, ~$182M lost); snapshot voting power at proposal creation (`ERC20Votes` checkpoints) and add a voting delay.
+
 ### Signature replay and malleability
 
 - Signed messages without a **nonce, chainId, and deadline** can be replayed on another chain or later.
 - ECDSA `s` can be flipped (`n − s`) into a second valid signature — enforce **low-`s`** and never use a signature as a unique ID.
 - Raw `ecrecover` returns `address(0)` on a bad signature, which matches an unset signer — use OpenZeppelin's `ECDSA`, which reverts and enforces low-`s`.
+- Smart-contract wallets (Safe, ERC-4337 accounts) sign via **ERC-1271** `isValidSignature`; OpenZeppelin's `SignatureChecker` tries ECDSA, then ERC-1271, and ERC-6492 wraps signatures from wallets not yet deployed.
+
+### Denial of service
+
+- **Unbounded loops** over user-growable arrays eventually exceed the gas limit — paginate or cap the size.
+- Pushing ETH to many receivers fails if one reverts (a contract without `receive`) — switch to **pull payments** (a withdraw function).
+- A malicious callee can return huge data that Solidity copies into memory even when discarded — a **returnbomb**; cap the copy with an assembly `call`.
+
+### Randomness and block data
+
+- **`block.prevrandao`** (0.8.18, replaced `difficulty`) is known to the proposer, who can bias it by withholding a block — use **Chainlink VRF** or commit-reveal.
+- `blockhash(n)` returns 0 for blocks older than **256**; EIP-2935 (Pectra) serves 8,191 hashes from a system contract, but the opcode is unchanged.
+- Anything derived from block data can be computed by an attacker's contract in the same transaction, which reverts when the outcome is bad.
+- On L1, `block.timestamp` advances in fixed 12 s slots; L2 sequencers set it within looser bounds.
+
+## Integration risks
 
 ### Token integration quirks
 
@@ -129,18 +151,11 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - Chainlink `latestRoundData`: check **staleness** (`updatedAt` against the feed's heartbeat) and `answer > 0`; on L2s also check the **sequencer uptime feed**.
 - Feeds have their own decimals (USD pairs use 8, ETH pairs 18) — scale before combining with token amounts.
 
-### Denial of service
+### Front-running and slippage
 
-- **Unbounded loops** over user-growable arrays eventually exceed the gas limit — paginate or cap the size.
-- Pushing ETH to many receivers fails if one reverts (a contract without `receive`) — switch to **pull payments** (a withdraw function).
-- A malicious callee can return huge data that Solidity copies into memory even when discarded — a **returnbomb**; cap the copy with an assembly `call`.
-
-### Randomness and block data
-
-- **`block.prevrandao`** (0.8.18, replaced `difficulty`) is known to the proposer, who can bias it by withholding a block — use **Chainlink VRF** or commit-reveal.
-- `blockhash(n)` returns 0 for blocks older than **256**; EIP-2935 (Pectra) serves 8,191 hashes from a system contract, but the opcode is unchanged.
-- Anything derived from block data can be computed by an attacker's contract in the same transaction, which reverts when the outcome is bad.
-- On L1, `block.timestamp` advances in fixed 12 s slots; L2 sequencers set it within looser bounds.
+- Public-mempool transactions can be front-run or **sandwiched**: the attacker trades right before and after the victim's swap.
+- Swap and liquidity functions take a **`minAmountOut`** and a `deadline` chosen off-chain by the user; a minimum computed on-chain from the current spot price protects nothing.
+- Use commit-reveal for bids, auctions, and games where seeing a pending transaction gives an edge; MEV mechanics in [ethereum.md](ethereum.md).
 
 ### Rounding and precision
 
@@ -163,6 +178,13 @@ What experienced Solidity engineers forget before an interview, grouped by subto
 - Deployed code is capped at **24,576 bytes** (EIP-170) and initcode at 49,152 (EIP-3860, Shanghai).
 - Workarounds: move logic into external libraries, split into several contracts, lower optimizer `runs`, or use the Diamond pattern.
 - **EIP-7954**, scheduled for Glamsterdam, raises the limits to 64 KiB and 128 KiB.
+
+### Clones and factories
+
+- An **EIP-1167 minimal proxy** is 45 bytes of runtime code that `delegatecall`s a fixed implementation, so deploying many instances (vaults, wallets, pools) costs a fraction of a full deployment.
+- Clones can't be upgraded and run no constructor: they need an initializer, and each call pays an extra `DELEGATECALL`.
+- **`CREATE2`** sets the address to `keccak256(0xff ++ deployer ++ salt ++ keccak256(initcode))[12:]`, known before deployment (counterfactual wallets).
+- Derive the salt from the caller and the init parameters, or a front-runner can take the predicted address with other arguments.
 
 ## Upgradeability
 

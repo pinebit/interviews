@@ -71,8 +71,9 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 ### multiprocessing start methods
 
 - **`fork`** copies the parent — fast, but can inherit inconsistent state (a lock held by another thread mid-acquire).
-- `spawn` starts a fresh interpreter — slower, safest; **`forkserver`** forks children from a clean single-threaded server process.
-- **`forkserver` is the Linux default since 3.14** (previously `fork`).
+- `spawn` starts a fresh interpreter — slower, safest; `forkserver` forks children from a clean single-threaded server process.
+- **`forkserver` is the Linux default since 3.14** (previously `fork`); macOS defaults to `spawn` since 3.8, Windows always has.
+- With `spawn`/`forkserver`, children **re-import the main module**, so guard entry code with `if __name__ == "__main__":`; the target, arguments, and results must pickle (no lambdas, local functions, or open sockets).
 
 ### asyncio event loop
 
@@ -102,6 +103,18 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 - **LEGB** lookup: Local, Enclosing, Global, Built-in.
 - Assigning to a name anywhere in a function makes it local for the **whole** body, so reading it before the assignment raises `UnboundLocalError`; use `nonlocal`/`global`.
 
+### Numeric gotchas
+
+- `//` and `%` **floor toward −∞**: `-7 // 2 == -4` and `-7 % 2 == 1`; C, Go, Rust, and JavaScript truncate toward zero (`-7 % 2 == -1`).
+- **`round()` rounds half to even**: `round(2.5) == 2`, `round(3.5) == 4`; `round(2.675, 2) == 2.67` because the float is slightly below 2.675.
+- `int` never overflows (arbitrary precision); `float` is an IEEE 754 double, so use **`decimal.Decimal`** built from strings for money.
+
+### Recursion depth
+
+- The default limit is **1000** frames (`sys.getrecursionlimit()`); going deeper raises `RecursionError`.
+- There's no **tail-call optimization**, so deep DFS or memoized recursion on large inputs needs an explicit stack.
+- `sys.setrecursionlimit` helps for moderate depths; for depths around 10⁵ and beyond, rewrite iteratively.
+
 ### Copies and aliasing
 
 - `[[0] * 3] * 3` builds three references to the **same** inner list — mutating one row mutates all.
@@ -123,6 +136,12 @@ What experienced Python engineers forget before an interview, grouped by subtopi
 
 - Multiple inheritance resolves via **C3 linearization** (the MRO, `Cls.__mro__`).
 - **`super()`** follows the instance's MRO, not the direct parent, so every class in a mixin chain must call `super().__init__()`.
+
+### Shared class attributes
+
+- A mutable class attribute (`items = []` in the class body) is **shared by every instance**.
+- `self.items.append(x)` mutates the shared list; `self.items = [...]` creates an instance attribute that shadows it.
+- Create per-instance state in `__init__`; dataclasses force `field(default_factory=list)` for this reason.
 
 ### Descriptors
 
