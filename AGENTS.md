@@ -83,10 +83,12 @@ Each concept has one owner file that covers it in full. Other files may overlap 
 | Isolation levels, MVCC, indexes, WAL, DB replication setup, pooling | database | backend, system |
 | Caching strategies, rate-limiting algorithms, load balancing, CDN, observability (SLI/SLO), capacity math (Little's law), multi-region and DR tiers | system | backend, devops, os, aws |
 | REST/gRPC/GraphQL, pagination, idempotency keys, outbox, graceful shutdown, N+1, schema evolution, multi-tenancy, time handling | backend | system, database, distributed |
-| AuthN, sessions, OAuth/OIDC, JWT, XSS, CSRF, CORS, clickjacking, crypto, TLS | security | backend, frontend |
+| AuthN, sessions, OAuth/OIDC, JWT, XSS, CSRF, CORS, clickjacking, crypto, TLS | security | backend, frontend, nextjs |
 | Containers, Kubernetes, cloud, IaC, deployment strategies, zero-downtime migrations | devops | backend, database |
 | Browser event loop, JS language semantics | javascript | frontend, typescript |
-| Rendering strategies, browser pipeline, Web Vitals, HTTP caching in the browser, browser storage, React | frontend | javascript, security |
+| Rendering strategies, browser pipeline, Web Vitals, HTTP caching in the browser, browser storage | frontend | javascript, security, react, nextjs |
+| React rendering model, hooks, client state management, Suspense and transitions, Server Components and Server Functions, hydration | react | frontend, nextjs |
+| Next.js App Router, rendering and caching layers, `use cache`, routing conventions, Server Actions configuration, proxy, self-hosting | nextjs | react, frontend |
 | asyncio event loop | python | — |
 | TCP/UDP, HTTP versions, QUIC, DNS, IP addressing, NAT, MTU, BGP/anycast | networking | backend, system, devops |
 | Processes, signals, scheduling, virtual memory, OOM, file descriptors, epoll/io_uring, fsync, locks | os | devops, database, golang |

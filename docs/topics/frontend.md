@@ -1,6 +1,6 @@
 # Frontend
 
-What experienced frontend engineers forget before an interview, grouped by subtopic. For language mechanics see [javascript.md](javascript.md) and [typescript.md](typescript.md); for web vulnerabilities and token storage see [security.md](security.md).
+What experienced frontend engineers forget before an interview, grouped by subtopic. For language mechanics see [javascript.md](javascript.md) and [typescript.md](typescript.md); for web vulnerabilities and token storage see [security.md](security.md); for React and Next.js see [react.md](react.md) and [nextjs.md](nextjs.md).
 
 ## Rendering strategies
 
@@ -17,12 +17,12 @@ What experienced frontend engineers forget before an interview, grouped by subto
 
 - **Streaming SSR** flushes HTML in chunks, so the shell paints before slow data-dependent sections resolve.
 - **Hydration** runs the render on the client and attaches listeners to the server HTML, reusing the DOM instead of recreating it.
-- A **hydration mismatch** comes from render output that differs between server and client — `Date.now()`, `Math.random()`, `window` checks during render.
+- A **hydration mismatch** (server and client render different output) can force the framework to re-render that part on the client — React's causes and fixes in [react.md](react.md).
 
 ### Islands and Server Components
 
 - **Islands architecture**: the page is static HTML; only interactive islands ship JS and hydrate independently.
-- **React Server Components** render only on the server and send serialized output, not code — less JS, but props crossing into client components must be serializable.
+- **React Server Components** render only on the server and send serialized output, not code — only Client Components ship JS and hydrate (see [react.md](react.md)).
 
 ### Client-side routing
 
@@ -137,88 +137,6 @@ Any XSS can read all of them except `HttpOnly` cookies — token storage in [sec
 
 - **Service workers** implement cache-first, network-first, or stale-while-revalidate strategies and offline support.
 - A waiting service worker is a common reason users keep seeing the old deploy.
-
-## React rendering model
-
-### Reconciliation and keys
-
-- **Keys** match list items across renders; an array index as key attaches the wrong state after reorder or filter.
-- A component re-renders on its own state change, a **parent re-render** (unless memoized), or a consumed **context value** change.
-
-### State snapshots and resets
-
-- State is a **snapshot** per render: `setCount(count + 1)` twice adds 1; the updater form `setCount(c => c + 1)` twice adds 2.
-- Changing a component's **`key`** remounts it and resets its state — the clean way to reset a form when the selected item changes.
-- `useRef` holds a mutable value across renders without triggering a re-render; don't read or write it during render.
-
-### Error boundaries
-
-- An error boundary catches errors thrown while **rendering** its subtree and shows a fallback UI instead of unmounting the whole app.
-- It's still a **class component** (`getDerivedStateFromError`, `componentDidCatch`) or the `react-error-boundary` package; there's no hook equivalent.
-- It doesn't catch errors in event handlers or async code (`setTimeout`, promises) — handle those with `try/catch` and state.
-
-### Fiber and concurrent rendering
-
-- **Fiber** splits rendering into interruptible units: the render phase can pause, restart, or be discarded; the **commit phase** applies DOM changes synchronously.
-- Render must therefore be **pure** — it may run more than once for one commit.
-- React 18 batches all state updates automatically, including in timeouts and promises.
-
-### Transitions and Suspense
-
-- **`useTransition`**/`startTransition` mark an update as non-urgent, so typing stays responsive while a heavy re-render runs; `useDeferredValue` defers a derived value.
-- **`<Suspense>`** shows a fallback while children wait for code or data; with streaming SSR each boundary streams in separately.
-
-### React 19 APIs
-
-- **Actions**: async functions passed to `<form action>` or `useActionState`, with pending state handled by React; `useOptimistic` shows the expected result before the server confirms.
-- **`use(promise)`** reads a promise or context during render, suspending until it resolves; `ref` is a normal prop (no `forwardRef`).
-- 19.2: **`<Activity>`** keeps hidden UI mounted with state preserved; `useEffectEvent` reads the latest props/state inside an effect without making them dependencies.
-
-### React Compiler
-
-- **React Compiler** (stable 1.0, **October 2025**) auto-memoizes components and values at build time, replacing most manual `useMemo`/`useCallback`/`memo`.
-- It relies on the Rules of React (pure render, no mutating props or state) and skips code it can't prove safe.
-
-### Strict Mode double invocation
-
-- In development, **Strict Mode** double-calls render functions to expose impure rendering.
-- It also runs an extra effect setup → cleanup → setup cycle on mount (state kept) to expose **missing cleanup**; production skips it.
-
-## React hooks pitfalls
-
-### Stale closures
-
-- An effect or callback sees the values from the render that created it; a value missing from the dependency array stays **stale**.
-- Fix by restructuring (a ref, a functional `setState`, moving the logic into the effect) — not by silencing the lint rule.
-
-### Effects: when not to use one
-
-- Deriving state inside an effect + `setState` causes an extra render and a flash — **compute it during render**.
-- Every subscription, timer, or listener an effect creates needs a **cleanup** function.
-
-### Data fetching in effects
-
-- Responses can arrive **out of order**: ignore stale ones in the effect cleanup (an `ignore` flag or `AbortController`), or a slow earlier request overwrites newer data.
-- Effect-based fetching creates **waterfalls** (parent fetches → child mounts → child fetches); hoist fetching to route loaders, Server Components, or a query library.
-- Strict Mode runs effects twice in development, so a fetch without cleanup fires twice there.
-
-### Memoization pitfalls
-
-- `React.memo` is defeated by a **new object, array, or function** literal passed as a prop on every render.
-- Memoize only when the skipped work costs more than the comparison.
-
-## State management
-
-### Context performance
-
-- Every consumer re-renders when the provider's `value` changes **identity** — an inline object literal changes it on every render.
-- Memoize the value, split fast- and slow-changing state into separate contexts, or use a store with selectors (`useSyncExternalStore`, Zustand) so components subscribe to slices.
-- Context suits low-frequency values (theme, locale, current user), not fast-changing shared state.
-
-### Server state vs client state
-
-- **Server state** (fetched data) has its own caching, staleness, refetching, and loading lifecycle — use TanStack Query or SWR, not a global client store.
-- These libraries dedupe requests, cache by **query key**, and refetch after invalidating a key on mutation.
 
 ## Accessibility
 

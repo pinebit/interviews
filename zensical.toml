@@ -25,6 +25,8 @@ nav = [
   { "Web" = [
     { "Backend" = "topics/backend.md" },
     { "Frontend" = "topics/frontend.md" },
+    { "Next.js" = "topics/nextjs.md" },
+    { "React" = "topics/react.md" },
     { "Security" = "topics/security.md" },
   ] },
   { "Infrastructure" = [
