@@ -29,7 +29,9 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 ### Web
 
 - [Backend](docs/topics/backend.md) — API design, idempotency and concurrency, service calls and webhooks, async work, data access, lifecycle and health, security, testing
-- [Frontend](docs/topics/frontend.md) — rendering strategies, browser pipeline, CSS, performance, caching, React rendering and hooks, state management, accessibility
+- [Frontend](docs/topics/frontend.md) — rendering strategies, browser pipeline, CSS, performance, caching, accessibility
+- [Next.js](docs/topics/nextjs.md) — rendering and Cache Components, caching layers and invalidation, routing conventions, Server Actions, proxy and auth, build and deployment, built-in components, Pages Router
+- [React](docs/topics/react.md) — rendering model, hooks, state management, performance, Server Components, Suspense and transitions, forms and Actions, hydration, error boundaries, events and refs, version changes
 - [Security](docs/topics/security.md) — server-side and browser-side attacks, auth and sessions, tokens and OAuth, authorization, cryptography, TLS, supply chain, threat modeling
 
 ### Infrastructure

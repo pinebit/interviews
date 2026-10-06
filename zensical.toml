@@ -25,6 +25,8 @@ nav = [
   { "Web" = [
     { "Backend" = "topics/backend.md" },
     { "Frontend" = "topics/frontend.md" },
+    { "Next.js" = "topics/nextjs.md" },
+    { "React" = "topics/react.md" },
     { "Security" = "topics/security.md" },
   ] },
   { "Infrastructure" = [
@@ -43,3 +45,18 @@ features = ["navigation.sections", "toc.follow"]
 [project.validation]
 invalid_links = true
 invalid_link_anchors = true
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/pinebit/interviews"
+name = "Source on GitHub"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://www.linkedin.com/in/pinebit/"
+name = "Andrei Smirnov on LinkedIn"
+
+[[project.extra.social]]
+icon = "simple/buymeacoffee"
+link = "https://buymeacoffee.com/pinebit"
+name = "Buy me a coffee"

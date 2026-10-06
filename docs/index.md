@@ -25,7 +25,9 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 ### Web
 
 - [Backend](topics/backend.md) — API design, idempotency and concurrency, service calls and webhooks, async work, data access, lifecycle and health, security, testing
-- [Frontend](topics/frontend.md) — rendering strategies, browser pipeline, CSS, performance, caching, React rendering and hooks, state management, accessibility
+- [Frontend](topics/frontend.md) — rendering strategies, browser pipeline, CSS, performance, caching, accessibility
+- [Next.js](topics/nextjs.md) — rendering and Cache Components, caching layers and invalidation, routing conventions, Server Actions, proxy and auth, build and deployment, built-in components, Pages Router
+- [React](topics/react.md) — rendering model, hooks, state management, performance, Server Components, Suspense and transitions, forms and Actions, hydration, error boundaries, events and refs, version changes
 - [Security](topics/security.md) — server-side and browser-side attacks, auth and sessions, tokens and OAuth, authorization, cryptography, TLS, supply chain, threat modeling
 
 ### Infrastructure
