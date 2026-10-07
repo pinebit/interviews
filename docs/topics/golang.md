@@ -2,6 +2,41 @@
 
 What experienced Go engineers forget before an interview, grouped by subtopic.
 
+## Timeline
+
+### Language and runtime changes
+
+| Version | Key changes |
+|---|---|
+| [1.14](https://go.dev/doc/go1.14) | [Asynchronous preemption](https://go.dev/doc/go1.14#runtime) |
+| [1.18](https://go.dev/doc/go1.18) | [Generics](https://go.dev/doc/go1.18#generics) |
+| [1.19](https://go.dev/doc/go1.19) | [Revised memory model](https://go.dev/doc/go1.19#mem); [`GOMEMLIMIT` soft memory limit](https://go.dev/doc/go1.19#runtime) |
+| [1.20](https://go.dev/doc/go1.20) | [Interfaces satisfy `comparable` constraints](https://go.dev/doc/go1.20#language) (comparison may panic at run time) |
+| [1.21](https://go.dev/doc/go1.21) | [`min`, `max`, `clear` built-ins](https://go.dev/doc/go1.21#language); [`panic(nil)` raises `*runtime.PanicNilError`](https://go.dev/doc/go1.21#language); [PGO generally available](https://go.dev/doc/go1.21#compiler) |
+| [1.22](https://go.dev/doc/go1.22) | [Per-iteration loop variables; `range` over integers](https://go.dev/doc/go1.22#language) |
+| [1.23](https://go.dev/doc/go1.23) | [Range-over-func iterators](https://go.dev/doc/go1.23#language); [unbuffered, collectible timers](https://go.dev/doc/go1.23#timer-changes) |
+| [1.24](https://go.dev/doc/go1.24) | [Generic type aliases](https://go.dev/doc/go1.24#language); [Swiss-table maps](https://go.dev/doc/go1.24#runtime) |
+| [1.25](https://go.dev/doc/go1.25) | [Container-aware `GOMAXPROCS`](https://go.dev/doc/go1.25#container-aware-gomaxprocs); [Green Tea GC experiment](https://go.dev/doc/go1.25#new-experimental-garbage-collector) |
+| [1.26](https://go.dev/doc/go1.26) | [`new(expr)`; self-referential generic constraints](https://go.dev/doc/go1.26#language); [Green Tea GC by default](https://go.dev/doc/go1.26#new-garbage-collector) |
+| [1.27](https://go.dev/doc/go1.27) | [Generic methods](https://go.dev/doc/go1.27#language); [timer channels always unbuffered](https://go.dev/doc/go1.27#runtime) (`asynctimerchan` removed) |
+
+### Library and tooling changes
+
+| Version | Key changes |
+|---|---|
+| [1.13](https://go.dev/doc/go1.13) | [Error wrapping](https://go.dev/doc/go1.13#error_wrapping) (`%w`, `errors.Is`/`As`); [module proxy and checksum database on by default](https://go.dev/doc/go1.13#proxy-vars) |
+| [1.16](https://go.dev/doc/go1.16) | [Module mode by default](https://go.dev/doc/go1.16#modules); [`embed`](https://go.dev/doc/go1.16#library-embed); [`io/fs`](https://go.dev/doc/go1.16#fs) |
+| [1.18](https://go.dev/doc/go1.18) | [Fuzzing](https://go.dev/doc/go1.18#fuzzing); [workspaces (`go.work`)](https://go.dev/doc/go1.18#go-work) |
+| [1.19](https://go.dev/doc/go1.19) | [Typed atomics](https://go.dev/doc/go1.19#atomic_types) |
+| [1.20](https://go.dev/doc/go1.20) | [`errors.Join`](https://go.dev/doc/go1.20#errors); [`context.WithCancelCause`](https://pkg.go.dev/context#WithCancelCause); [PGO preview](https://go.dev/doc/go1.20#compiler) |
+| [1.21](https://go.dev/doc/go1.21) | [`log/slog`](https://go.dev/doc/go1.21#slog), [`slices`](https://go.dev/doc/go1.21#slices), [`maps`](https://go.dev/doc/go1.21#maps); [toolchain management](https://go.dev/doc/go1.21#tools); [`sync.OnceFunc`](https://pkg.go.dev/sync#OnceFunc); [`context.AfterFunc`](https://pkg.go.dev/context#AfterFunc) |
+| [1.22](https://go.dev/doc/go1.22) | [`ServeMux` method and wildcard patterns](https://go.dev/doc/go1.22#enhanced_routing_patterns); [`math/rand/v2`](https://go.dev/doc/go1.22#math_rand_v2) |
+| [1.23](https://go.dev/doc/go1.23) | [`iter`](https://go.dev/doc/go1.23#iterators); [`unique`](https://go.dev/doc/go1.23#new-unique-package) |
+| [1.24](https://go.dev/doc/go1.24) | [`b.Loop`](https://go.dev/doc/go1.24#new-benchmark-function); [`os.Root`](https://go.dev/doc/go1.24#directory-limited-filesystem-access); [`weak`](https://go.dev/doc/go1.24#weak); [`runtime.AddCleanup`](https://go.dev/doc/go1.24#improved-finalizers); [`omitzero`](https://pkg.go.dev/encoding/json#Marshal); [`tool` directives in `go.mod`](https://go.dev/doc/go1.24#go-command) |
+| [1.25](https://go.dev/doc/go1.25) | [`testing/synctest`](https://go.dev/doc/go1.25#new-testingsynctest-package); [`WaitGroup.Go`](https://pkg.go.dev/sync#WaitGroup.Go); [`encoding/json/v2` experiment](https://go.dev/doc/go1.25#json_v2); [trace flight recorder](https://go.dev/doc/go1.25#trace-flight-recorder) |
+| [1.26](https://go.dev/doc/go1.26) | [`go fix` modernizers](https://go.dev/doc/go1.26#go-command); [goroutine leak profile experiment](https://go.dev/doc/go1.26#goroutineleak-profiles) |
+| [1.27](https://go.dev/doc/go1.27) | [`encoding/json/v2`, with v1 now backed by it](https://go.dev/doc/go1.27#jsonv2); [goroutine leak profile](https://go.dev/doc/go1.27#goroutineleak-profiles) |
+
 ## Concurrency
 
 ### Scheduler (GMP)

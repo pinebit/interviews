@@ -44,13 +44,14 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 
 - **Title**: `# <Topic>` (e.g. `# Go`, `# Distributed Systems`). No "Cheatsheet" suffix.
 - **Intro**: one line: "What experienced <topic> engineers forget before an interview, grouped by subtopic." Adjust wording for non-language topics (e.g. "Key system design building blocks and trade-offs, grouped by subtopic.").
-- **`##` = subtopic** (Concurrency, Memory management, …). Named, not numbered. Ordered by how often the area comes up in interviews. At least 2 concepts each; fold a lone concept into a related subtopic.
+- **`##` = subtopic** (Concurrency, Memory management, …). Named, not numbered. Ordered by how often the area comes up in interviews; the only exception is a `## Timeline`, which goes first. At least 2 concepts each; fold a lone concept into a related subtopic.
 - **`###` = concept** — a noun phrase (`### Scheduler (GMP)`, `### Isolation anomalies`), never a question, no numbers. Each concept should be self-contained (no "as above"): the quiz picks `###` headings at random.
 - **Body of a concept**: 2–6 bullets, or one short paragraph, or one compact table. One fact per bullet, one line where possible.
 - **Tables** for comparisons and matrices (channel axioms, isolation levels vs anomalies, deployment strategies, promise combinators).
 - **Code** only when shorter than prose; ≤ 6 lines.
 - **No bold** in briefs, tables included. Format identifiers, flags, commands, and file names as code; let the wording carry emphasis.
 - **Versions**: note when behavior changed ("since Go 1.22", "Python 3.14+", "Pectra, May 2025").
+- **Timeline** (optional, for language and tool briefs): a `## Timeline` section with two concepts, `### Language and runtime changes` and `### Library and tooling changes`, each a `Version | Key changes` table, oldest first. Link each version to its release notes and each change to the section that describes it. List only changes an interviewer could ask about.
 - **External links**: link terms a reader may want to look up. Prefer official sources (language spec, reference manuals, API docs such as pkg.go.dev, release notes, the project's blog); use Wikipedia or another well-known reference for general CS terms. Link a term's first mention in each concept, since concepts are read in isolation, and never link inside headings. Percent-encode parentheses in URLs (`%28`, `%29`). Run `python scripts/check_links.py <brief>` before finishing.
 - **Cross-topic**: the owner file covers a concept in full; another file may overlap briefly from its own angle and links to the owner: `see [security.md](security.md)` (rules in Topic ownership). Link to files, not anchors (the strict build validates anchors; only use one if you've checked the slug).
 - Suggested size: 5–20 sections, 3–8 concepts each. Shorter is better if nothing is lost.
