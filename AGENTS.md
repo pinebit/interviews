@@ -7,6 +7,7 @@ This repo is a set of concise topic briefs for technical interview prep. The rea
 - `docs/topics/` — one brief per topic (e.g. `docs/topics/golang.md`).
 - `docs/index.md` — the reading site's homepage.
 - `scripts/lint_briefs.py` — checks the format rules below; CI runs it with the strict site build on every pull request.
+- `scripts/check_links.py` — fetches every external link in the given briefs (default: all) and checks it resolves and its `#anchor` exists. Not in CI because it depends on the network; run it after adding or changing links.
 - `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on brief concepts. `.claude/skills/quiz` is a symlink to it so Claude Code and Codex share one copy.
 - File names are lowercase, single word or kebab-case.
 - `README.md` and `docs/index.md` list every topic with a link and a one-line summary, and `zensical.toml` lists it in the site nav. Update all three when adding or renaming a file.
@@ -25,31 +26,33 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 
 ### Scheduler (GMP)
 
-- Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps.
-- `GOMAXPROCS` respects the container CPU limit **since Go 1.25**; before that it used the host CPU count.
-- Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the **netpoller** and doesn't hold a thread.
-- Preemption is asynchronous (signal-based) **since Go 1.14**, so tight loops no longer starve the scheduler.
+- Goroutines (G) run on OS threads (M) through logical processors (P); `GOMAXPROCS` = number of Ps.
+- `GOMAXPROCS` respects the container CPU limit since Go 1.25; before that it used the host CPU count.
+- Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the netpoller and doesn't hold a thread.
+- Preemption is asynchronous (signal-based) since Go 1.14, so tight loops no longer starve the scheduler.
 
 ### Channel axioms
 
 | Operation | nil channel | closed channel |
 |---|---|---|
-| send | blocks forever | **panics** |
+| send | blocks forever | panics |
 | receive | blocks forever | zero value, `ok == false` |
-| close | panics | **panics** |
+| close | panics | panics |
 ```
 
 ### Rules
 
 - **Title**: `# <Topic>` (e.g. `# Go`, `# Distributed Systems`). No "Cheatsheet" suffix.
 - **Intro**: one line: "What experienced <topic> engineers forget before an interview, grouped by subtopic." Adjust wording for non-language topics (e.g. "Key system design building blocks and trade-offs, grouped by subtopic.").
-- **`##` = subtopic** (Concurrency, Memory management, …). Named, not numbered. Ordered by how often the area comes up in interviews. At least 2 concepts each; fold a lone concept into a related subtopic.
+- **`##` = subtopic** (Concurrency, Memory management, …). Named, not numbered. Ordered by how often the area comes up in interviews; the only exception is a `## Timeline`, which goes first. At least 2 concepts each; fold a lone concept into a related subtopic.
 - **`###` = concept** — a noun phrase (`### Scheduler (GMP)`, `### Isolation anomalies`), never a question, no numbers. Each concept should be self-contained (no "as above"): the quiz picks `###` headings at random.
 - **Body of a concept**: 2–6 bullets, or one short paragraph, or one compact table. One fact per bullet, one line where possible.
 - **Tables** for comparisons and matrices (channel axioms, isolation levels vs anomalies, deployment strategies, promise combinators).
 - **Code** only when shorter than prose; ≤ 6 lines.
-- **Bold** the term or number worth memorizing — at most 3 per concept, not counting tables.
+- **No bold** in briefs, tables included. Format identifiers, flags, commands, and file names as code; let the wording carry emphasis.
 - **Versions**: note when behavior changed ("since Go 1.22", "Python 3.14+", "Pectra, May 2025").
+- **Timeline** (optional, for language and tool briefs): a `## Timeline` section with two concepts, `### Language and runtime changes` and `### Library and tooling changes`, each a `Version | Key changes` table, oldest first. Link each version to its release notes and each change to the section that describes it. List only changes an interviewer could ask about.
+- **External links**: link terms a reader may want to look up. Prefer official sources (language spec, reference manuals, API docs such as pkg.go.dev, release notes, the project's blog); use Wikipedia or another well-known reference for general CS terms. Link a term's first mention in each concept, since concepts are read in isolation, and never link inside headings. Percent-encode parentheses in URLs (`%28`, `%29`). Run `python scripts/check_links.py <brief>` before finishing.
 - **Cross-topic**: the owner file covers a concept in full; another file may overlap briefly from its own angle and links to the owner: `see [security.md](security.md)` (rules in Topic ownership). Link to files, not anchors (the strict build validates anchors; only use one if you've checked the slug).
 - Suggested size: 5–20 sections, 3–8 concepts each. Shorter is better if nothing is lost.
 
@@ -99,6 +102,5 @@ Each concept has one owner file that covers it in full. Other files may overlap 
 ## Style
 
 - Concise and accurate over exhaustive. Cut anything that doesn't help recall.
-- Use **bold** for the one or two terms worth memorizing in each answer.
 - No filler, no marketing tone, no emojis.
 - Verify facts against current language/tool versions; note the version when behavior changed (e.g. "since Go 1.22").
