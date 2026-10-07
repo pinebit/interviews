@@ -4,6 +4,7 @@ site_description = "Topic briefs on what engineers forget before technical inter
 site_url = "https://pinebit.github.io/interviews/"
 docs_dir = "docs"
 site_dir = "site"
+extra_javascript = ["javascripts/external-links.js"]
 nav = [
   { "Home" = "index.md" },
   { "Fundamentals" = [
