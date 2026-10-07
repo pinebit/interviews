@@ -7,6 +7,7 @@ This repo is a set of concise topic briefs for technical interview prep. The rea
 - `docs/topics/` — one brief per topic (e.g. `docs/topics/golang.md`).
 - `docs/index.md` — the reading site's homepage.
 - `scripts/lint_briefs.py` — checks the format rules below; CI runs it with the strict site build on every pull request.
+- `scripts/check_links.py` — fetches every external link in the given briefs (default: all) and checks it resolves and its `#anchor` exists. Not in CI because it depends on the network; run it after adding or changing links.
 - `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on brief concepts. `.claude/skills/quiz` is a symlink to it so Claude Code and Codex share one copy.
 - File names are lowercase, single word or kebab-case.
 - `README.md` and `docs/index.md` list every topic with a link and a one-line summary, and `zensical.toml` lists it in the site nav. Update all three when adding or renaming a file.
@@ -50,6 +51,7 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 - **Code** only when shorter than prose; ≤ 6 lines.
 - **No bold** in briefs, tables included. Format identifiers, flags, commands, and file names as code; let the wording carry emphasis.
 - **Versions**: note when behavior changed ("since Go 1.22", "Python 3.14+", "Pectra, May 2025").
+- **External links**: link terms a reader may want to look up. Prefer official sources (language spec, reference manuals, API docs such as pkg.go.dev, release notes, the project's blog); use Wikipedia or another well-known reference for general CS terms. Link a term's first mention in each concept, since concepts are read in isolation, and never link inside headings. Percent-encode parentheses in URLs (`%28`, `%29`). Run `python scripts/check_links.py <brief>` before finishing.
 - **Cross-topic**: the owner file covers a concept in full; another file may overlap briefly from its own angle and links to the owner: `see [security.md](security.md)` (rules in Topic ownership). Link to files, not anchors (the strict build validates anchors; only use one if you've checked the slug).
 - Suggested size: 5–20 sections, 3–8 concepts each. Shorter is better if nothing is lost.
 
