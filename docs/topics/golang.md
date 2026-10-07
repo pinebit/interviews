@@ -6,46 +6,46 @@ What experienced Go engineers forget before an interview, grouped by subtopic.
 
 ### Scheduler (GMP)
 
-- Goroutines (G) run on OS threads (M) through logical processors (P); **`GOMAXPROCS`** = number of Ps.
+- Goroutines (G) run on OS threads (M) through logical processors (P); `GOMAXPROCS` = number of Ps.
 - Default = min(logical CPUs, affinity mask); since Go 1.25 also capped by the cgroup CPU limit (rounded up, floor 2) and updated when it changes — before that, containers needed `automaxprocs`.
 - Blocking syscall → the M is parked and the P moves to another M; network I/O goes through the netpoller and doesn't hold a thread.
-- Each P has a local run queue (256 goroutines) plus a `runnext` slot; an idle P takes half of another P's queue (**work stealing**), and every 61st schedule checks the global queue for fairness.
+- Each P has a local run queue (256 goroutines) plus a `runnext` slot; an idle P takes half of another P's queue (work stealing), and every 61st schedule checks the global queue for fairness.
 - Preemption is asynchronous (signal-based) since Go 1.14, so tight loops no longer starve the scheduler.
-- Goroutines start with a **2 KB** stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
+- Goroutines start with a 2 KB stack that grows and is copied as needed — this is why launching hundreds of thousands is normal.
 
 ### Channel axioms
 
 | Operation | nil channel | closed channel |
 |---|---|---|
-| send | blocks forever | **panics** |
+| send | blocks forever | panics |
 | receive | blocks forever | buffered values first, then zero value, `ok == false` |
-| close | panics | **panics** |
+| close | panics | panics |
 
 Only the sender should close a channel; `for range ch` ends once it's closed and drained.
 
 ### select
 
-- Picks **randomly** among ready cases (avoids starvation); `default` makes it non-blocking.
+- Picks randomly among ready cases (avoids starvation); `default` makes it non-blocking.
 - Setting a channel variable to `nil` disables its case — used to merge channels until all are closed.
-- `time.Timer`/`time.Ticker` channels are **unbuffered since Go 1.23**, fixing stale-value races with `Stop`/`Reset`; **since Go 1.23** an unreferenced timer is also collectible even without calling `Stop`.
+- `time.Timer`/`time.Ticker` channels are unbuffered since Go 1.23, fixing stale-value races with `Stop`/`Reset`; since Go 1.23 an unreferenced timer is also collectible even without calling `Stop`.
 
 ### Sync primitives
 
-- `sync.Mutex` is **not reentrant** and must not be copied after first use (`go vet`'s `copylocks` catches this).
+- `sync.Mutex` is not reentrant and must not be copied after first use (`go vet`'s `copylocks` catches this).
 - `sync.RWMutex` blocks new readers once a writer is waiting, to avoid writer starvation.
-- `sync.Once` plus `OnceFunc`/`OnceValue`/`OnceValues` (**1.21**) for once-only initialization.
-- `WaitGroup.Go(f)` (**1.25**) starts a goroutine and handles `Add`/`Done` for you.
+- `sync.Once` plus `OnceFunc`/`OnceValue`/`OnceValues` (1.21) for once-only initialization.
+- `WaitGroup.Go(f)` (1.25) starts a goroutine and handles `Add`/`Done` for you.
 
 ### Atomics, sync.Map, sync.Pool
 
-- Typed atomics (`atomic.Int64`, etc., **1.19**) replace the old `atomic.AddInt64(&x, ...)` style.
+- Typed atomics (`atomic.Int64`, etc., 1.19) replace the old `atomic.AddInt64(&x, ...)` style.
 - `sync.Map` is optimized only for keys written once and read many times, or disjoint key sets per goroutine — a plain map + mutex is usually faster otherwise.
-- `sync.Pool` items are moved to a **victim cache** at each GC and freed at the next one (since Go 1.13), so an unused item survives about **two GC cycles** — never use it as a cache that must hold data.
+- `sync.Pool` items are moved to a victim cache at each GC and freed at the next one (since Go 1.13), so an unused item survives about two GC cycles — never use it as a cache that must hold data.
 
 ### Memory model and races
 
 - Happens-before is established by channel send/receive, mutex lock/unlock, `sync.Once`, and atomics — not by program order across goroutines.
-- A data race is less undefined than in C/C++, but multiword values (interfaces, slice headers, strings) can **tear** and corrupt memory.
+- A data race is less undefined than in C/C++, but multiword values (interfaces, slice headers, strings) can tear and corrupt memory.
 - `-race` detects only races that actually execute during the run.
 - Rule of thumb: channels to hand off ownership or coordinate, a mutex to protect shared state in place.
 
@@ -53,16 +53,16 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 
 - Carries cancellation, deadlines, and request-scoped values across API and goroutine boundaries; canceling a parent cancels all children.
 - `WithCancelCause` (1.20) lets callers retrieve *why* a context was canceled via `context.Cause(ctx)`.
-- `AfterFunc` and `WithoutCancel` (**1.21**): run a function on cancellation, or derive a context that keeps values but drops the parent's cancellation.
-- Pass as the **first parameter**, never store in a struct; use `WithValue` only for request-scoped data, not optional parameters.
-- Every `WithCancel`/`WithTimeout`/`WithDeadline` returns a `cancel` func: call it (**`defer cancel()`**) or the child context and its timer live until the parent ends; `go vet` flags it (`lostcancel`).
+- `AfterFunc` and `WithoutCancel` (1.21): run a function on cancellation, or derive a context that keeps values but drops the parent's cancellation.
+- Pass as the first parameter, never store in a struct; use `WithValue` only for request-scoped data, not optional parameters.
+- Every `WithCancel`/`WithTimeout`/`WithDeadline` returns a `cancel` func: call it (`defer cancel()`) or the child context and its timer live until the parent ends; `go vet` flags it (`lostcancel`).
 
 ### Patterns and goroutine leaks
 
 - Worker pool, fan-in/fan-out, pipeline, and semaphore (buffered channel `make(chan struct{}, n)`) are the standard shapes.
 - `errgroup.Group` (`golang.org/x/sync/errgroup`) runs goroutines, returns the first error, and can cap concurrency with `SetLimit`.
-- A **goroutine leak** is a goroutine blocked forever — a send nobody receives, a receive on a channel that never closes, or a loop that ignores `ctx.Done()`. Detect with the pprof goroutine profile or `go.uber.org/goleak`.
-- `testing/synctest` (**1.25**) runs concurrent code in a fake-clock "bubble" so time-dependent tests run instantly and deterministically.
+- A goroutine leak is a goroutine blocked forever — a send nobody receives, a receive on a channel that never closes, or a loop that ignores `ctx.Done()`. Detect with the pprof goroutine profile or `go.uber.org/goleak`.
+- `testing/synctest` (1.25) runs concurrent code in a fake-clock "bubble" so time-dependent tests run instantly and deterministically.
 
 ## Memory management
 
@@ -74,40 +74,40 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 ### Garbage collector
 
 - Concurrent, tri-color mark-sweep; non-generational and non-compacting; a write barrier keeps marking correct while the program runs.
-- **`GOGC`** (default 100) controls heap growth before the next cycle; **`GOMEMLIMIT`** (1.19) sets a soft memory cap, useful in containers.
-- **Green Tea GC** improves memory locality by scanning objects in larger, contiguous spans; introduced experimental (`GOEXPERIMENT=greenteagc`) in 1.25, it became the default collector in 1.26.
+- `GOGC` (default 100) controls heap growth before the next cycle; `GOMEMLIMIT` (1.19) sets a soft memory cap, useful in containers.
+- Green Tea GC improves memory locality by scanning objects in larger, contiguous spans; introduced experimental (`GOEXPERIMENT=greenteagc`) in 1.25, it became the default collector in 1.26.
 
 ### Reducing allocations
 
-- **Preallocate** slices and maps when the size is known (`make([]T, 0, n)`).
+- Preallocate slices and maps when the size is known (`make([]T, 0, n)`).
 - Reuse buffers via `sync.Pool`; build strings with `strings.Builder`.
 - Avoid needless `[]byte`↔`string` conversions — both copy, except where the compiler proves it safe (map lookups `m[string(b)]`).
 
 ### Struct layout and padding
 
-- Fields are aligned to their type's alignment, so on 64-bit `struct{ a bool; b int64; c bool }` takes **24 bytes** while `{b int64; a, c bool}` takes **16** — order fields largest first in hot, numerous structs.
-- An empty struct (`struct{}`) is **zero bytes** — used for sets (`map[K]struct{}`) and signal channels.
+- Fields are aligned to their type's alignment, so on 64-bit `struct{ a bool; b int64; c bool }` takes 24 bytes while `{b int64; a, c bool}` takes 16 — order fields largest first in hot, numerous structs.
+- An empty struct (`struct{}`) is zero bytes — used for sets (`map[K]struct{}`) and signal channels.
 
 ## Slices, maps, strings
 
 ### Slice mechanics
 
 - A slice header is `{pointer, len, cap}`; copying the header still shares the backing array.
-- `append` grows in place while `len < cap`; otherwise it allocates roughly **2×** under 256 elements, then a smoother ~1.25× for larger slices, and copies.
+- `append` grows in place while `len < cap`; otherwise it allocates roughly 2× under 256 elements, then a smoother ~1.25× for larger slices, and copies.
 - Aliasing gotcha: `b := a[:2]; append(b, x)` can overwrite `a[2]` if capacity allows. Use the full slice expression `a[lo:hi:max]` to cap capacity and force a fresh allocation on append.
-- A small subslice of a huge array keeps the **whole array** alive for the GC — copy out the needed part if keeping it long-term.
+- A small subslice of a huge array keeps the whole array alive for the GC — copy out the needed part if keeping it long-term.
 
 ### Maps
 
-- Hash table; implemented as **Swiss tables since Go 1.24** (faster, but iteration order was already randomized and remains so).
-- Concurrent write (or write + read) is a race; the runtime detects it best-effort, and then it's a **fatal, unrecoverable** error, not a panic you can `recover`.
+- Hash table; implemented as Swiss tables since Go 1.24 (faster, but iteration order was already randomized and remains so).
+- Concurrent write (or write + read) is a race; the runtime detects it best-effort, and then it's a fatal, unrecoverable error, not a panic you can `recover`.
 - Maps never shrink after deletions; `clear(m)` (1.21) empties one without reallocating the header.
 - Map values aren't addressable: `&m[k]` and `m[k].field = x` don't compile for struct values.
-- Reading a nil map returns zero values, but **writing to a nil map panics** — `make` it first (a nil slice, by contrast, works with `append`).
+- Reading a nil map returns zero values, but writing to a nil map panics — `make` it first (a nil slice, by contrast, works with `append`).
 
 ### Strings
 
-- Immutable byte sequence, usually UTF-8; `len(s)` counts **bytes**, `range s` decodes and yields **runes** with byte offsets.
+- Immutable byte sequence, usually UTF-8; `len(s)` counts bytes, `range s` decodes and yields runes with byte offsets.
 - Invalid UTF-8 encountered during `range` yields `U+FFFD`.
 - `string`↔`[]byte` conversions copy; substrings share the original's backing memory.
 
@@ -115,88 +115,88 @@ Only the sender should close a channel; `for range ch` ends once it's closed and
 
 ### Interface internals
 
-- An interface value is a **(type, value)** pair; it is `nil` only when both are nil — a nil `*T` stored in an `error` is **not** `== nil`.
-- Comparing two interface values **panics** if both hold the same non-comparable dynamic type (e.g. `[]int`); different dynamic types just compare unequal.
+- An interface value is a (type, value) pair; it is `nil` only when both are nil — a nil `*T` stored in an `error` is not `== nil`.
+- Comparing two interface values panics if both hold the same non-comparable dynamic type (e.g. `[]int`); different dynamic types just compare unequal.
 - Compile-time satisfaction check: `var _ io.Reader = (*MyReader)(nil)`.
 
 ### Method sets and embedding
 
 - Pointer-receiver methods are only in the method set of `*T`, so only `*T` satisfies an interface requiring them.
-- Embedding promotes fields/methods but is **not** inheritance: no polymorphism — a promoted method calling its own method calls its own version, never an outer "override." A same-named outer method shadows it.
+- Embedding promotes fields/methods but is not inheritance: no polymorphism — a promoted method calling its own method calls its own version, never an outer "override." A same-named outer method shadows it.
 - An embedded interface in a struct that's left unimplemented panics only when the missing method is actually called.
 
 ### Generics
 
-- Constraints are interfaces defining a **type set**; `~int` accepts any type whose underlying type is `int`; `comparable` allows `==`/map keys.
-- Compiled via **GC-shape stenciling** — types with the same underlying shape share code, which can still be slower than hand-specialized code in hot paths.
-- **Generic methods since Go 1.27**: a method may declare its own type parameters, but interface methods can't, and a generic method can't satisfy an interface method. Still no specialization.
+- Constraints are interfaces defining a type set; `~int` accepts any type whose underlying type is `int`; `comparable` allows `==`/map keys.
+- Compiled via GC-shape stenciling — types with the same underlying shape share code, which can still be slower than hand-specialized code in hot paths.
+- Generic methods since Go 1.27: a method may declare its own type parameters, but interface methods can't, and a generic method can't satisfy an interface method. Still no specialization.
 
 ### Iterators and loop variables
 
-- **Range-over-func** iterators (`iter.Seq`, `iter.Seq2`, **1.23**) let `range` work over a function, powering the `slices`/`maps` iterator helpers.
-- **Since Go 1.22**, each iteration gets its own copy of variables declared by the loop (`:=`) — the classic closure-capture bug needs `go 1.21` semantics or a reused outer variable (`for i = 0; ...`).
+- Range-over-func iterators (`iter.Seq`, `iter.Seq2`, 1.23) let `range` work over a function, powering the `slices`/`maps` iterator helpers.
+- Since Go 1.22, each iteration gets its own copy of variables declared by the loop (`:=`) — the classic closure-capture bug needs `go 1.21` semantics or a reused outer variable (`for i = 0; ...`).
 
 ## Errors, defer, panic
 
 ### Error wrapping
 
 - `fmt.Errorf("...: %w", err)` wraps; `errors.Is` walks the chain comparing to a sentinel, `errors.As` extracts a concrete type. Never compare a wrapped error with `==`.
-- `errors.Join` (**1.20**) combines multiple errors into one that `Is`/`As` can still unwrap.
+- `errors.Join` (1.20) combines multiple errors into one that `Is`/`As` can still unwrap.
 
 ### defer and panic
 
-- `defer` arguments are evaluated **immediately**, execution is **LIFO**; a deferred closure can modify named return values.
+- `defer` arguments are evaluated immediately, execution is LIFO; a deferred closure can modify named return values.
 - `defer` inside a long-running loop accumulates — calls only run at function return, not at loop end.
-- `recover()` only stops a panic when called **directly inside a deferred function**; an unrecovered panic in any goroutine kills the whole process.
+- `recover()` only stops a panic when called directly inside a deferred function; an unrecovered panic in any goroutine kills the whole process.
 
 ## Standard library gotchas
 
 ### net/http clients and servers
 
-- The default **`http.Client` has no timeout** — a hung server blocks the goroutine forever; always set `Timeout` or use a context.
-- Always **close `resp.Body`** (and drain it) or the connection isn't reused and leaks.
+- The default `http.Client` has no timeout — a hung server blocks the goroutine forever; always set `Timeout` or use a context.
+- Always close `resp.Body` (and drain it) or the connection isn't reused and leaks.
 - `http.Server` needs `ReadHeaderTimeout`/`ReadTimeout`/`WriteTimeout`, or slow clients (Slowloris) hold connections open.
-- **`ServeMux` patterns since 1.22** take methods and wildcards: `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
+- `ServeMux` patterns since 1.22 take methods and wildcards: `mux.HandleFunc("GET /items/{id}", h)` with `r.PathValue("id")`.
 
 ### encoding/json gotchas
 
-- Numbers decoded into `any` become **float64**, so integer IDs above 2⁵³ lose precision — use `Decoder.UseNumber` or a typed field.
+- Numbers decoded into `any` become float64, so integer IDs above 2⁵³ lose precision — use `Decoder.UseNumber` or a typed field.
 - A nil slice or map encodes as `null`, an empty one as `[]` or `{}`.
 - Unexported fields are silently skipped; unknown JSON fields are ignored unless `DisallowUnknownFields`; field-name matching is case-insensitive.
-- `omitempty` never omits a struct value (a zero `time.Time` included); **`omitzero`** (1.24) does.
+- `omitempty` never omits a struct value (a zero `time.Time` included); `omitzero` (1.24) does.
 
 ## Modules and tooling
 
 ### Minimal version selection
 
-- Go picks the **minimum** version satisfying every `require` (**MVS**), not the latest — builds are reproducible without a lock file.
-- **`go.sum`** holds checksums verified against the public checksum database; it isn't a lock file.
+- Go picks the minimum version satisfying every `require` (MVS), not the latest — builds are reproducible without a lock file.
+- `go.sum` holds checksums verified against the public checksum database; it isn't a lock file.
 
 ### Module layout and workspaces
 
 - Major versions ≥ 2 change the import path (`example.com/lib/v2`).
-- **`internal/`** packages are importable only from within the parent tree.
-- **`go.work`** (**1.18**) builds several local modules together without `replace` directives.
+- `internal/` packages are importable only from within the parent tree.
+- `go.work` (1.18) builds several local modules together without `replace` directives.
 
 ### Compatibility and GODEBUG
 
-- Potentially breaking changes ship behind **`GODEBUG`** settings whose defaults follow the main module's **`go` line**, so a toolchain upgrade alone keeps their old behavior (other runtime and performance changes still apply).
+- Potentially breaking changes ship behind `GODEBUG` settings whose defaults follow the main module's `go` line, so a toolchain upgrade alone keeps their old behavior (other runtime and performance changes still apply).
 - Override per program with `//go:debug` directives or the `GODEBUG` environment variable.
 
 ## Testing and profiling
 
 ### Test tooling
 
-- Benchmarks use `b.Loop()` (**1.24**), which replaced the manual `for i := 0; i < b.N; i++` idiom and avoids some compiler over-optimization pitfalls.
-- Fuzzing (`func FuzzX`, **1.18**) generates inputs from a seed corpus.
+- Benchmarks use `b.Loop()` (1.24), which replaced the manual `for i := 0; i < b.N; i++` idiom and avoids some compiler over-optimization pitfalls.
+- Fuzzing (`func FuzzX`, 1.18) generates inputs from a seed corpus.
 
 ### Profiling
 
-- **pprof** profiles: CPU, heap (alloc vs inuse), goroutine, block, mutex — collected via test flags or `net/http/pprof` in a running service.
+- pprof profiles: CPU, heap (alloc vs inuse), goroutine, block, mutex — collected via test flags or `net/http/pprof` in a running service.
 - `go tool trace` shows scheduler and latency behavior over time, complementing pprof's aggregate view.
-- **Go 1.27** adds a **goroutine leak profile** that reports goroutines blocked on unreachable channels or locks.
+- Go 1.27 adds a goroutine leak profile that reports goroutines blocked on unreachable channels or locks.
 
 ### Profile-guided optimization
 
-- **PGO** (GA in 1.21): commit a production CPU profile as **`default.pgo`** in the main package, and builds use it automatically.
-- The compiler inlines hot calls and devirtualizes hot interface calls — typically **2–14%** less CPU.
+- PGO (GA in 1.21): commit a production CPU profile as `default.pgo` in the main package, and builds use it automatically.
+- The compiler inlines hot calls and devirtualizes hot interface calls — typically 2–14% less CPU.

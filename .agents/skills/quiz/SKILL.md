@@ -34,7 +34,7 @@ Quiz the user on one or more topic briefs in `docs/topics/`, one question at a t
 1. Ask one question, prefixed with its progress and source: `**Q3/10** (golang — Concurrency)`. Base it on the concept: ask about its key fact, number, or gotcha — not "explain <heading>". Don't include hints or the answer.
 2. Stop and wait for the user's answer. Never ask the next question in the same message.
 3. Grade the answer against the concept's bullets:
-   - **Correct** — covers the concept's core point (usually the bold terms). Wording and minor omissions don't matter.
+   - **Correct** — covers the concept's core point (its key fact, number, or gotcha). Wording and minor omissions don't matter.
    - **Incorrect** — wrong, missing the core point, "skip", or "I don't know".
    State the verdict, then give the concept's key points in 1–3 sentences, naming anything the user missed or got wrong.
 4. Ask the next question in the same message as the verdict, so the user only has to type answers.
