@@ -16,7 +16,8 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TOPICS = ROOT / "docs" / "topics"
 LINK = re.compile(r"\]\((https?://[^)\s]+)\)")
-ANCHOR = re.compile(r'(?:id|name)="([^"]+)"')
+# Minified HTML (the WHATWG spec, Hugo sites) leaves attribute values unquoted.
+ANCHOR = re.compile(r"""(?<![\w-])(?:id|name)=(?:"([^"]+)"|'([^']+)'|([^\s"'>]+))""")
 # Wikipedia rejects requests without a descriptive User-Agent.
 USER_AGENT = "interview-briefs-link-checker (+https://github.com/pinebit/interviews)"
 
@@ -29,7 +30,7 @@ def fetch(url):
             body = response.read().decode("utf-8", "replace")
     except (OSError, http.client.HTTPException) as e:  # URLError and timeouts are OSErrors
         return str(e), set()
-    return None, {html.unescape(a) for a in ANCHOR.findall(body)}
+    return None, {html.unescape("".join(groups)) for groups in ANCHOR.findall(body)}
 
 
 def main():
