@@ -8,8 +8,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TOPICS = ROOT / "docs" / "topics"
 MAX_BULLETS = 6
-MAX_BOLD = 3  # per concept, not counting tables
-BOLD = re.compile(r"\*\*[^*]+\*\*")
+BOLD = re.compile(r"\*\*|__")  # either marker, outside code and link targets
+NOT_PROSE = re.compile(r"(`+).+?\1|\]\([^)]*\)")
 BACKREF = re.compile(r"\b(as|see) (above|below)\b", re.IGNORECASE)
 
 
@@ -27,17 +27,16 @@ def lint_brief(path):
         err(3, "missing one-line intro after the title")
 
     section = None  # (name, lineno, concept count)
-    concept = None  # (name, lineno, bullets, bold)
+    concept = None  # (name, lineno, bullets)
     seen = set()
+    in_fence = False
 
     def close_concept():
         if concept is None:
             return
-        name, lineno, bullets, bold = concept
+        name, lineno, bullets = concept
         if bullets > MAX_BULLETS:
             err(lineno, f"'{name}' has {bullets} bullets (max {MAX_BULLETS})")
-        if bold > MAX_BOLD:
-            err(lineno, f"'{name}' has {bold} bold terms outside tables (max {MAX_BOLD})")
 
     def close_section():
         if section is not None and section[2] < 2:
@@ -46,6 +45,10 @@ def lint_brief(path):
     for i, line in enumerate(lines, 1):
         if i > 1 and not line and not lines[i - 2]:
             err(i, "consecutive blank lines")
+        if line.startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and BOLD.search(NOT_PROSE.sub("", line)):
+            err(i, "no bold in briefs; let the wording carry emphasis")
         if BACKREF.search(line):
             err(i, "concepts must be self-contained; avoid 'as/see above/below'")
         if line.startswith("## "):
@@ -65,12 +68,9 @@ def lint_brief(path):
                 err(i, "concept outside a section")
             else:
                 section[2] += 1
-            concept = [name, i, 0, 0]
-        elif concept is not None:
-            if line.startswith("- "):
-                concept[2] += 1
-            if not line.startswith("|"):
-                concept[3] += len(BOLD.findall(line))
+            concept = [name, i, 0]
+        elif concept is not None and line.startswith("- "):
+            concept[2] += 1
     close_concept()
     close_section()
     return errors
