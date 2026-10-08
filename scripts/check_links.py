@@ -10,6 +10,7 @@ import http.client
 import pathlib
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -18,18 +19,27 @@ TOPICS = ROOT / "docs" / "topics"
 LINK = re.compile(r"\]\((https?://[^)\s]+)\)")
 # Minified HTML (the WHATWG spec, Hugo sites) leaves attribute values unquoted.
 ANCHOR = re.compile(r"""(?<![\w-])(?:id|name)=(?:"([^"]+)"|'([^']+)'|([^\s"'>]+))""")
-# Wikipedia rejects requests without a descriptive User-Agent.
-USER_AGENT = "interview-briefs-link-checker (+https://github.com/pinebit/interviews)"
+# Wikipedia rejects requests without a descriptive User-Agent; dev.mysql.com rejects
+# agents it doesn't recognize, so a 403 is retried with urllib's default agent.
+USER_AGENTS = ["interview-briefs-link-checker (+https://github.com/pinebit/interviews)", None]
 
 
 def fetch(url):
     """Return (error, set of anchor ids) for a page URL without a fragment."""
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = response.read().decode("utf-8", "replace")
-    except (OSError, http.client.HTTPException) as e:  # URLError and timeouts are OSErrors
-        return str(e), set()
+    for user_agent in USER_AGENTS:
+        headers = {"User-Agent": user_agent} if user_agent else {}
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
+                body = response.read().decode("utf-8", "replace")
+            break
+        except urllib.error.HTTPError as e:
+            error = str(e)
+            if e.code != 403:
+                return error, set()
+        except (OSError, http.client.HTTPException) as e:  # URLError and timeouts are OSErrors
+            return str(e), set()
+    else:
+        return error, set()
     return None, {html.unescape("".join(groups)) for groups in ANCHOR.findall(body)}
 
 
