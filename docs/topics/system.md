@@ -117,7 +117,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### Distributed rate limiting
 
 - Enforce at the gateway, keyed by user, API key, or IP; reject with [429](https://www.rfc-editor.org/rfc/rfc6585#section-4) and [`Retry-After`](https://www.rfc-editor.org/rfc/rfc9110#field.retry-after).
-- Share counters in Redis so every server sees one limit; wrap [`INCR`](https://redis.io/docs/latest/commands/incr/) + [`EXPIRE`](https://redis.io/docs/latest/commands/expire/) in [`MULTI`](https://redis.io/docs/latest/develop/interact/transactions/) or a [Lua script](https://redis.io/docs/latest/develop/interact/programmability/eval-intro/), or a crash between them leaves a counter with no TTL.
+- Share counters in Redis so every server sees one limit; wrap [`INCR`](https://redis.io/docs/latest/commands/incr/) + [`EXPIRE`](https://redis.io/docs/latest/commands/expire/) in [`MULTI`](https://redis.io/docs/latest/develop/using-commands/transactions/) or a [Lua script](https://redis.io/docs/latest/develop/programmability/eval-intro/), or a crash between them leaves a counter with no TTL.
 - A local per-instance limiter skips the round trip but is only approximate (limit ÷ instances).
 
 ## Reliability and operations

@@ -40,7 +40,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 ### Single-leader replication
 
 - All writes go to one leader; [sync](https://www.postgresql.org/docs/current/warm-standby.html#SYNCHRONOUS-REPLICATION) followers are durable but add latency, async followers are fast but lose recent writes on failover.
-- [Semi-sync](https://mariadb.com/docs/server/ha-and-performance/standard-replication/semisynchronous-replication) waits for at least one follower.
+- [Semi-sync](https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html) waits for at least one follower.
 - Replication lag breaks read-your-writes: a user can't see their own update right after writing.
 
 ### Multi-leader and leaderless
@@ -203,7 +203,7 @@ Key distributed-systems building blocks and trade-offs, grouped by subtopic.
 
 ### Change data capture
 
-- [Log-based CDC](https://debezium.io/documentation/reference/stable/features.html) (Debezium) tails the [WAL](https://www.postgresql.org/docs/current/wal-intro.html) or [binlog](https://debezium.io/documentation/reference/stable/connectors/mysql.html): every committed change in commit order, deletes included, with no dual writes in the application.
+- [Log-based CDC](https://debezium.io/documentation/reference/stable/features.html) (Debezium) tails the [WAL](https://www.postgresql.org/docs/current/wal-intro.html) or [binlog](https://dev.mysql.com/doc/refman/8.4/en/binary-log.html): every committed change in commit order, deletes included, with no dual writes in the application.
 - Polling an `updated_at` column misses hard deletes and rows that commit late with an older timestamp.
 - Bootstrap from a [consistent snapshot](https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-snapshots), then stream from the log position it was taken at.
 - Events are ordered per key (partition by primary key); connectors deliver at least once, so consumers must be idempotent.
