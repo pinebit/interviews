@@ -8,7 +8,9 @@ This repo is a set of concise topic briefs for technical interview prep. The rea
 - `docs/index.md` — the reading site's homepage.
 - `scripts/lint_briefs.py` — checks the format rules below; CI runs it with the strict site build on every pull request.
 - `scripts/check_links.py` — fetches every external link in the given briefs (default: all) and checks it resolves and its `#anchor` exists. Not in CI because it depends on the network; run it after adding or changing links.
-- `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on brief concepts. `.claude/skills/quiz` is a symlink to it so Claude Code and Codex share one copy.
+- `.agents/skills/quiz/` — the `quiz` skill, which quizzes the user on brief concepts.
+- `.agents/skills/renovate/` — the `renovate` skill, which checks briefs against the latest released versions of what they cover and fixes stale claims.
+- `.claude/skills/` holds symlinks to each skill so Claude Code and Codex share one copy.
 - File names are lowercase, single word or kebab-case.
 - `README.md` and `docs/index.md` list every topic with a link and a one-line summary, and `zensical.toml` lists it in the site nav. Update all three when adding or renaming a file.
 - Topics are grouped the same way in all three: **Fundamentals**, **Languages**, **Web**, **Infrastructure**, **Domains** — groups ordered by breadth, topics alphabetical within a group.

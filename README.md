@@ -54,6 +54,16 @@ The `quiz` skill (`.agents/skills/quiz/`, linked into `.claude/skills/` for Clau
 /quiz all 20            # 20 concepts from every topic
 ```
 
+## Renovate
+
+The `renovate` skill (`.agents/skills/renovate/`) checks briefs against the latest released versions of the languages, tools, and specs they cover. It reads the release notes, fixes stale claims, adds changes worth knowing for an interview, and reports each change with its source. With several topics it runs one subagent per topic. It edits the briefs in place and doesn't commit. Run it from the repository root with `/renovate` in Claude Code or `$renovate` in Codex:
+
+```
+/renovate golang        # one brief
+/renovate react nextjs  # several briefs
+/renovate all           # every brief
+```
+
 ## Local site preview
 
 Install the site builder, then serve the site:
