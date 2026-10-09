@@ -1,6 +1,6 @@
 # Algorithms
 
-What experienced engineers forget before an algorithms interview, grouped by subtopic. Bounds follow [MIT 6.006](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/), [Princeton Algorithms](https://algs4.cs.princeton.edu/), and the [USACO Guide](https://usaco.guide/). For database indexes see [database.md](database.md); for rate limiting and load balancing see [system.md](system.md); for consensus see [distributed.md](distributed.md).
+What experienced engineers forget before an algorithms interview, grouped by subtopic. Bounds follow [MIT 6.006](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/), [Princeton Algorithms](https://algs4.cs.princeton.edu/), and the [USACO Guide](https://usaco.guide/). For database indexes see [postgresql.md](postgresql.md); for rate limiting and load balancing see [system.md](system.md); for consensus see [distributed.md](distributed.md).
 
 ## Complexity and problem solving
 

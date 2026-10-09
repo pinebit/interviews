@@ -7,7 +7,6 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 ### Fundamentals
 
 - [Algorithms](topics/algorithms.md) — complexity, arrays and sequences, strings, sorting, data structures, graphs, dynamic programming, greedy and backtracking, NP-hardness
-- [Databases](topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, Redis and NoSQL, schema design, scaling
 - [Distributed Systems](topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, Kafka and stream processing
 - [Networking](topics/networking.md) — TCP, keepalive and congestion control, HTTP/1.1 vs 2 vs 3, QUIC, DNS, IP addressing, NAT, MTU, BGP and anycast
 - [Operating Systems](topics/os.md) — processes and signals, scheduling and cgroup throttling, virtual memory, OOM and cgroup limits, NUMA, file descriptors, epoll and io_uring, fsync, synchronization, perf tools
@@ -34,6 +33,8 @@ Topic briefs on what engineers forget before technical interviews, grouped by su
 
 - [AWS](topics/aws.md) — IAM and KMS, VPC networking, compute, storage and databases, events, operations
 - [DevOps](topics/devops.md) — deployment strategies, containers, Kubernetes workloads/storage/networking/operations, Terraform, CI/CD and GitOps
+- [PostgreSQL](topics/postgresql.md) — indexes, isolation, MVCC and VACUUM, locking and schema changes, query tuning, SQL gotchas, WAL and backups, replication, pooling and partitioning, schema design
+- [Redis](topics/redis.md) — execution model, transactions and scripts, data structures, expiration and eviction, persistence, replication and Sentinel, Cluster, pub/sub and streams, locks and counters
 
 ### Domains
 
