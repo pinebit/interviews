@@ -79,24 +79,25 @@ Keep facts that a working engineer knew once but loses without daily use:
 
 ## Topic ownership
 
-Each concept has one owner file that covers it in full. Other files may overlap where the concept matters to them too: a bullet or a short concept stating what matters from their angle (database says the WAL is only durable after `fsync`; os explains `fsync`), with a link to the owner for the rest. Don't copy the owner's concept wholesale — copies drift apart, and the quiz would ask the same question twice.
+Each concept has one owner file that covers it in full. Other files may overlap where the concept matters to them too: a bullet or a short concept stating what matters from their angle (postgresql says the WAL is only durable after `fsync`; os explains `fsync`), with a link to the owner for the rest. Don't copy the owner's concept wholesale — copies drift apart, and the quiz would ask the same question twice.
 
 | Concept | Owner | Referenced from |
 |---|---|---|
-| Consistency models, replication theory, consensus, clocks (monotonic vs wall), delivery semantics, sagas, CRDTs, CDC | distributed | database, system, backend, os, golang |
+| Consistency models, replication theory, consensus, clocks (monotonic vs wall), delivery semantics, sagas, CRDTs, CDC | distributed | postgresql, redis, system, backend, os, golang |
 | Retries, backoff, circuit breakers, backpressure, tail latency | distributed | backend, system |
-| Isolation levels, MVCC, indexes, WAL, DB replication setup, pooling | database | backend, system |
-| Caching strategies, rate-limiting algorithms, load balancing, CDN, observability (SLI/SLO), capacity math (Little's law), multi-region and DR tiers | system | backend, devops, os, aws |
-| REST/gRPC/GraphQL, pagination, idempotency keys, outbox, graceful shutdown, N+1, schema evolution, multi-tenancy, time handling | backend | system, database, distributed |
+| Isolation levels, MVCC, indexes, WAL, DB replication setup, pooling, SQL | postgresql | backend, system, devops |
+| Redis execution model, data structures, eviction, persistence, Sentinel and Cluster, streams | redis | system, distributed |
+| Caching strategies, rate-limiting algorithms, load balancing, CDN, observability (SLI/SLO), capacity math (Little's law), multi-region and DR tiers, storage engines (B-tree vs LSM), search and OLAP stores | system | backend, devops, os, aws, postgresql, redis |
+| REST/gRPC/GraphQL, pagination, idempotency keys, outbox, graceful shutdown, N+1, schema evolution, multi-tenancy, time handling | backend | system, postgresql, distributed |
 | AuthN, sessions, OAuth/OIDC, JWT, XSS, CSRF, CORS, clickjacking, crypto, TLS | security | backend, frontend, nextjs |
-| Containers, Kubernetes, cloud, IaC, deployment strategies, zero-downtime migrations | devops | backend, database |
+| Containers, Kubernetes, cloud, IaC, deployment strategies, zero-downtime migrations | devops | backend, postgresql |
 | Browser event loop, JS language semantics | javascript | frontend, typescript |
 | Rendering strategies, browser pipeline, Web Vitals, HTTP caching in the browser, browser storage | frontend | javascript, security, react, nextjs |
 | React rendering model, hooks, client state management, Suspense and transitions, Server Components and Server Functions, hydration | react | frontend, nextjs |
 | Next.js App Router, rendering and caching layers, `use cache`, routing conventions, Server Actions configuration, proxy, self-hosting | nextjs | react, frontend |
 | asyncio event loop | python | — |
 | TCP/UDP, HTTP versions, QUIC, DNS, IP addressing, NAT, MTU, BGP/anycast | networking | backend, system, devops |
-| Processes, signals, scheduling, virtual memory, OOM, file descriptors, epoll/io_uring, fsync, locks | os | devops, database, golang |
+| Processes, signals, scheduling, virtual memory, OOM, file descriptors, epoll/io_uring, fsync, locks | os | devops, postgresql, redis, golang |
 | Container internals (namespaces, cgroups), Kubernetes graceful shutdown | devops | os, backend |
 | Solidity language, storage layout, calls and ABI, contract security, gas optimization, upgradeability | solidity | ethereum |
 | EVM execution, gas and fee market, transaction types, signatures and token standards, DeFi (flash loans, oracle manipulation) and MEV | ethereum | solidity |

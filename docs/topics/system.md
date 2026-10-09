@@ -81,7 +81,25 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 ### SQL vs NoSQL
 
 - [NoSQL](https://en.wikipedia.org/wiki/NoSQL) families by access pattern: [key-value](https://en.wikipedia.org/wiki/Key%E2%80%93value_database), [document](https://en.wikipedia.org/wiki/Document-oriented_database), [wide-column](https://en.wikipedia.org/wiki/Wide-column_store) (heavy writes, time series), [graph](https://en.wikipedia.org/wiki/Graph_database); model tables around queries, not entities.
-- Pick NoSQL only for a named reason (write volume, schema flexibility, access pattern). Internals in [database.md](database.md).
+- Pick NoSQL only for a named reason (write volume, schema flexibility, access pattern). Product internals in [postgresql.md](postgresql.md) and [redis.md](redis.md).
+
+### B-tree vs LSM-tree
+
+| | [B-tree](https://en.wikipedia.org/wiki/B-tree) (PostgreSQL, MySQL) | [LSM-tree](https://en.wikipedia.org/wiki/Log-structured_merge-tree) ([RocksDB](https://rocksdb.org/), Cassandra) |
+|---|---|---|
+| Writes | in-place page updates, random I/O | append to an in-memory memtable → flush immutable sorted files ([SSTables](https://github.com/facebook/rocksdb/wiki/Rocksdb-BlockBasedTable-Format)) |
+| Reads | one tree walk, predictable | may check several files; [bloom filters](https://en.wikipedia.org/wiki/Bloom_filter) skip most |
+| Background work | page splits, vacuum | [compaction](https://github.com/facebook/rocksdb/wiki/Compaction) |
+| Fits | read-heavy, range scans | write-heavy |
+
+- Compaction strategy trades [read, write, and space amplification](https://smalldatum.blogspot.com/2015/11/read-write-space-amplification-pick-2_23.html) against each other.
+
+### Search and analytics stores
+
+- An [inverted index](https://en.wikipedia.org/wiki/Inverted_index) maps each term to the documents containing it; relevance scoring is usually [BM25](https://en.wikipedia.org/wiki/Okapi_BM25).
+- Elasticsearch/OpenSearch are [near-real-time](https://www.elastic.co/docs/manage-data/data-store/near-real-time-search) (new docs searchable after a refresh, ~1 s default), and the primary shard count is fixed at index creation — resize by reindexing or [split](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-split)/shrink.
+- [OLAP](https://en.wikipedia.org/wiki/Online_analytical_processing) stores use [column storage](https://en.wikipedia.org/wiki/Column-oriented_DBMS), compression, and vectorized scans of few columns over many rows, with [star schemas](https://en.wikipedia.org/wiki/Star_schema) (facts + dimensions).
+- Treat search indexes and warehouses as derived stores, fed by [CDC](distributed.md) from the source of truth.
 
 ### Scaling ladder
 
@@ -262,7 +280,7 @@ Key system design building blocks and trade-offs, grouped by subtopic. For CAP, 
 
 ### Leaderboard
 
-- A Redis [sorted set](https://redis.io/docs/latest/develop/data-types/sorted-sets/): [`ZINCRBY`](https://redis.io/docs/latest/commands/zincrby/) updates a score and [`ZREVRANK`](https://redis.io/docs/latest/commands/zrevrank/) returns a user's rank in O(log n); [`ZRANGE ... REV`](https://redis.io/docs/latest/commands/zrange/) reads the top k in O(log n + k).
+- A Redis [sorted set](https://redis.io/docs/latest/develop/data-types/sorted-sets/): [`ZINCRBY`](https://redis.io/docs/latest/commands/zincrby/) updates a score and [`ZREVRANK`](https://redis.io/docs/latest/commands/zrevrank/) returns a user's rank in O(log n); [`ZRANGE ... REV`](https://redis.io/docs/latest/commands/zrange/) reads the top k in O(log n + k); internals in [redis.md](redis.md).
 - Beyond one node, shard by score range or keep per-shard top-k and merge.
 
 ### Booking and inventory contention

@@ -1,6 +1,6 @@
 ---
 name: quiz
-description: Run an interactive interview quiz from the topic briefs in docs/topics/. Use when the user asks to be quizzed or tested on a topic, e.g. "/quiz golang", "/quiz ethereum database", "/quiz all 20".
+description: Run an interactive interview quiz from the topic briefs in docs/topics/. Use when the user asks to be quizzed or tested on a topic, e.g. "/quiz golang", "/quiz ethereum postgresql", "/quiz all 20".
 argument-hint: "<all | topic [topic...]> [count]"
 ---
 

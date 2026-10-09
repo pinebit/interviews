@@ -9,7 +9,6 @@ nav = [
   { "Home" = "index.md" },
   { "Fundamentals" = [
     { "Algorithms" = "topics/algorithms.md" },
-    { "Databases" = "topics/database.md" },
     { "Distributed Systems" = "topics/distributed.md" },
     { "Networking" = "topics/networking.md" },
     { "Operating Systems" = "topics/os.md" },
@@ -33,6 +32,8 @@ nav = [
   { "Infrastructure" = [
     { "AWS" = "topics/aws.md" },
     { "DevOps" = "topics/devops.md" },
+    { "PostgreSQL" = "topics/postgresql.md" },
+    { "Redis" = "topics/redis.md" },
   ] },
   { "Domains" = [
     { "AI Engineering" = "topics/ai.md" },

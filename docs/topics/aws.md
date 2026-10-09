@@ -1,6 +1,6 @@
 # AWS
 
-What experienced AWS developers and DevOps engineers forget before an interview, grouped by subtopic; facts follow the AWS documentation. For database internals see [database.md](database.md); for delivery semantics and retries see [distributed.md](distributed.md); for deployment patterns and Terraform see [devops.md](devops.md).
+What experienced AWS developers and DevOps engineers forget before an interview, grouped by subtopic; facts follow the AWS documentation. For PostgreSQL and Redis internals see [postgresql.md](postgresql.md) and [redis.md](redis.md); for delivery semantics and retries see [distributed.md](distributed.md); for deployment patterns and Terraform see [devops.md](devops.md).
 
 ## Identity and access
 

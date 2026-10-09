@@ -11,7 +11,6 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 ### Fundamentals
 
 - [Algorithms](docs/topics/algorithms.md) — complexity, arrays and sequences, strings, sorting, data structures, graphs, dynamic programming, greedy and backtracking, NP-hardness
-- [Databases](docs/topics/database.md) — indexes, isolation, MVCC and locking, storage engines, query tuning, SQL gotchas, Redis and NoSQL, schema design, scaling
 - [Distributed Systems](docs/topics/distributed.md) — theory, consistency models, replication, partitioning, consensus, clocks and IDs, transactions, conflict resolution, failure handling, Kafka and stream processing
 - [Networking](docs/topics/networking.md) — TCP, keepalive and congestion control, HTTP/1.1 vs 2 vs 3, QUIC, DNS, IP addressing, NAT, MTU, BGP and anycast
 - [Operating Systems](docs/topics/os.md) — processes and signals, scheduling and cgroup throttling, virtual memory, OOM and cgroup limits, NUMA, file descriptors, epoll and io_uring, fsync, synchronization, perf tools
@@ -38,6 +37,8 @@ Each topic in `docs/topics/` is a brief grouped by subtopic, covering what an ex
 
 - [AWS](docs/topics/aws.md) — IAM and KMS, VPC networking, compute, storage and databases, events, operations
 - [DevOps](docs/topics/devops.md) — deployment strategies, containers, Kubernetes workloads/storage/networking/operations, Terraform, CI/CD and GitOps
+- [PostgreSQL](docs/topics/postgresql.md) — indexes, isolation, MVCC and VACUUM, locking and schema changes, query tuning, SQL gotchas, WAL and backups, replication, pooling and partitioning, schema design
+- [Redis](docs/topics/redis.md) — execution model, transactions and scripts, data structures, expiration and eviction, persistence, replication and Sentinel, Cluster, pub/sub and streams, locks and counters
 
 ### Domains
 

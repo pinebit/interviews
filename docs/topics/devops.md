@@ -28,7 +28,7 @@ What experienced DevOps engineers forget before an interview, grouped by subtopi
 
 - [Expand-and-contract](https://martinfowler.com/bliki/ParallelChange.html): add the new schema (backward compatible) → deploy code that handles both → backfill → remove the old schema in a later release.
 - A destructive migration (dropping a column old code still reads) makes rollback impossible.
-- Keep each DDL short and lock-safe ([`lock_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-LOCK-TIMEOUT), [concurrent index builds](https://www.postgresql.org/docs/current/sql-createindex.html#SQL-CREATEINDEX-CONCURRENTLY)) — see [database.md](database.md).
+- Keep each DDL short and lock-safe ([`lock_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-LOCK-TIMEOUT), [concurrent index builds](https://www.postgresql.org/docs/current/sql-createindex.html#SQL-CREATEINDEX-CONCURRENTLY)) — see [postgresql.md](postgresql.md).
 
 ### Incident response
 

@@ -1,6 +1,6 @@
 # Backend
 
-What experienced backend engineers forget before an interview, grouped by subtopic. For database internals see [database.md](database.md); for queues, sagas, and retries see [distributed.md](distributed.md); for caching and rate limiting see [system.md](system.md); for HTTP versions see [networking.md](networking.md); for auth and vulnerabilities see [security.md](security.md).
+What experienced backend engineers forget before an interview, grouped by subtopic. For PostgreSQL internals see [postgresql.md](postgresql.md); for Redis see [redis.md](redis.md); for queues, sagas, and retries see [distributed.md](distributed.md); for caching and rate limiting see [system.md](system.md); for HTTP versions see [networking.md](networking.md); for auth and vulnerabilities see [security.md](security.md).
 
 ## API design
 
@@ -123,7 +123,7 @@ What experienced backend engineers forget before an interview, grouped by subtop
 ### Connection pool sizing
 
 - Size the [connection pool](https://en.wikipedia.org/wiki/Connection_pool) from the database's capacity, not the app's thread count — many app instances × a large pool overwhelm the database.
-- A good starting point is a small pool per instance (~2× DB cores total across instances, [HikariCP's formula](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing)), then measure wait time; see [database.md](database.md).
+- A good starting point is a small pool per instance (~2× DB cores total across instances, [HikariCP's formula](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing)), then measure wait time; server-side pooling in [postgresql.md](postgresql.md).
 
 ### Transaction boundaries
 
